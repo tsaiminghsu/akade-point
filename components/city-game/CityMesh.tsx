@@ -4,47 +4,168 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { WorldData, TileType, BuildingType, TILE_SIZE, GRID_SIZE, TILE_3D, FLOOR_HEIGHT_3D, WORLD_3D_HALF } from './types';
 
-// ─── Minecraft-style block texture ───────────────────────────────────────────
+// ─── Realistic building facade textures ──────────────────────────────────────
 
-function createMinecraftTexture(): THREE.CanvasTexture {
-  const SIZE = 64;
-  const BLOCK = 8; // pixels per block cell (8×8 grid)
+type FacadeType = 'skyscraper' | 'office' | 'commercial' | 'house';
+
+function createFacadeColorTex(type: FacadeType): THREE.CanvasTexture {
+  const W = 64, H = 64;
   const canvas = document.createElement('canvas');
-  canvas.width = SIZE; canvas.height = SIZE;
+  canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
-  for (let row = 0; row < SIZE / BLOCK; row++) {
-    for (let col = 0; col < SIZE / BLOCK; col++) {
-      const x = col * BLOCK;
-      const y = row * BLOCK;
-      // Base fill — near white so vertex color tints through cleanly
-      ctx.fillStyle = '#f2f0ea';
-      ctx.fillRect(x, y, BLOCK, BLOCK);
-      // Subtle inner noise (1-px specks) for stone/brick texture feel
-      for (let ny = y + 1; ny < y + BLOCK - 1; ny++) {
-        for (let nx = x + 1; nx < x + BLOCK - 1; nx++) {
-          // deterministic noise based on position
-          const v = ((nx * 17 + ny * 31) % 24);
-          if (v < 4) {
-            const shade = 220 + (v * 6);
-            ctx.fillStyle = `rgb(${shade},${shade},${Math.round(shade * 0.94)})`;
-            ctx.fillRect(nx, ny, 1, 1);
-          }
-        }
+  if (type === 'skyscraper') {
+    // Glass curtain wall — 1 window bay × 1 floor
+    ctx.fillStyle = '#0e1520';
+    ctx.fillRect(0, 0, W, H);
+    // Top floor divider / spandrel band
+    ctx.fillStyle = '#111a28';
+    ctx.fillRect(0, 0, W, 7);
+    // Column frames (left 4px, right 4px)
+    ctx.fillStyle = '#1a2335';
+    ctx.fillRect(0, 0, 4, H);
+    ctx.fillRect(60, 0, 4, H);
+    // Glass with blue gradient
+    const gS = ctx.createLinearGradient(4, 7, 60, H);
+    gS.addColorStop(0, '#5080b8');
+    gS.addColorStop(0.4, '#3a6090');
+    gS.addColorStop(1, '#1e3a68');
+    ctx.fillStyle = gS;
+    ctx.fillRect(4, 7, 56, H - 7);
+    // Reflection highlight (left edge of glass)
+    ctx.fillStyle = 'rgba(180,220,255,0.14)';
+    ctx.fillRect(4, 7, 10, H - 7);
+    // Horizontal mullion mid-floor
+    ctx.fillStyle = 'rgba(10,18,30,0.55)';
+    ctx.fillRect(4, 36, 56, 1);
+
+  } else if (type === 'office') {
+    // Concrete spandrel + glass — 1 bay × 1 floor
+    ctx.fillStyle = '#38404a';
+    ctx.fillRect(0, 0, W, H);
+    // Concrete spandrel top 10px
+    ctx.fillStyle = '#303840';
+    ctx.fillRect(0, 0, W, 10);
+    // Column piers
+    ctx.fillStyle = '#404850';
+    ctx.fillRect(0, 0, 6, H);
+    ctx.fillRect(58, 0, 6, H);
+    // Glass
+    const gO = ctx.createLinearGradient(6, 10, 58, H - 4);
+    gO.addColorStop(0, '#3e6080');
+    gO.addColorStop(0.5, '#2a4e6e');
+    gO.addColorStop(1, '#1a3050');
+    ctx.fillStyle = gO;
+    ctx.fillRect(6, 10, 52, H - 14);
+    // Subtle reflection
+    ctx.fillStyle = 'rgba(160,200,230,0.10)';
+    ctx.fillRect(6, 10, 14, H - 14);
+    // Window sill
+    ctx.fillStyle = '#2e3840';
+    ctx.fillRect(6, H - 4, 52, 4);
+
+  } else if (type === 'commercial') {
+    // Concrete/brick wall with punched window opening
+    ctx.fillStyle = '#484648';
+    ctx.fillRect(0, 0, W, H);
+    // Brick rows (staggered)
+    for (let row = 0; row < 5; row++) {
+      const off = row % 2 === 0 ? 0 : 8;
+      for (let col = -1; col < 5; col++) {
+        const bx = col * 16 + off;
+        const by = row * 13;
+        const shade = ((row * 3 + col * 7) % 5) * 4;
+        const br = 64 + shade;
+        ctx.fillStyle = `rgb(${br + 8},${br},${br - 6})`;
+        ctx.fillRect(bx + 1, by + 1, 14, 11);
       }
-      // Dark border (1 px inset)
-      ctx.strokeStyle = '#2a2a28';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5, y + 0.5, BLOCK - 1, BLOCK - 1);
+    }
+    // Window punch-out
+    ctx.fillStyle = '#1e2530';
+    ctx.fillRect(10, 12, 44, 36);
+    // Window frame
+    ctx.fillStyle = '#252020';
+    ctx.fillRect(10, 12, 44, 2);
+    ctx.fillRect(10, 46, 44, 2);
+    ctx.fillRect(10, 12, 2, 36);
+    ctx.fillRect(52, 12, 2, 36);
+    // Central divider
+    ctx.fillRect(30, 12, 2, 36);
+    // Glass
+    const gC = ctx.createLinearGradient(12, 14, 52, 46);
+    gC.addColorStop(0, '#2e5070');
+    gC.addColorStop(1, '#1a3050');
+    ctx.fillStyle = gC;
+    ctx.fillRect(12, 14, 18, 30);
+    ctx.fillRect(32, 14, 18, 30);
+
+  } else { // house
+    // Warm brick residential
+    ctx.fillStyle = '#5a4030';
+    ctx.fillRect(0, 0, W, H);
+    // Brick pattern
+    for (let row = 0; row < 8; row++) {
+      const off = row % 2 === 0 ? 0 : 10;
+      for (let col = -1; col < 5; col++) {
+        const bx = col * 20 + off;
+        const by = row * 8;
+        const bright = (row + col * 3) % 3;
+        const br = 90 + bright * 8;
+        ctx.fillStyle = `rgb(${br + 10},${br - 8},${br - 20})`;
+        ctx.fillRect(bx + 1, by + 1, 18, 6);
+      }
+    }
+    // Two small windows (left + right)
+    for (const wx of [6, 36]) {
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(wx, 10, 22, 22);
+      const gH = ctx.createLinearGradient(wx, 10, wx + 22, 32);
+      gH.addColorStop(0, '#a8c0d0');
+      gH.addColorStop(1, '#7090a8');
+      ctx.fillStyle = gH;
+      ctx.fillRect(wx + 2, 12, 18, 18);
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(wx + 10, 12, 2, 18);
+      ctx.fillRect(wx + 2, 20, 18, 2);
     }
   }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(3, 8); // 3 blocks wide, 8 tall per face
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter; // sharp pixel look like Minecraft
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function createFacadeEmissiveTex(type: FacadeType): THREE.CanvasTexture {
+  const W = 64, H = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  if (type === 'skyscraper') {
+    ctx.fillStyle = '#18284a';
+    ctx.fillRect(4, 7, 56, H - 7);
+  } else if (type === 'office') {
+    ctx.fillStyle = '#121c2e';
+    ctx.fillRect(6, 10, 52, H - 14);
+  } else if (type === 'commercial') {
+    ctx.fillStyle = '#0c1218';
+    ctx.fillRect(12, 14, 18, 30);
+    ctx.fillRect(32, 14, 18, 30);
+  } else { // house
+    ctx.fillStyle = '#281808';
+    ctx.fillRect(8, 12, 18, 18);
+    ctx.fillRect(38, 12, 18, 18);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
@@ -64,43 +185,29 @@ function tileColor(type: TileType, buildingType?: BuildingType): string {
   }
 }
 
-function buildingRGB(floors: number, seed: number, btype?: BuildingType): [number, number, number] {
+function facadeVertexColor(floors: number, seed: number, btype?: BuildingType): [number, number, number] {
   if (btype === BuildingType.HOUSE) {
-    // 4 distinct Minecraft block materials keyed by seed
-    const houseVariants: [number,number,number][] = [
-      [0.82, 0.64, 0.38], // Oak wood planks (warm tan)
-      [0.70, 0.30, 0.24], // Brick (dark red-brown)
-      [0.68, 0.66, 0.62], // Cobblestone (medium gray)
-      [0.88, 0.82, 0.60], // Sand stone (cream)
+    const v: [number,number,number][] = [
+      [1.00, 0.88, 0.72], // warm tan brick
+      [0.95, 0.72, 0.62], // red-brown brick
+      [0.88, 0.88, 0.85], // light stone
+      [1.00, 0.96, 0.80], // cream sandstone
     ];
-    return houseVariants[seed % 4];
+    return v[seed % 4];
   }
   if (floors >= 15) {
-    // Vivid sky-blue glass for skyscrapers
-    return [0.45 + Math.sin(seed * 0.7) * 0.12, 0.70 + Math.cos(seed * 0.5) * 0.12, 0.95 + Math.sin(seed) * 0.05];
+    // Skyscrapers: slight blue/teal/silver tint variation
+    const t = (seed % 8) / 8;
+    return [0.80 + t * 0.12, 0.90 + t * 0.06, 1.00] as [number,number,number];
   }
   if (floors >= 8) {
-    // Medium blue-gray office towers
-    return [0.52 + Math.sin(seed * 0.3) * 0.08, 0.60 + Math.cos(seed * 0.4) * 0.08, 0.78 + Math.sin(seed * 0.6) * 0.10];
+    // Office: blue-gray range
+    const t = (seed % 6) / 6;
+    return [0.82 + t * 0.10, 0.88 + t * 0.08, 0.96 + t * 0.04] as [number,number,number];
   }
-  if (floors >= 4) {
-    // Varied mid-tone commercial (terracotta, olive, brick, blue-gray)
-    const variants: [number,number,number][] = [
-      [0.82, 0.56, 0.38], // Terracotta
-      [0.64, 0.72, 0.52], // Mossy stone / olive
-      [0.76, 0.44, 0.34], // Worn brick
-      [0.58, 0.66, 0.78], // Blue-gray concrete
-    ];
-    return variants[seed % 4];
-  }
-  // Low-rise: varied stone / concrete
-  const lowVariants: [number,number,number][] = [
-    [0.65, 0.63, 0.60], // Stone
-    [0.72, 0.68, 0.58], // Smooth sandstone
-    [0.60, 0.60, 0.65], // Polished stone
-    [0.58, 0.52, 0.48], // Gravel mix
-  ];
-  return lowVariants[seed % 4];
+  // Commercial: warm-to-cool concrete range
+  const t = (seed % 5) / 5;
+  return [0.88 + t * 0.08, 0.84 + t * 0.10, 0.80 + t * 0.12] as [number,number,number];
 }
 
 // ─── Ground Plane (CanvasTexture) ─────────────────────────────────────────────
@@ -162,27 +269,49 @@ export function CityGround({ world }: { world: WorldData }) {
   );
 }
 
-// ─── Buildings (InstancedMesh) ────────────────────────────────────────────────
+// ─── Buildings (split by category for per-type facade materials) ──────────────
 
-const MAX_BUILDINGS = 7000;
+const MAX_SKYSCRAPER = 1200;
+const MAX_OFFICE     = 2000;
+const MAX_COMMERCIAL = 2500;
+const MAX_HOUSE      = 1800;
+
 const tmpMat4 = new THREE.Matrix4();
 const tmpPos = new THREE.Vector3();
 const tmpScale = new THREE.Vector3();
 const tmpQuat = new THREE.Quaternion();
 const tmpColor = new THREE.Color();
+const WHITE = new THREE.Color(1, 1, 1);
 
 export function CityBuildings({ world }: { world: WorldData }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const mcTex = useMemo(() => createMinecraftTexture(), []);
+  const skyRef = useRef<THREE.InstancedMesh>(null);
+  const offRef = useRef<THREE.InstancedMesh>(null);
+  const comRef = useRef<THREE.InstancedMesh>(null);
+  const houRef = useRef<THREE.InstancedMesh>(null);
+
+  const textures = useMemo(() => ({
+    sky: { map: createFacadeColorTex('skyscraper'), em: createFacadeEmissiveTex('skyscraper') },
+    off: { map: createFacadeColorTex('office'),     em: createFacadeEmissiveTex('office')     },
+    com: { map: createFacadeColorTex('commercial'), em: createFacadeEmissiveTex('commercial') },
+    hou: { map: createFacadeColorTex('house'),      em: createFacadeEmissiveTex('house')      },
+  }), []);
 
   useEffect(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
+    textures.sky.map.repeat.set(3, 12); textures.sky.em.repeat.set(3, 12);
+    textures.off.map.repeat.set(3, 8);  textures.off.em.repeat.set(3, 8);
+    textures.com.map.repeat.set(2, 5);  textures.com.em.repeat.set(2, 5);
+    textures.hou.map.repeat.set(2, 2);  textures.hou.em.repeat.set(2, 2);
+  }, [textures]);
 
-    let idx = 0;
+  useEffect(() => {
+    const meshes = { sky: skyRef.current, off: offRef.current, com: comRef.current, hou: houRef.current };
+    if (!meshes.sky || !meshes.off || !meshes.com || !meshes.hou) return;
 
-    for (let gy = 0; gy < GRID_SIZE && idx < MAX_BUILDINGS; gy++) {
-      for (let gx = 0; gx < GRID_SIZE && idx < MAX_BUILDINGS; gx++) {
+    const counts = { sky: 0, off: 0, com: 0, hou: 0 };
+    const maxes  = { sky: MAX_SKYSCRAPER, off: MAX_OFFICE, com: MAX_COMMERCIAL, hou: MAX_HOUSE };
+
+    for (let gy = 0; gy < GRID_SIZE; gy++) {
+      for (let gx = 0; gx < GRID_SIZE; gx++) {
         const tile = world.grid[gy][gx];
         if (tile.type !== TileType.BUILDING && tile.type !== TileType.HELIPAD) continue;
 
@@ -190,42 +319,69 @@ export function CityBuildings({ world }: { world: WorldData }) {
         const h = Math.max(0.5, floors * FLOOR_HEIGHT_3D);
         const cx = gx * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
         const cz = gy * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const footprint = tile.buildingType === BuildingType.HOUSE ? TILE_3D * 0.72 : TILE_3D * 0.88;
+        const seed = tile.colorSeed ?? 0;
+
+        let cat: 'sky' | 'off' | 'com' | 'hou';
+        let fp: number;
+
+        if (tile.buildingType === BuildingType.HOUSE) {
+          cat = 'hou'; fp = TILE_3D * 0.72;
+        } else if (floors >= 15) {
+          cat = 'sky'; fp = TILE_3D * 0.88;
+        } else if (floors >= 8) {
+          cat = 'off'; fp = TILE_3D * 0.88;
+        } else {
+          cat = 'com'; fp = TILE_3D * 0.88;
+        }
+
+        if (counts[cat] >= maxes[cat]) continue;
 
         tmpPos.set(cx, h / 2, cz);
-        tmpScale.set(footprint, h, footprint);
+        tmpScale.set(fp, h, fp);
         tmpMat4.compose(tmpPos, tmpQuat, tmpScale);
-        mesh.setMatrixAt(idx, tmpMat4);
+        meshes[cat]!.setMatrixAt(counts[cat], tmpMat4);
 
-        const [r, g, b] = buildingRGB(floors, tile.colorSeed ?? 0, tile.buildingType);
+        const [r, g, b] = facadeVertexColor(floors, seed, tile.buildingType);
         tmpColor.setRGB(r, g, b);
-        mesh.setColorAt(idx, tmpColor);
-        idx++;
+        meshes[cat]!.setColorAt(counts[cat], tmpColor);
+        counts[cat]++;
       }
     }
 
-    mesh.count = idx;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    for (const cat of ['sky', 'off', 'com', 'hou'] as const) {
+      const m = meshes[cat]!;
+      m.count = counts[cat];
+      m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    }
   }, [world]);
 
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, MAX_BUILDINGS]}
-      castShadow
-      receiveShadow
-    >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial
-        map={mcTex}
-        roughness={0.85}
-        metalness={0.05}
-        vertexColors
-        emissive={new THREE.Color(0.10, 0.10, 0.15)}
-        emissiveIntensity={1.2}
-      />
-    </instancedMesh>
+    <>
+      <instancedMesh ref={skyRef} args={[undefined, undefined, MAX_SKYSCRAPER]} castShadow receiveShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial map={textures.sky.map} emissiveMap={textures.sky.em}
+          emissive={WHITE} emissiveIntensity={1.0} roughness={0.20} metalness={0.35} vertexColors />
+      </instancedMesh>
+
+      <instancedMesh ref={offRef} args={[undefined, undefined, MAX_OFFICE]} castShadow receiveShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial map={textures.off.map} emissiveMap={textures.off.em}
+          emissive={WHITE} emissiveIntensity={0.85} roughness={0.55} metalness={0.15} vertexColors />
+      </instancedMesh>
+
+      <instancedMesh ref={comRef} args={[undefined, undefined, MAX_COMMERCIAL]} castShadow receiveShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial map={textures.com.map} emissiveMap={textures.com.em}
+          emissive={WHITE} emissiveIntensity={0.65} roughness={0.75} metalness={0.05} vertexColors />
+      </instancedMesh>
+
+      <instancedMesh ref={houRef} args={[undefined, undefined, MAX_HOUSE]} castShadow receiveShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial map={textures.hou.map} emissiveMap={textures.hou.em}
+          emissive={WHITE} emissiveIntensity={0.75} roughness={0.85} metalness={0.0} vertexColors />
+      </instancedMesh>
+    </>
   );
 }
 
@@ -314,76 +470,12 @@ export function MinecraftRoofs({ world }: { world: WorldData }) {
   );
 }
 
-// ─── Window lights (emissive quads on building faces) ────────────────────────
-
-const MAX_WINDOW_SETS = 12000;
-
-export function BuildingWindows({ world }: { world: WorldData }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-
-  useEffect(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-
-    let idx = 0;
-    const winQuat = new THREE.Quaternion();
-
-    for (let gy = 0; gy < GRID_SIZE && idx < MAX_WINDOW_SETS; gy++) {
-      for (let gx = 0; gx < GRID_SIZE && idx < MAX_WINDOW_SETS; gx++) {
-        const tile = world.grid[gy][gx];
-        if (tile.type !== TileType.BUILDING) continue;
-
-        const floors = tile.floors ?? 1;
-        if (floors < 2) continue; // single-floor houses handled by HouseDetails
-
-        const h = floors * FLOOR_HEIGHT_3D;
-        const cx = gx * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const cz = gy * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const fp = TILE_3D * 0.88;
-
-        const facing = [
-          [cx, h * 0.5, cz + fp / 2 + 0.01, 0],
-          [cx, h * 0.5, cz - fp / 2 - 0.01, Math.PI],
-          [cx + fp / 2 + 0.01, h * 0.5, cz, -Math.PI / 2],
-          [cx - fp / 2 - 0.01, h * 0.5, cz, Math.PI / 2],
-        ];
-
-        for (const [fx, fy, fz, ry] of facing) {
-          if (idx >= MAX_WINDOW_SETS) break;
-          winQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry);
-          tmpPos.set(fx, fy as number, fz);
-          tmpScale.set(fp * 0.9, h * 0.9, 0.01);
-          tmpMat4.compose(tmpPos, winQuat, tmpScale);
-          mesh.setMatrixAt(idx, tmpMat4);
-
-          const warmness = 0.6 + ((tile.colorSeed ?? 0) % 10) * 0.04;
-          tmpColor.setRGB(warmness * 0.5, warmness * 0.4, warmness * 0.15);
-          mesh.setColorAt(idx, tmpColor);
-          idx++;
-        }
-      }
-    }
-
-    mesh.count = idx;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [world]);
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, MAX_WINDOW_SETS]}>
-      <planeGeometry args={[1, 1]} />
-      <meshStandardMaterial
-        vertexColors
-        emissive={new THREE.Color(1, 0.8, 0.3)}
-        emissiveIntensity={1.8}
-        transparent
-        opacity={0.85}
-        alphaTest={0.1}
-        side={THREE.FrontSide}
-        depthWrite={false}
-      />
-    </instancedMesh>
-  );
+// ─── BuildingWindows: replaced by emissiveMap in CityBuildings materials ─────
+// Window lighting is now baked into the facade emissive texture per building
+// category (skyscraper/office/commercial/house), removing the large per-face
+// emissive plane that caused the "glowing stripe" appearance.
+export function BuildingWindows(_props: { world: WorldData }) {
+  return null;
 }
 
 // ─── House Details (individual windows + door for 1-floor houses) ────────────
@@ -607,7 +699,7 @@ export function StreetLights({ world, playerGridX, playerGridY }: { world: World
     <>
       <instancedMesh ref={poleRef} args={[undefined, undefined, MAX_LIGHTS]} castShadow>
         <cylinderGeometry args={[1, 1, 1, 5]} />
-        <meshStandardMaterial color="#444455" roughness={0.5} metalness={0.7} />
+        <meshStandardMaterial color="#444455" roughness={0.5} metalness={0.2} />
       </instancedMesh>
       <instancedMesh ref={headRef} args={[undefined, undefined, MAX_LIGHTS]} castShadow={false}>
         <boxGeometry args={[1, 1, 1]} />
@@ -652,19 +744,19 @@ export function TownHall3D({ world }: { world: WorldData }) {
       {/* Dome */}
       <mesh position={[0, 20, 0]} castShadow>
         <sphereGeometry args={[5, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#7ba7c7" roughness={0.3} metalness={0.5} />
+        <meshStandardMaterial color="#7ba7c7" roughness={0.3} metalness={0.25} />
       </mesh>
 
       {/* Dome lantern (top) */}
       <mesh position={[0, 25.5, 0]} castShadow>
         <cylinderGeometry args={[0.8, 1.2, 3, 8]} />
-        <meshStandardMaterial color="#7ba7c7" metalness={0.6} roughness={0.2} />
+        <meshStandardMaterial color="#7ba7c7" metalness={0.25} roughness={0.2} />
       </mesh>
 
       {/* Flag pole */}
       <mesh position={[0, 30, 0]}>
         <cylinderGeometry args={[0.08, 0.08, 8, 6]} />
-        <meshStandardMaterial color="#aaaaaa" metalness={0.8} roughness={0.2} />
+        <meshStandardMaterial color="#aaaaaa" metalness={0.35} roughness={0.2} />
       </mesh>
       {/* Flag */}
       <mesh position={[1.2, 33, 0]}>
@@ -870,7 +962,7 @@ export function PolicePatrol() {
           {/* Main sleek spaceship chassis */}
           <mesh castShadow>
             <boxGeometry args={[1.5, 0.4, 2.5]} />
-            <meshStandardMaterial color="#0b0f19" roughness={0.3} metalness={0.8} />
+            <meshStandardMaterial color="#0b0f19" roughness={0.3} metalness={0.15} />
           </mesh>
 
           {/* Cockpit visor/glass (futuristic glowing yellow visor) */}
@@ -882,16 +974,16 @@ export function PolicePatrol() {
           {/* Engines (back) */}
           <mesh position={[-0.5, 0, 1.3]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.2, 0.2, 0.4, 8]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.7} />
+            <meshStandardMaterial color="#1e293b" metalness={0.15} />
           </mesh>
           <mesh position={[-0.5, 0, 1.45]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.15, 0.15, 0.05, 8]} />
             <meshStandardMaterial color="#ff5722" emissive="#ff5722" emissiveIntensity={3} />
           </mesh>
-          
+
           <mesh position={[0.5, 0, 1.3]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.2, 0.2, 0.4, 8]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.7} />
+            <meshStandardMaterial color="#1e293b" metalness={0.15} />
           </mesh>
           <mesh position={[0.5, 0, 1.45]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.15, 0.15, 0.05, 8]} />
@@ -912,11 +1004,11 @@ export function PolicePatrol() {
           {/* Side wings */}
           <mesh position={[-1.0, -0.05, 0]} rotation={[0, 0, -0.1]}>
             <boxGeometry args={[0.8, 0.1, 1.2]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.7} />
+            <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.15} />
           </mesh>
           <mesh position={[1.0, -0.05, 0]} rotation={[0, 0, 0.1]}>
             <boxGeometry args={[0.8, 0.1, 1.2]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.7} />
+            <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.15} />
           </mesh>
 
           {/* Searchlight Cone and Light Sweep */}

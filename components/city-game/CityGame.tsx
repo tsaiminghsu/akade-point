@@ -1,6 +1,8 @@
 'use client';
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { GameEngine3D } from './engine3d';
 import { HUDData, GameState } from './types';
 import HUD from './HUD';
@@ -176,6 +178,14 @@ export default function CityGame() {
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         camera={{ fov: 62, near: 0.3, far: 500, position: [0, 8, 14] }}
         style={{ position: 'absolute', inset: 0 }}
+        onCreated={({ gl, scene }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.2;
+          const pmrem = new THREE.PMREMGenerator(gl);
+          scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+          scene.environmentIntensity = 0.5;
+          pmrem.dispose();
+        }}
       >
         <FrameCounter onReady={handleCanvasReady} />
         <GameScene

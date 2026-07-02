@@ -74,10 +74,10 @@ const WEATHER: Record<WeatherType, WeatherConfig> = {
   },
   night: {
     sunPosition: [80, -60, 40], turbidity: 1, rayleigh: 0.1,
-    ambientIntensity: 0.55, ambientColor: '#4a5a7a',
+    ambientIntensity: 0.70, ambientColor: '#4a5a7a',
     sunIntensity: 0.0, sunColor: '#1a2a4a',
-    fillIntensity: 0.40,
-    hemiIntensity: 0.40, skyColor: '#050a1a', groundColor: '#101828',
+    fillIntensity: 0.52,
+    hemiIntensity: 0.55, skyColor: '#050a1a', groundColor: '#101828',
     fogColor: '#050a14', fogNear: 60, fogFar: 160,
     particles: 'none', particleOpacity: 0, lightning: false,
   },
@@ -414,6 +414,11 @@ export default function GameScene({
     if (fillRef.current)     fillRef.current.intensity     = lw.fillIntensity;
     if (hemiRef.current)     hemiRef.current.intensity     = lw.hemiIntensity;
 
+    // Lerp environment intensity: brighter at night (no sun) to keep materials visible
+    const targetEnvIntensity = weatherType === 'night' ? 0.75 : 0.35;
+    state.scene.environmentIntensity = (state.scene.environmentIntensity ?? 0.5) +
+      (targetEnvIntensity - (state.scene.environmentIntensity ?? 0.5)) * L;
+
     // Fog mutation
     const fog = state.scene.fog as THREE.Fog | null;
     if (fog) {
@@ -530,17 +535,17 @@ export default function GameScene({
         <group scale={5}>
           <mesh castShadow>
             <boxGeometry args={[0.28, 0.1, 0.28]} />
-            <meshStandardMaterial color="#1a1a2e" roughness={0.5} metalness={0.8} />
+            <meshStandardMaterial color="#1a1a2e" roughness={0.5} metalness={0.2} />
           </mesh>
           {([[-1,-1],[1,-1],[-1,1],[1,1]] as [number,number][]).map(([sx,sz], i) => (
             <group key={i} position={[sx * 0.35, 0, sz * 0.35]}>
               <mesh rotation={[0, Math.atan2(sz, sx), 0]}>
                 <boxGeometry args={[0.5, 0.04, 0.06]} />
-                <meshStandardMaterial color="#444" metalness={0.8} />
+                <meshStandardMaterial color="#444" metalness={0.2} />
               </mesh>
               <mesh position={[0, 0.06, 0]}>
                 <cylinderGeometry args={[0.08, 0.08, 0.09, 8]} />
-                <meshStandardMaterial color="#111" metalness={0.9} roughness={0.1} />
+                <meshStandardMaterial color="#111" metalness={0.2} roughness={0.1} />
               </mesh>
               <mesh position={[0, 0.12, 0]}>
                 <cylinderGeometry args={[0.24, 0.24, 0.015, 16]} />

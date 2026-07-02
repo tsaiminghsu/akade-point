@@ -245,11 +245,11 @@ export function HelicopterMesh({ groupRef, color }: { groupRef: React.Ref<THREE.
       {/* Skids */}
       <mesh position={[-0.6, -0.7, 0]} castShadow>
         <boxGeometry args={[0.06, 0.06, 2.5]} />
-        <meshStandardMaterial color="#555" metalness={0.7} />
+        <meshStandardMaterial color="#555" metalness={0.15} />
       </mesh>
       <mesh position={[0.6, -0.7, 0]} castShadow>
         <boxGeometry args={[0.06, 0.06, 2.5]} />
-        <meshStandardMaterial color="#555" metalness={0.7} />
+        <meshStandardMaterial color="#555" metalness={0.15} />
       </mesh>
     </group>
   );
