@@ -141,11 +141,11 @@ function detectWins(balls: Ball[], cols: number, rows: number): { cells: WinCell
 export default function BallMachineGame() {
   const [settings, setSettings] = useState<MachineSettings>({
     colorCount: 3, perColor: 5,
-    restitution: 0.62, bounceStrength: 1.0, gravity: 1.0, kickStrength: 1.0,
+    restitution: 0.35, bounceStrength: 1.0, gravity: 1.0, kickStrength: 1.0,
   });
   const [balls, setBalls] = useState<Ball[]>(() => makeBalls({
     colorCount: 3, perColor: 5,
-    restitution: 0.62, bounceStrength: 1.0, gravity: 1.0, kickStrength: 1.0,
+    restitution: 0.35, bounceStrength: 1.0, gravity: 1.0, kickStrength: 1.0,
   }));
   const [credits, setCredits] = useState(STARTING_CREDITS);
   const [phase, setPhase] = useState<GamePhase>("ready");
@@ -158,6 +158,7 @@ export default function BallMachineGame() {
   const total = settings.colorCount * settings.perColor;
   const { cols, rows } = calcGrid(total);
   const holePositions = calcHolePositions(cols, rows);
+  const isMachineShaking = phase === "vibrating" || phase === "jumping";
 
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
   const after = (ms: number, fn: () => void) => { const t = setTimeout(fn, ms); timers.current.push(t); };
@@ -224,8 +225,11 @@ export default function BallMachineGame() {
           <div className="h-px flex-1 bg-amber-500/40" />
         </div>
 
-        <div className="mx-3 mb-3 rounded-2xl bg-black/70 border border-white/10 overflow-hidden"
-          style={{ height: 360 }}>
+        <div
+          className={`mx-3 mb-3 rounded-2xl bg-black/70 border border-white/10 overflow-hidden ${isMachineShaking ? "machine-shake" : ""}`}
+          data-phase={phase}
+          style={{ height: 360 }}
+        >
           <BallScene
             ref={sceneRef}
             balls={balls}
@@ -261,6 +265,35 @@ export default function BallMachineGame() {
       <a href="/" className="mt-6 text-zinc-500 hover:text-amber-400 text-sm transition-colors">
         ← 返回首頁
       </a>
+
+      <style jsx>{`
+        .machine-shake {
+          transform-origin: center bottom;
+          will-change: transform;
+        }
+
+        .machine-shake[data-phase="vibrating"] {
+          animation: bean-machine-vibrate 72ms linear infinite;
+        }
+
+        .machine-shake[data-phase="jumping"] {
+          animation: bean-machine-hop 108ms linear infinite;
+        }
+
+        @keyframes bean-machine-vibrate {
+          0% { transform: translate3d(0, 0, 0); }
+          30% { transform: translate3d(0.18px, -0.9px, 0); }
+          60% { transform: translate3d(-0.18px, 0.35px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
+
+        @keyframes bean-machine-hop {
+          0% { transform: translate3d(0, 0, 0); }
+          35% { transform: translate3d(0.14px, -1.35px, 0); }
+          70% { transform: translate3d(-0.14px, 0.45px, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
+      `}</style>
     </main>
   );
 }

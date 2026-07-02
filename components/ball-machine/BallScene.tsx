@@ -96,7 +96,7 @@ const BallScene = forwardRef<BallSceneHandle, BallSceneProps>(function BallScene
 
       <Physics
         key={physicsKey}
-        gravity={[0, -9.81 * physicsSettings.gravity, 0]}
+        gravity={[0, -24 * physicsSettings.gravity, 0]}
         timeStep="vary"
       >
         <BallContainer cols={cols} rows={rows} />

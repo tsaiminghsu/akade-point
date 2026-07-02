@@ -61,7 +61,7 @@ export default function BallContainer({ cols, rows }: BallContainerProps) {
       {/* ── Static physics colliders ─────────────────────────────────────── */}
       <RigidBody type="fixed" colliders={false}>
         {/* Floor */}
-        <CuboidCollider args={[W / 2, FLOOR_T / 2, D / 2]} position={[0, FLOOR_T / 2, 0]} restitution={0.35} friction={0.8} />
+        <CuboidCollider args={[W / 2, FLOOR_T / 2, D / 2]} position={[0, FLOOR_T / 2, 0]} restitution={0.10} friction={0.9} />
         {/* Back wall */}
         <CuboidCollider args={[W / 2, H / 2, WALL_T / 2]} position={[0, H / 2, -D / 2 + WALL_T / 2]} restitution={0.4} friction={0.5} />
         {/* Front wall */}
@@ -104,17 +104,37 @@ export default function BallContainer({ cols, rows }: BallContainerProps) {
       {/* Recessed holes in every cell */}
       {holeGrid.map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
-          <mesh position={[0, FLOOR_T + 0.008, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[BALL_R * 0.82, 0.035, 8, 36]} />
-            <meshStandardMaterial color="#8fb6c8" emissive="#25495a" emissiveIntensity={0.65} roughness={0.4} metalness={0.1} />
+          <mesh position={[0, FLOOR_T + 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[BALL_R * 0.8, 48]} />
+            <meshStandardMaterial color="#050914" roughness={1} metalness={0} side={THREE.DoubleSide} />
           </mesh>
-          <mesh position={[0, FLOOR_T - 0.035, 0]}>
-            <cylinderGeometry args={[BALL_R * 0.72, BALL_R * 0.56, FLOOR_T * 0.72, 36]} />
-            <meshStandardMaterial color="#070b14" roughness={1} metalness={0} />
+          <mesh position={[0, FLOOR_T + 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[BALL_R * 0.54, 48]} />
+            <meshStandardMaterial color="#01030a" roughness={1} metalness={0} side={THREE.DoubleSide} />
           </mesh>
-          <mesh position={[0, FLOOR_T + 0.002, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[BALL_R * 0.36, BALL_R * 0.72, 36]} />
-            <meshStandardMaterial color="#101827" transparent opacity={0.86} roughness={1} side={THREE.DoubleSide} />
+          <mesh position={[0, FLOOR_T - 0.082, 0]}>
+            <cylinderGeometry args={[BALL_R * 0.88, BALL_R * 0.58, FLOOR_T * 1.12, 48, 1, true]} />
+            <meshStandardMaterial color="#0a101b" roughness={0.95} metalness={0.02} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0, FLOOR_T - 0.155, 0]}>
+            <cylinderGeometry args={[BALL_R * 0.58, BALL_R * 0.5, 0.035, 48]} />
+            <meshStandardMaterial color="#02050b" roughness={1} metalness={0} />
+          </mesh>
+          <mesh position={[0, FLOOR_T - 0.018, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[BALL_R * 0.5, BALL_R * 0.83, 48]} />
+            <meshStandardMaterial color="#020713" transparent opacity={0.72} roughness={1} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0, FLOOR_T + 0.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[BALL_R * 0.82, 0.045, 10, 48]} />
+            <meshStandardMaterial color="#9fc6d6" emissive="#295c6d" emissiveIntensity={0.7} roughness={0.35} metalness={0.18} />
+          </mesh>
+          <mesh position={[0, FLOOR_T + 0.024, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[BALL_R * 0.56, BALL_R * 0.76, 48]} />
+            <meshStandardMaterial color="#112231" transparent opacity={0.52} roughness={0.85} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0, FLOOR_T + 0.026, -BALL_R * 0.16]} rotation={[Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[BALL_R * 0.68, BALL_R * 0.82, 48, 1, Math.PI * 0.1, Math.PI * 0.78]} />
+            <meshStandardMaterial color="#d7f3ff" transparent opacity={0.34} roughness={0.35} side={THREE.DoubleSide} />
           </mesh>
         </group>
       ))}
