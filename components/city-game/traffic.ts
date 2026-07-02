@@ -1,6 +1,11 @@
 import { Vehicle, VehicleType, Point, WorldData, TILE_SIZE, GRID_SIZE } from './types';
 import { findRoadPath } from './worldGen';
 
+const LANE_OFFSET = 9;
+const TRAFFIC_DESPAWN_DISTANCE = 760;
+const TRAFFIC_RESPAWN_MIN = 380;
+const TRAFFIC_RESPAWN_MAX = 680;
+
 const NPC_COLORS = [
   '#c0392b', '#2980b9', '#27ae60', '#8e44ad',
   '#e67e22', '#16a085', '#d35400', '#2c3e50',
@@ -12,6 +17,102 @@ export function nextVehicleId(): string {
   return `v${++vehicleIdCounter}`;
 }
 
+function angleToTarget(from: Point, to: Point): number {
+  return Math.atan2(to.x - from.x, -(to.y - from.y));
+}
+
+function laneOffsetForSegment(from: Point, to: Point): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    if (dx === 0) return { x: 0, y: 0 };
+    return { x: 0, y: dx > 0 ? LANE_OFFSET : -LANE_OFFSET };
+  }
+
+  if (dy === 0) return { x: 0, y: 0 };
+  return { x: dy > 0 ? -LANE_OFFSET : LANE_OFFSET, y: 0 };
+}
+
+function applyTrafficLane(point: Point, from: Point, to: Point): Point {
+  const offset = laneOffsetForSegment(from, to);
+  return { x: point.x + offset.x, y: point.y + offset.y };
+}
+
+function applyTrafficLanes(path: Point[], start: Point): Point[] {
+  return path.map((point, index) => {
+    const from = index === 0 ? start : path[index - 1];
+    const to = path[index + 1] ?? point;
+    const segmentTo = (point.x === from.x && point.y === from.y) ? to : point;
+    return applyTrafficLane(point, from, segmentTo);
+  });
+}
+
+function buildLanePath(world: WorldData, start: Point, dest: Point): Point[] {
+  const centerPath = findRoadPath(world.grid, start.x, start.y, dest.x, dest.y);
+  return applyTrafficLanes(centerPath, start);
+}
+
+function routeVehicleToRandomRoad(v: Vehicle, world: WorldData): void {
+  const dest = world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)] ??
+    { x: 400, y: 400 };
+  v.waypoints = buildLanePath(world, { x: v.x, y: v.y }, dest);
+  v.waypointIndex = 0;
+  const first = v.waypoints[0];
+  if (first) v.angle = angleToTarget(v, first);
+}
+
+function isClearOfVehicles(
+  candidate: Point,
+  vehicles: Map<string, Vehicle>,
+  currentVehicleId: string,
+  minDistance = 70
+): boolean {
+  for (const other of vehicles.values()) {
+    if (other.id === currentVehicleId) continue;
+    if (other.type === VehicleType.HELICOPTER || other.type === VehicleType.RC_DRONE) continue;
+    const d = Math.hypot(candidate.x - other.x, candidate.y - other.y);
+    if (d < minDistance) return false;
+  }
+  return true;
+}
+
+function pickSpawnAwayFromPlayer(
+  world: WorldData,
+  playerX?: number,
+  playerY?: number,
+  playerAngle?: number,
+  minDistance = TRAFFIC_RESPAWN_MIN,
+  maxDistance = TRAFFIC_RESPAWN_MAX
+): Point | undefined {
+  if (playerX === undefined || playerY === undefined) {
+    return world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)];
+  }
+
+  const fx = playerAngle === undefined ? 0 : Math.sin(playerAngle);
+  const fy = playerAngle === undefined ? 0 : -Math.cos(playerAngle);
+
+  const candidates = world.roadTiles.filter(t => {
+    const dx = t.x - playerX;
+    const dy = t.y - playerY;
+    const d = Math.hypot(dx, dy);
+    if (d < minDistance || d > maxDistance) return false;
+    if (playerAngle === undefined || d === 0) return true;
+
+    const forwardDot = (dx / d) * fx + (dy / d) * fy;
+    return forwardDot < 0.2;
+  });
+
+  const pool = candidates.length > 0
+    ? candidates
+    : world.roadTiles.filter(t => {
+        const d = Math.hypot(t.x - playerX, t.y - playerY);
+        return d > minDistance && d < maxDistance;
+      });
+
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
   const spawn = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)] ??
     { x: 200, y: 200 };
@@ -20,14 +121,16 @@ export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
   const dest = world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)] ??
     { x: 400, y: 400 };
 
-  const waypoints = findRoadPath(world.grid, spawn.x, spawn.y, dest.x, dest.y);
+  const centerPath = findRoadPath(world.grid, spawn.x, spawn.y, dest.x, dest.y);
+  const waypoints = applyTrafficLanes(centerPath, spawn);
+  const laneSpawn = waypoints[0] ? applyTrafficLane(spawn, spawn, centerPath[0] ?? dest) : spawn;
 
   return {
     id: nextVehicleId(),
     type: VehicleType.NPC_CAR,
-    x: spawn.x,
-    y: spawn.y,
-    angle: 0,
+    x: laneSpawn.x,
+    y: laneSpawn.y,
+    angle: waypoints[0] ? angleToTarget(laneSpawn, waypoints[0]) : 0,
     speed: 0,
     maxSpeed: 1.8 + Math.random() * 0.8,
     color: NPC_COLORS[colorIndex % NPC_COLORS.length],
@@ -41,16 +144,8 @@ export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
   };
 }
 
-export function createTaxi(world: WorldData, playerX?: number, playerY?: number): Vehicle {
-  // Find a road tile that is at a reasonable distance (200 - 350 units) from the player
-  let spawn;
-  if (playerX !== undefined && playerY !== undefined) {
-    spawn = world.roadTiles.find(t => {
-      const d = Math.sqrt((t.x - playerX) ** 2 + (t.y - playerY) ** 2);
-      return d > 200 && d < 350;
-    });
-  }
-  // Fallback to any road tile if none in range or coordinates not provided
+export function createTaxi(world: WorldData, playerX?: number, playerY?: number, playerAngle?: number): Vehicle {
+  let spawn = pickSpawnAwayFromPlayer(world, playerX, playerY, playerAngle, 260, 520);
   if (!spawn) {
     spawn = world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)];
   }
@@ -75,17 +170,25 @@ export function createTaxi(world: WorldData, playerX?: number, playerY?: number)
   };
 }
 
-export function createDeliveryScooter(world: WorldData, shopPos?: Point, playerX?: number, playerY?: number): Vehicle {
-  let spawn = shopPos;
-  // If no shop, try to find a nearby spawn point
-  if (!spawn && playerX !== undefined && playerY !== undefined) {
-    spawn = world.roadTiles.find(t => {
-      const d = Math.sqrt((t.x - playerX) ** 2 + (t.y - playerY) ** 2);
-      return d > 200 && d < 350;
+export function createDeliveryScooter(world: WorldData, shopPos?: Point, playerX?: number, playerY?: number, playerAngle?: number): Vehicle {
+  let spawn: Point | undefined;
+
+  // Shop positions are building tiles — find the nearest road tile to spawn on instead
+  if (shopPos && world.roadTiles.length > 0) {
+    spawn = world.roadTiles.reduce((best, t) => {
+      const d = Math.hypot(t.x - shopPos.x, t.y - shopPos.y);
+      const bd = Math.hypot(best.x - shopPos.x, best.y - shopPos.y);
+      return d < bd ? t : best;
     });
   }
+
+  // No shop provided: find a road tile at a reasonable distance from player
+  if (!spawn && playerX !== undefined && playerY !== undefined) {
+    spawn = pickSpawnAwayFromPlayer(world, playerX, playerY, playerAngle, 260, 520);
+  }
+
   if (!spawn) {
-    spawn = world.shopPositions[0] ?? world.roadTiles[0] ?? { x: 160, y: 160 };
+    spawn = world.roadTiles[0] ?? { x: 160, y: 160 };
   }
 
   return {
@@ -168,7 +271,7 @@ export function moveVehicleTowardWaypoint(
     return;
   }
 
-  const targetAngle = Math.atan2(dy, dx) - Math.PI / 2;
+  const targetAngle = Math.atan2(dx, -dy);
 
   // Smooth angle
   let angleDiff = targetAngle - v.angle;
@@ -181,9 +284,8 @@ export function moveVehicleTowardWaypoint(
   const speedFactor = dist < slowDist ? dist / slowDist : 1;
   v.speed = Math.min(v.maxSpeed, v.speed + dt * 3) * speedFactor;
 
-  const fwd = v.angle + Math.PI / 2;
-  v.x += Math.cos(fwd) * v.speed;
-  v.y += Math.sin(fwd) * v.speed;
+  v.x += Math.sin(v.angle) * v.speed;
+  v.y -= Math.cos(v.angle) * v.speed;
 }
 
 // Update NPC traffic: follow road waypoints, re-route when finished
@@ -192,7 +294,8 @@ export function updateTraffic(
   world: WorldData,
   dt: number,
   playerX?: number,
-  playerY?: number
+  playerY?: number,
+  playerAngle?: number
 ): void {
   vehicles.forEach((v) => {
     if (v.occupant === 'player') return;
@@ -205,19 +308,13 @@ export function updateTraffic(
       const dy = v.y - playerY;
       const distToPlayer = Math.sqrt(dx * dx + dy * dy);
       
-      if (distToPlayer > 400) {
-        // Pick a RANDOM road tile near the player so multiple NPCs don't stack on the same spot
-        const candidates = world.roadTiles.filter(t => {
-          const d = Math.sqrt((t.x - playerX) ** 2 + (t.y - playerY) ** 2);
-          return d > 180 && d < 300;
-        });
-        if (candidates.length > 0) {
-          const nearbyTile = candidates[Math.floor(Math.random() * candidates.length)];
-          v.x = nearbyTile.x;
-          v.y = nearbyTile.y;
+      if (distToPlayer > TRAFFIC_DESPAWN_DISTANCE) {
+        const spawn = pickSpawnAwayFromPlayer(world, playerX, playerY, playerAngle);
+        if (spawn && isClearOfVehicles(spawn, vehicles, v.id)) {
+          v.x = spawn.x;
+          v.y = spawn.y;
           v.speed = 0;
-          v.waypoints = [];
-          v.waypointIndex = 0;
+          routeVehicleToRandomRoad(v, world);
         }
       }
     }
@@ -230,9 +327,7 @@ export function updateTraffic(
 
     // Re-route if finished waypoints
     if (v.waypointIndex >= v.waypoints.length) {
-      const dest = world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)];
-      v.waypoints = findRoadPath(world.grid, v.x, v.y, dest.x, dest.y);
-      v.waypointIndex = 0;
+      routeVehicleToRandomRoad(v, world);
 
       // Occasional stop at intersection
       if (Math.random() < 0.1) {
@@ -291,7 +386,7 @@ export function updateServiceVehicle(
 
   // Ground vehicles: route on road
   if (v.waypoints.length === 0 || v.waypointIndex >= v.waypoints.length) {
-    const path = findRoadPath(world.grid, v.x, v.y, targetX, targetY);
+    const path = buildLanePath(world, { x: v.x, y: v.y }, { x: targetX, y: targetY });
     if (path.length > 0) {
       v.waypoints = path;
       v.waypointIndex = 0;

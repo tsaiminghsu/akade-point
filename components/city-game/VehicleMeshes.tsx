@@ -31,27 +31,27 @@ export const PlayerCar = forwardRef<PlayerCarHandle, PlayerCarProps>(
           {/* Left leg (mechanical block/joint) */}
           <mesh position={[-0.14, 0.45, 0]} castShadow>
             <boxGeometry args={[0.16, 0.75, 0.16]} />
-            <meshStandardMaterial color="#0f172a" metalness={0.9} roughness={0.2} />
+            <meshStandardMaterial color="#2a3a50" metalness={0.3} roughness={0.5} />
           </mesh>
           <mesh position={[-0.14, 0.85, 0]} castShadow>
             <sphereGeometry args={[0.1, 8, 8]} />
-            <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.3} />
+            <meshStandardMaterial color="#4a5a70" metalness={0.3} roughness={0.5} />
           </mesh>
 
           {/* Right leg */}
           <mesh position={[0.14, 0.45, 0]} castShadow>
             <boxGeometry args={[0.16, 0.75, 0.16]} />
-            <meshStandardMaterial color="#0f172a" metalness={0.9} roughness={0.2} />
+            <meshStandardMaterial color="#2a3a50" metalness={0.3} roughness={0.5} />
           </mesh>
           <mesh position={[0.14, 0.85, 0]} castShadow>
             <sphereGeometry args={[0.1, 8, 8]} />
-            <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.3} />
+            <meshStandardMaterial color="#4a5a70" metalness={0.3} roughness={0.5} />
           </mesh>
 
           {/* Torso (armored metallic frame) */}
           <mesh position={[0, 1.25, 0]} castShadow>
             <boxGeometry args={[0.42, 0.7, 0.28]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.15} />
+            <meshStandardMaterial color="#2e4060" metalness={0.3} roughness={0.4} />
           </mesh>
           {/* Glowing Energy Core in Chest */}
           <mesh position={[0, 1.35, 0.15]}>
@@ -62,33 +62,33 @@ export const PlayerCar = forwardRef<PlayerCarHandle, PlayerCarProps>(
           {/* Left Arm (segmented cylinder/joints) */}
           <mesh position={[-0.32, 1.35, 0]} castShadow>
             <sphereGeometry args={[0.08, 8, 8]} />
-            <meshStandardMaterial color="#334155" metalness={0.8} />
+            <meshStandardMaterial color="#4a5a70" metalness={0.3} />
           </mesh>
           <mesh position={[-0.32, 1.05, 0]} rotation={[0, 0, 0.1]} castShadow>
             <cylinderGeometry args={[0.06, 0.05, 0.5, 8]} />
-            <meshStandardMaterial color="#0f172a" metalness={0.9} roughness={0.2} />
+            <meshStandardMaterial color="#2a3a50" metalness={0.3} roughness={0.5} />
           </mesh>
 
           {/* Right Arm */}
           <mesh position={[0.32, 1.35, 0]} castShadow>
             <sphereGeometry args={[0.08, 8, 8]} />
-            <meshStandardMaterial color="#334155" metalness={0.8} />
+            <meshStandardMaterial color="#4a5a70" metalness={0.3} />
           </mesh>
           <mesh position={[0.32, 1.05, 0]} rotation={[0, 0, -0.1]} castShadow>
             <cylinderGeometry args={[0.06, 0.05, 0.5, 8]} />
-            <meshStandardMaterial color="#0f172a" metalness={0.9} roughness={0.2} />
+            <meshStandardMaterial color="#2a3a50" metalness={0.3} roughness={0.5} />
           </mesh>
 
           {/* Neck */}
           <mesh position={[0, 1.63, 0]} castShadow>
             <cylinderGeometry args={[0.06, 0.08, 0.12, 8]} />
-            <meshStandardMaterial color="#475569" metalness={0.7} />
+            <meshStandardMaterial color="#607080" metalness={0.3} />
           </mesh>
 
           {/* Robot Head (sleek futuristic helmet block) */}
           <mesh position={[0, 1.78, 0]} castShadow>
             <boxGeometry args={[0.26, 0.22, 0.26]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.1} />
+            <meshStandardMaterial color="#2e4060" metalness={0.3} roughness={0.4} />
           </mesh>
           {/* Glowing horizontal visor (Daft Punk style) */}
           <mesh position={[0, 1.80, 0.12]}>
@@ -153,13 +153,13 @@ export function CarMesh({ color, vehicleType }: { color: string; vehicleType: Ve
       {/* Car body */}
       <mesh position={[0, bodyH / 2 + axleH - 0.05, 0]} castShadow>
         <boxGeometry args={[bodyW, bodyH, bodyL]} />
-        <meshStandardMaterial color={color} roughness={0.3} metalness={0.6} />
+        <meshStandardMaterial color={color} roughness={0.5} metalness={0.2} />
       </mesh>
 
       {/* Cabin */}
       <mesh position={[0, bodyH + cabinH / 2 + axleH - 0.05, bodyL * 0.06]} castShadow>
         <boxGeometry args={[cabinW, cabinH, cabinL]} />
-        <meshStandardMaterial color={color} roughness={0.3} metalness={0.6} />
+        <meshStandardMaterial color={color} roughness={0.5} metalness={0.2} />
       </mesh>
 
       {/* Windshield (front) */}
@@ -230,12 +230,12 @@ export function HelicopterMesh({ groupRef, color }: { groupRef: React.Ref<THREE.
       {/* Body */}
       <mesh castShadow>
         <capsuleGeometry args={[0.6, 2.2, 8, 12]} />
-        <meshStandardMaterial color={color} roughness={0.3} metalness={0.5} />
+        <meshStandardMaterial color={color} roughness={0.5} metalness={0.2} />
       </mesh>
       {/* Tail boom */}
       <mesh position={[0, 0, 1.6]} castShadow>
         <boxGeometry args={[0.18, 0.18, 1.4]} />
-        <meshStandardMaterial color={color} roughness={0.3} metalness={0.5} />
+        <meshStandardMaterial color={color} roughness={0.5} metalness={0.2} />
       </mesh>
       {/* Main rotor */}
       <mesh position={[0, 0.75, 0]} rotation={[0, 0, 0]}>

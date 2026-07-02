@@ -10,6 +10,7 @@ import {
   Notification,
   WorldData,
   HUDData,
+  CallRecord,
   TILE_SIZE,
   GRID_SIZE,
   WORLD_SIZE,
@@ -50,6 +51,7 @@ export class GameEngine3D {
   player: Player;
   vehicles: Map<string, Vehicle>;
   orders: Order[];
+  callLog: CallRecord[];
   drone: DroneState;
   waypoint: Waypoint;
   notifications: Notification[];
@@ -68,6 +70,7 @@ export class GameEngine3D {
     this.zone = '城市區';
     this.notifications = [];
     this.orders = [];
+    this.callLog = [];
     this.camera = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 };
     this.waypoint = { x: 0, y: 0, active: false };
     this.drone = {
@@ -137,7 +140,7 @@ export class GameEngine3D {
     if (input.enter) this.handleEnterExit();
 
     // NPC traffic
-    updateTraffic(vehicles, this.world, dt, this.player.x, this.player.y);
+    updateTraffic(vehicles, this.world, dt, this.player.x, this.player.y, this.player.angle);
 
     // Service orders
     this.updateOrders(dt);
@@ -322,7 +325,6 @@ export class GameEngine3D {
     let closest: Vehicle | null = null;
     let closestDist = Infinity;
     vehicles.forEach(v => {
-      if (v.type === VehicleType.NPC_CAR) return; // Cannot drive regular traffic cars
       if (v.type === VehicleType.RC_DRONE) return;
       if (v.occupant === 'player') return;
       const d = dist(player.x, player.y, v.x, v.y);
@@ -332,18 +334,28 @@ export class GameEngine3D {
     if (closest) {
       const v = closest as Vehicle;
       v.occupant = 'player';
+      v.waypoints = [];
+      v.waypointIndex = 0;
       player.currentVehicleId = v.id;
       if (v.type === VehicleType.HELICOPTER) {
         player.state = 'inHelicopter';
         this.addNotification('🚁 已登上直升機！', '#a0d8ef');
         const o = this.orders.find(o => o.vehicleId === v.id);
-        if (o) o.status = 'completed';
+        if (o) {
+          o.status = 'completed';
+          const record = this.callLog.find(r => r.id === o.id);
+          if (record) record.status = 'completed';
+        }
       } else {
         player.state = 'inCar';
         const lbl = v.type === VehicleType.TAXI ? '🚕 上車！' : v.type === VehicleType.DELIVERY_SCOOTER ? '📦 上機車！' : '🚗 上車！';
         this.addNotification(lbl, '#00ff88');
         const o = this.orders.find(o => o.vehicleId === v.id);
-        if (o) o.status = 'completed';
+        if (o) {
+          o.status = 'completed';
+          const record = this.callLog.find(r => r.id === o.id);
+          if (record) record.status = 'completed';
+        }
       }
     } else {
       this.addNotification('附近沒有車輛 (F)', '#666');
@@ -356,12 +368,21 @@ export class GameEngine3D {
       if (order.status === 'completed') return;
       const v = vehicles.get(order.vehicleId);
       if (!v) return;
+      // Once arrived, freeze the vehicle in place so it waits for the player
+      if (order.status === 'arrived') {
+        v.speed = 0;
+        v.waypoints = [];
+        v.waypointIndex = 0;
+        return;
+      }
       const isAerial = order.type === 'helicopter';
       const arrived = updateServiceVehicle(v, player.x, player.y, dt, this.world, isAerial);
-      if (arrived && order.status !== 'arrived') {
+      if (arrived) {
         order.status = 'arrived';
+        const record = this.callLog.find(r => r.id === order.id);
+        if (record) record.status = 'arrived';
         const msg = order.type === 'taxi' ? '🚕 計程車到了！按 F 上車'
-          : order.type === 'food' ? '🍕 外送到了！'
+          : order.type === 'food' ? '🍕 外送到了！按 F 上機車'
           : '🚁 直升機到了！按 F 登機';
         this.addNotification(msg, '#00ff88');
       }
@@ -392,6 +413,8 @@ export class GameEngine3D {
     // Remove service vehicle
     this.vehicles.delete(o.vehicleId);
     this.orders.splice(idx, 1);
+    const record = this.callLog.find(r => r.id === orderId);
+    if (record) record.status = 'cancelled';
     this.addNotification('❌ 已取消服務', '#aaa');
   }
 
@@ -402,18 +425,22 @@ export class GameEngine3D {
 
   dispatchTaxi() {
     if (this.orders.find(o => o.type === 'taxi' && o.status !== 'completed')) { this.addNotification('計程車已在路上！', '#ffee00'); return; }
-    const t = createTaxi(this.world, this.player.x, this.player.y);
+    const t = createTaxi(this.world, this.player.x, this.player.y, this.player.angle);
     this.vehicles.set(t.id, t);
-    this.orders.push({ id: `o_t_${Date.now()}`, type: 'taxi', status: 'dispatched', vehicleId: t.id, eta: 60, label: '🚕 計程車' });
+    const orderId = `o_t_${Date.now()}`;
+    this.orders.push({ id: orderId, type: 'taxi', status: 'dispatched', vehicleId: t.id, eta: 60, label: '🚕 計程車' });
+    this.callLog.push({ id: orderId, type: 'taxi', label: '🚕 計程車', calledAt: Date.now(), status: 'called' });
     this.addNotification('🚕 計程車已派出！', '#ffee00');
   }
 
   dispatchFood(shopIdx = 0) {
     if (this.orders.find(o => o.type === 'food' && o.status !== 'completed')) { this.addNotification('外送已在路上！', '#ff8c00'); return; }
     const shop = this.world.shopPositions[shopIdx % Math.max(1, this.world.shopPositions.length)];
-    const s = createDeliveryScooter(this.world, shop, this.player.x, this.player.y);
+    const s = createDeliveryScooter(this.world, shop, this.player.x, this.player.y, this.player.angle);
     this.vehicles.set(s.id, s);
-    this.orders.push({ id: `o_f_${Date.now()}`, type: 'food', status: 'dispatched', vehicleId: s.id, eta: 90, label: '🍕 外送' });
+    const orderId = `o_f_${Date.now()}`;
+    this.orders.push({ id: orderId, type: 'food', status: 'dispatched', vehicleId: s.id, eta: 90, label: '🍕 外送' });
+    this.callLog.push({ id: orderId, type: 'food', label: '🍕 外送', calledAt: Date.now(), status: 'called' });
     this.addNotification('🍕 外送已出發！', '#ff8c00');
   }
 
@@ -421,7 +448,9 @@ export class GameEngine3D {
     if (this.orders.find(o => o.type === 'helicopter' && o.status !== 'completed')) { this.addNotification('直升機已在路上！', '#a0d8ef'); return; }
     const h = createHelicopter(this.world);
     this.vehicles.set(h.id, h);
-    this.orders.push({ id: `o_h_${Date.now()}`, type: 'helicopter', status: 'dispatched', vehicleId: h.id, eta: 30, label: '🚁 直升機' });
+    const orderId = `o_h_${Date.now()}`;
+    this.orders.push({ id: orderId, type: 'helicopter', status: 'dispatched', vehicleId: h.id, eta: 30, label: '🚁 直升機' });
+    this.callLog.push({ id: orderId, type: 'helicopter', label: '🚁 直升機', calledAt: Date.now(), status: 'called' });
     this.addNotification('🚁 直升機已起飛！', '#a0d8ef');
   }
 
@@ -478,6 +507,7 @@ export class GameEngine3D {
       notifications: [...notifications],
       vehicleAltitude: curVeh?.altitude,
       nearTownHall: dist(player.x, player.y, this.world.townHallPos.x, this.world.townHallPos.y) < 130,
+      callLog: [...this.callLog],
     };
     this.hudCallback(data);
   }

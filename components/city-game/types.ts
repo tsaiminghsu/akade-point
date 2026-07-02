@@ -98,6 +98,17 @@ export interface Player {
 export type OrderType = 'taxi' | 'food' | 'helicopter';
 export type OrderStatus = 'dispatched' | 'arriving' | 'arrived' | 'completed';
 
+export type CallRecordType = 'taxi' | 'food' | 'helicopter';
+export type CallRecordStatus = 'called' | 'arrived' | 'completed' | 'cancelled';
+
+export interface CallRecord {
+  id: string;
+  type: CallRecordType;
+  label: string;
+  calledAt: number;
+  status: CallRecordStatus;
+}
+
 export interface Order {
   id: string;
   type: OrderType;
@@ -158,6 +169,7 @@ export interface HUDData {
   notifications: Notification[];
   vehicleAltitude?: number;
   nearTownHall?: boolean;
+  callLog: CallRecord[];
 }
 
 export interface WorldData {

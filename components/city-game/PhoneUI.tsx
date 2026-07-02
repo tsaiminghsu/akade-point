@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { DroneState, Order } from './types';
+import { DroneState, Order, CallRecord } from './types';
 
 const FOOD_MENU = [
   { name: '牛肉漢堡套餐', price: 150, emoji: '🍔' },
@@ -19,9 +19,10 @@ interface Props {
   onCancelOrder: (id: string) => void;
   orders: Order[];
   drone: DroneState;
+  callLog: CallRecord[];
 }
 
-type Screen = 'home' | 'food' | 'drone';
+type Screen = 'home' | 'food' | 'drone' | 'calls';
 
 export default function PhoneUI({
   onClose,
@@ -34,6 +35,7 @@ export default function PhoneUI({
   onCancelOrder,
   orders,
   drone,
+  callLog,
 }: Props) {
   const [screen, setScreen] = useState<Screen>('home');
   const [orderedFood, setOrderedFood] = useState<number | null>(null);
@@ -71,7 +73,7 @@ export default function PhoneUI({
         </div>
 
         {/* Screen content */}
-        <div className="min-h-[320px] px-3 pb-4">
+        <div className="px-3 pb-4" style={{ minHeight: 320 }}>
           {screen === 'home' && (
             <>
               <div className="text-center text-xs font-mono text-white/50 mb-3">城市服務</div>
@@ -97,7 +99,7 @@ export default function PhoneUI({
                 </div>
               )}
 
-              {/* App icons */}
+              {/* App icons 2x2 */}
               <div className="grid grid-cols-2 gap-2">
                 <AppButton
                   emoji="🚕" label="叫計程車"
@@ -127,6 +129,23 @@ export default function PhoneUI({
                   borderColor="border-cyan-600/30"
                   onClick={() => setScreen('drone')}
                 />
+              </div>
+
+              {/* Call log shortcut — full width below grid */}
+              <div className="mt-2">
+                <button
+                  onClick={() => setScreen('calls')}
+                  className="w-full bg-gradient-to-br from-slate-900/60 to-slate-800/40 border border-slate-600/30 rounded-2xl px-3 py-2 flex items-center gap-2 hover:brightness-125 transition-all active:scale-95"
+                >
+                  <span className="text-lg">📞</span>
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="text-white font-mono text-xs leading-tight">通訊紀錄</div>
+                    <div className="text-white/40 text-[9px] leading-tight truncate">
+                      {callLog.length > 0 ? `${callLog.length} 筆紀錄` : '尚無紀錄'}
+                    </div>
+                  </div>
+                  <span className="text-white/30 text-xs">›</span>
+                </button>
               </div>
             </>
           )}
@@ -202,11 +221,29 @@ export default function PhoneUI({
                 {drone.active && (
                   <div className="bg-black/30 border border-white/5 rounded-xl p-2 text-[9px] text-white/30 font-mono space-y-0.5">
                     <div className="text-white/50 text-[10px] mb-1">飛行控制 (鍵盤)</div>
-                    <div>Space/E → 油門上升　F/Q → 油門下降</div>
+                    <div>Space/E → 油門上升　Q → 油門下降</div>
                     <div>WASD → 方向　Z/X → 偏航轉向</div>
                   </div>
                 )}
               </div>
+            </>
+          )}
+
+          {screen === 'calls' && (
+            <>
+              <BackBar label="通訊紀錄" onBack={() => setScreen('home')} />
+              {callLog.length === 0 ? (
+                <div className="text-center text-white/30 text-xs font-mono mt-8">尚無通話紀錄</div>
+              ) : (
+                <div
+                  className="mt-2 space-y-1.5 overflow-y-auto pr-0.5"
+                  style={{ maxHeight: 260 }}
+                >
+                  {[...callLog].reverse().map(r => (
+                    <CallRow key={r.id} record={r} />
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -258,6 +295,42 @@ function StatusRow({ label, value, color }: { label: string; value: string; colo
     <div className="flex justify-between items-center">
       <span className="text-white/40">{label}</span>
       <span style={{ color }}>{value}</span>
+    </div>
+  );
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  called: '#ffd700',
+  arrived: '#00ff88',
+  completed: '#888888',
+  cancelled: '#ff4444',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  called: '已呼叫',
+  arrived: '已抵達',
+  completed: '完成',
+  cancelled: '已取消',
+};
+
+function CallRow({ record }: { record: CallRecord }) {
+  const time = new Date(record.calledAt).toLocaleTimeString('zh-TW', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-2 flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+        <span className="text-white text-[10px] font-mono truncate">{record.label}</span>
+        <span className="text-white/30 text-[9px] font-mono">{time}</span>
+      </div>
+      <span
+        className="text-[9px] font-mono shrink-0"
+        style={{ color: STATUS_COLOR[record.status] ?? '#888' }}
+      >
+        {STATUS_LABEL[record.status] ?? record.status}
+      </span>
     </div>
   );
 }
