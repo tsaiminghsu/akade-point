@@ -251,10 +251,40 @@ export function createDrone(playerX: number, playerY: number): Vehicle {
   };
 }
 
-// Move a vehicle toward its next waypoint
+// Returns the distance to the nearest vehicle directly ahead (within lookAhead units).
+// Returns lookAhead if nothing is blocking.
+function getForwardBlockDistance(
+  v: Vehicle,
+  vehicles: Map<string, Vehicle>,
+  lookAhead = 90
+): number {
+  const fx = Math.sin(v.angle);
+  const fy = -Math.cos(v.angle);
+  let closest = lookAhead;
+
+  for (const other of vehicles.values()) {
+    if (other.id === v.id) continue;
+    if (other.type === VehicleType.HELICOPTER || other.type === VehicleType.RC_DRONE) continue;
+    const dx = other.x - v.x;
+    const dy = other.y - v.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1 || dist > lookAhead) continue;
+    const dot = (dx / dist) * fx + (dy / dist) * fy;
+    if (dot < 0.55) continue; // not in front
+    const cross = Math.abs((dx / dist) * fy - (dy / dist) * fx);
+    if (cross > 0.65) continue; // too far sideways
+    closest = Math.min(closest, dist);
+  }
+
+  return closest;
+}
+
+// Move a vehicle toward its next waypoint.
+// speedCap (0–1) lets the caller impose an external speed limit (e.g. for braking).
 export function moveVehicleTowardWaypoint(
   v: Vehicle,
-  dt: number
+  dt: number,
+  speedCap = 1
 ): void {
   if (v.waypoints.length === 0 || v.waypointIndex >= v.waypoints.length) {
     v.speed *= 0.85;
@@ -279,10 +309,10 @@ export function moveVehicleTowardWaypoint(
   while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
   v.angle += angleDiff * Math.min(1, dt * 5);
 
-  // Speed
+  // Speed — respect both waypoint slow-zone and external cap
   const slowDist = 40;
   const speedFactor = dist < slowDist ? dist / slowDist : 1;
-  v.speed = Math.min(v.maxSpeed, v.speed + dt * 3) * speedFactor;
+  v.speed = Math.min(v.maxSpeed * speedCap, v.speed + dt * 3) * speedFactor;
 
   v.x += Math.sin(v.angle) * v.speed;
   v.y -= Math.cos(v.angle) * v.speed;
@@ -337,11 +367,49 @@ export function updateTraffic(
       return;
     }
 
-    moveVehicleTowardWaypoint(v, dt);
+    // ── Stuck detection ──────────────────────────────────────────────────────
+    // Sample position every 2 s; if barely moved → reroute (or teleport if near player)
+    v.stuckCheckTimer = (v.stuckCheckTimer ?? 0) - dt;
+    if (v.stuckCheckTimer <= 0) {
+      if (v.stuckCheckX !== undefined) {
+        const movedDist = Math.hypot(v.x - v.stuckCheckX, v.y - (v.stuckCheckY ?? v.y));
+        if (movedDist < 18) {
+          // Stuck — try to reroute
+          if (
+            playerX !== undefined && playerY !== undefined &&
+            Math.hypot(v.x - playerX, v.y - playerY) < 260
+          ) {
+            // Too close to player to reroute in-place → teleport to a clear spawn
+            const spawn = pickSpawnAwayFromPlayer(world, playerX, playerY, playerAngle);
+            if (spawn && isClearOfVehicles(spawn, vehicles, v.id)) {
+              v.x = spawn.x;
+              v.y = spawn.y;
+              v.speed = 0;
+            }
+          }
+          routeVehicleToRandomRoad(v, world);
+          v.npcState = 'driving';
+        }
+      }
+      v.stuckCheckX = v.x;
+      v.stuckCheckY = v.y;
+      v.stuckCheckTimer = 2;
+    }
+
+    // ── Forward look-ahead braking ───────────────────────────────────────────
+    // Slow down proportionally when a vehicle is directly ahead
+    const fwdDist = getForwardBlockDistance(v, vehicles);
+    const brakeCap = fwdDist < 26 ? 0 : fwdDist < 70 ? (fwdDist - 26) / 44 : 1;
+    if (brakeCap === 0) {
+      v.speed *= 0.82; // hard brake
+    } else {
+      moveVehicleTowardWaypoint(v, dt, brakeCap);
+    }
 
     // Push apart vehicles that are too close (prevents stacking on same road tile)
     vehicles.forEach((other) => {
       if (other.id === v.id) return;
+      if (other.occupant === 'player') return; // don't push player's vehicle
       if (other.type === VehicleType.HELICOPTER || other.type === VehicleType.RC_DRONE) return;
       const sdx = v.x - other.x;
       const sdy = v.y - other.y;

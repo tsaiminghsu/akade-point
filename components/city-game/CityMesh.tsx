@@ -720,91 +720,455 @@ export function StreetLights({ world, playerGridX, playerGridY }: { world: World
 }
 
 // ─── Town Hall 3D ─────────────────────────────────────────────────────────────
+// Neoclassical civic building facing north (−Z direction).
+// Group centre = townHallPos tile (44,44) → 3D (18, 0, 18).
+// Building tiles: ty=42-46 (rel Z −10 to +10), tx=41-47 (rel X −14 to +14).
+// Plaza tiles:    ty=34-38 (rel Z −42 to −22), same X block.
+// Closed road:    ty=40    (rel Z −18 to −14) → TOWN_HALL_PLAZA.
 
 export function TownHall3D({ world }: { world: WorldData }) {
   const pos = world.townHallPos;
-  // Convert world coords to 3D scene coords
   const cx = pos.x * (TILE_3D / TILE_SIZE) - WORLD_3D_HALF;
   const cz = pos.y * (TILE_3D / TILE_SIZE) - WORLD_3D_HALF;
 
+  const porticoXs = [-9, -5.4, -1.8, 1.8, 5.4, 9] as const;
+
   return (
     <group position={[cx, 0, cz]}>
-      {/* Main building body */}
-      <mesh position={[0, 7, 0]} castShadow receiveShadow>
-        <boxGeometry args={[18, 14, 18]} />
-        <meshStandardMaterial color="#c8bfa8" roughness={0.6} metalness={0.1} />
+
+      {/* ── Foundation plinth ─────────────────────────────────────────────── */}
+      <mesh position={[0, 0.5, 0]} receiveShadow>
+        <boxGeometry args={[26, 1, 22]} />
+        <meshStandardMaterial color="#c8c0a8" roughness={0.82} metalness={0} />
       </mesh>
 
-      {/* Upper tier / dome base */}
-      <mesh position={[0, 15.5, 0]} castShadow>
-        <boxGeometry args={[12, 3, 12]} />
-        <meshStandardMaterial color="#b8b0a0" roughness={0.55} metalness={0.1} />
+      {/* ── Main building body — split into wall panels with entrance opening ─ */}
+      {/* Opening: X −3.6 to +3.6, Y 0 to 8.8 (north face, facing −Z / plaza road) */}
+      {/* North face — left of door */}
+      <mesh position={[-6.8, 9, -10.25]} castShadow receiveShadow>
+        <boxGeometry args={[6.4, 18, 0.5]} />
+        <meshStandardMaterial color="#d8cdb5" roughness={0.72} metalness={0.05} />
+      </mesh>
+      {/* North face — right of door */}
+      <mesh position={[6.8, 9, -10.25]} castShadow receiveShadow>
+        <boxGeometry args={[6.4, 18, 0.5]} />
+        <meshStandardMaterial color="#d8cdb5" roughness={0.72} metalness={0.05} />
+      </mesh>
+      {/* North face — above door opening (Y 8.8 → 18) */}
+      <mesh position={[0, 13.4, -10.25]} castShadow>
+        <boxGeometry args={[20, 9.2, 0.5]} />
+        <meshStandardMaterial color="#d8cdb5" roughness={0.72} metalness={0.05} />
+      </mesh>
+      {/* East face */}
+      <mesh position={[10.25, 9, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.5, 18, 20]} />
+        <meshStandardMaterial color="#ccc4ae" roughness={0.72} metalness={0.05} />
+      </mesh>
+      {/* West face */}
+      <mesh position={[-10.25, 9, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.5, 18, 20]} />
+        <meshStandardMaterial color="#ccc4ae" roughness={0.72} metalness={0.05} />
+      </mesh>
+      {/* South face */}
+      <mesh position={[0, 9, 10.25]} castShadow receiveShadow>
+        <boxGeometry args={[20, 18, 0.5]} />
+        <meshStandardMaterial color="#d0c8b0" roughness={0.72} metalness={0.05} />
+      </mesh>
+      {/* Interior ceiling slab */}
+      <mesh position={[0, 18.1, 0]}>
+        <boxGeometry args={[20, 0.5, 20]} />
+        <meshStandardMaterial color="#ccc4ae" roughness={0.78} />
+      </mesh>
+      {/* Cornice band at roofline */}
+      <mesh position={[0, 18.2, 0]} castShadow>
+        <boxGeometry args={[21.5, 0.8, 21.5]} />
+        <meshStandardMaterial color="#c8c0a8" roughness={0.76} metalness={0.04} />
       </mesh>
 
-      {/* Dome */}
-      <mesh position={[0, 20, 0]} castShadow>
-        <sphereGeometry args={[5, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#7ba7c7" roughness={0.3} metalness={0.25} />
+      {/* ── Upper tier ────────────────────────────────────────────────────── */}
+      <mesh position={[0, 22, 0]} castShadow receiveShadow>
+        <boxGeometry args={[14, 6, 14]} />
+        <meshStandardMaterial color="#ccc4ae" roughness={0.7} metalness={0.05} />
+      </mesh>
+      <mesh position={[0, 25.3, 0]} castShadow>
+        <boxGeometry args={[15.5, 0.7, 15.5]} />
+        <meshStandardMaterial color="#bfb8a0" roughness={0.75} />
       </mesh>
 
-      {/* Dome lantern (top) */}
-      <mesh position={[0, 25.5, 0]} castShadow>
-        <cylinderGeometry args={[0.8, 1.2, 3, 8]} />
-        <meshStandardMaterial color="#7ba7c7" metalness={0.25} roughness={0.2} />
+      {/* ── Central tower ─────────────────────────────────────────────────── */}
+      <mesh position={[0, 28.5, 0]} castShadow>
+        <boxGeometry args={[8, 5, 8]} />
+        <meshStandardMaterial color="#c8bfa8" roughness={0.68} metalness={0.05} />
       </mesh>
 
-      {/* Flag pole */}
-      <mesh position={[0, 30, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 8, 6]} />
-        <meshStandardMaterial color="#aaaaaa" metalness={0.35} roughness={0.2} />
+      {/* ── Dome ──────────────────────────────────────────────────────────── */}
+      <mesh position={[0, 32, 0]} castShadow>
+        <sphereGeometry args={[4, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#6a9a8a" roughness={0.38} metalness={0.3} />
       </mesh>
-      {/* Flag */}
-      <mesh position={[1.2, 33, 0]}>
-        <boxGeometry args={[2.4, 1.4, 0.05]} />
-        <meshStandardMaterial color="#e63946" emissive="#c00" emissiveIntensity={0.15} roughness={0.9} />
+      <mesh position={[0, 36.3, 0]} castShadow>
+        <cylinderGeometry args={[0.72, 1.1, 3, 8]} />
+        <meshStandardMaterial color="#6a9a8a" roughness={0.35} metalness={0.32} />
       </mesh>
 
-      {/* Front columns — south face */}
-      {([-5.5, -2.5, 2.5, 5.5] as number[]).map((xo, i) => (
-        <mesh key={i} position={[xo, 5.5, -9.5]} castShadow>
-          <cylinderGeometry args={[0.6, 0.7, 11, 10]} />
-          <meshStandardMaterial color="#d8d0c0" roughness={0.7} metalness={0.05} />
+      {/* Flag pole + flag */}
+      <mesh position={[0, 41.5, 0]}>
+        <cylinderGeometry args={[0.07, 0.07, 8, 6]} />
+        <meshStandardMaterial color="#b8b8b8" metalness={0.55} roughness={0.3} />
+      </mesh>
+      <mesh position={[1.9, 44.8, 0]}>
+        <boxGeometry args={[3.5, 1.8, 0.05]} />
+        <meshStandardMaterial color="#e63946" emissive="#aa0010" emissiveIntensity={0.18} roughness={0.9} />
+      </mesh>
+
+      {/* ── Side wings ────────────────────────────────────────────────────── */}
+      <mesh position={[-12, 5.5, 0]} castShadow receiveShadow>
+        <boxGeometry args={[4, 11, 14]} />
+        <meshStandardMaterial color="#d2c8ac" roughness={0.7} metalness={0.04} />
+      </mesh>
+      <mesh position={[-12, 11.4, 0]} castShadow>
+        <boxGeometry args={[5.2, 0.7, 15.2]} />
+        <meshStandardMaterial color="#c0b89a" roughness={0.75} />
+      </mesh>
+      <mesh position={[12, 5.5, 0]} castShadow receiveShadow>
+        <boxGeometry args={[4, 11, 14]} />
+        <meshStandardMaterial color="#d2c8ac" roughness={0.7} metalness={0.04} />
+      </mesh>
+      <mesh position={[12, 11.4, 0]} castShadow>
+        <boxGeometry args={[5.2, 0.7, 15.2]} />
+        <meshStandardMaterial color="#c0b89a" roughness={0.75} />
+      </mesh>
+
+      {/* ── Portico — north-facing (−Z) ────────────────────────────────────── */}
+      {/* Portico base platform */}
+      <mesh position={[0, 1, -10.5]} receiveShadow>
+        <boxGeometry args={[22, 2, 2]} />
+        <meshStandardMaterial color="#bfb8a0" roughness={0.82} />
+      </mesh>
+
+      {/* 6 Doric columns */}
+      {porticoXs.map((xo, i) => (
+        <mesh key={`col-${i}`} position={[xo, 10, -10.5]} castShadow>
+          <cylinderGeometry args={[0.52, 0.65, 20, 12]} />
+          <meshStandardMaterial color="#ece4d0" roughness={0.75} metalness={0.03} />
+        </mesh>
+      ))}
+      {/* Column capitals */}
+      {porticoXs.map((xo, i) => (
+        <mesh key={`cap-${i}`} position={[xo, 20.4, -10.5]}>
+          <boxGeometry args={[1.5, 0.8, 1.5]} />
+          <meshStandardMaterial color="#e8e0cc" roughness={0.7} />
         </mesh>
       ))}
 
-      {/* Pediment / triangular gable */}
-      <mesh position={[0, 12.5, -9.4]} castShadow>
-        <boxGeometry args={[15, 2.5, 0.5]} />
-        <meshStandardMaterial color="#c2b8a5" roughness={0.65} />
+      {/* Entablature (horizontal beam over columns) */}
+      <mesh position={[0, 21.5, -10.5]} castShadow>
+        <boxGeometry args={[22.5, 2.2, 1.3]} />
+        <meshStandardMaterial color="#d4ccb8" roughness={0.7} metalness={0.04} />
       </mesh>
 
-      {/* Entrance steps (south) */}
-      {([0, 1, 2] as number[]).map((step) => (
-        <mesh key={step} position={[0, step * 0.4, -9 - step * 0.7]} receiveShadow>
-          <boxGeometry args={[12 - step * 1.5, 0.4, 1.2]} />
-          <meshStandardMaterial color="#ccc5b2" roughness={0.85} />
+      {/* Triangular pediment */}
+      <mesh position={[0, 24, -10.4]} castShadow>
+        <boxGeometry args={[22.5, 4.5, 1.1]} />
+        <meshStandardMaterial color="#ccc5aa" roughness={0.7} />
+      </mesh>
+      {/* Pediment base cornice */}
+      <mesh position={[0, 22.5, -10.9]}>
+        <boxGeometry args={[23, 0.4, 0.4]} />
+        <meshStandardMaterial color="#b8b0a0" roughness={0.8} />
+      </mesh>
+
+      {/* ── Entrance steps (4 steps toward −Z / plaza) ────────────────────── */}
+      <mesh position={[0, 1.75, -10.5]} receiveShadow>
+        <boxGeometry args={[14, 0.5, 1.5]} />
+        <meshStandardMaterial color="#b0a898" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 1.25, -12]} receiveShadow>
+        <boxGeometry args={[17, 0.5, 1.5]} />
+        <meshStandardMaterial color="#b0a898" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 0.75, -13.5]} receiveShadow>
+        <boxGeometry args={[20, 0.5, 1.5]} />
+        <meshStandardMaterial color="#b0a898" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 0.25, -15]} receiveShadow>
+        <boxGeometry args={[23, 0.5, 1.5]} />
+        <meshStandardMaterial color="#b0a898" roughness={0.85} />
+      </mesh>
+
+      {/* ── Entrance doors (on north face, relative Z=−10) ────────────────── */}
+      {/* Door frame — surrounds the opening, doors left open for interior visibility */}
+      <mesh position={[0, 4.3, -10.3]}>
+        <boxGeometry args={[7.2, 8.8, 0.16]} />
+        <meshStandardMaterial color="#7a5520" roughness={0.6} metalness={0.12} />
+      </mesh>
+      {/* Left door panel — open inward (visible on interior west wall) */}
+      <mesh position={[-4.5, 4.1, -9.5]}>
+        <boxGeometry args={[0.12, 7.6, 2.8]} />
+        <meshStandardMaterial color="#2d1505" roughness={0.85} metalness={0} />
+      </mesh>
+      {/* Right door panel — open inward */}
+      <mesh position={[4.5, 4.1, -9.5]}>
+        <boxGeometry args={[0.12, 7.6, 2.8]} />
+        <meshStandardMaterial color="#2d1505" roughness={0.85} metalness={0} />
+      </mesh>
+
+      {/* ── Windows — south face (Z=+10.55, outside new south panel) ──────── */}
+      {([-6, -2, 2, 6] as const).flatMap(x =>
+        ([4, 9, 14] as const).map(y => (
+          <mesh key={`sw-${x}-${y}`} position={[x, y, 10.55]}>
+            <boxGeometry args={[2.4, 3.5, 0.1]} />
+            <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.55} roughness={0.12} metalness={0.15} />
+          </mesh>
+        ))
+      )}
+
+      {/* ── Windows — east face (X=+10.55, outside new east panel) ─────────── */}
+      {([-5, 0, 5] as const).flatMap(z =>
+        ([5, 11] as const).map(y => (
+          <mesh key={`ew-${z}-${y}`} position={[10.55, y, z]}>
+            <boxGeometry args={[0.1, 3.2, 2.4]} />
+            <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.5} roughness={0.12} metalness={0.15} />
+          </mesh>
+        ))
+      )}
+
+      {/* ── Windows — west face (X=−10.55, outside new west panel) ─────────── */}
+      {([-5, 0, 5] as const).flatMap(z =>
+        ([5, 11] as const).map(y => (
+          <mesh key={`ww-${z}-${y}`} position={[-10.55, y, z]}>
+            <boxGeometry args={[0.1, 3.2, 2.4]} />
+            <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.5} roughness={0.12} metalness={0.15} />
+          </mesh>
+        ))
+      )}
+
+      {/* ── Windows — north face above door (Z=−10.55, outside north-top panel) */}
+      {([-4, 4] as const).map((x, i) => (
+        <mesh key={`nw-${i}`} position={[x, 16.5, -10.55]}>
+          <boxGeometry args={[2.5, 3.5, 0.1]} />
+          <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.4} roughness={0.12} />
         </mesh>
       ))}
 
-      {/* Side wings */}
-      <mesh position={[-11, 4.5, 0]} castShadow receiveShadow>
-        <boxGeometry args={[4, 9, 10]} />
-        <meshStandardMaterial color="#c4ba9e" roughness={0.6} metalness={0.1} />
-      </mesh>
-      <mesh position={[11, 4.5, 0]} castShadow receiveShadow>
-        <boxGeometry args={[4, 9, 10]} />
-        <meshStandardMaterial color="#c4ba9e" roughness={0.6} metalness={0.1} />
+      {/* ── Windows — upper tier (all four faces) ────────────────────────── */}
+      {([-3.5, 3.5] as const).map((x, i) => (
+        <mesh key={`uts-${i}`} position={[x, 22.5, 7.1]}>
+          <boxGeometry args={[2.5, 3, 0.1]} />
+          <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.6} roughness={0.12} />
+        </mesh>
+      ))}
+      {([-3.5, 3.5] as const).map((x, i) => (
+        <mesh key={`utn-${i}`} position={[x, 22.5, -7.1]}>
+          <boxGeometry args={[2.5, 3, 0.1]} />
+          <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.6} roughness={0.12} />
+        </mesh>
+      ))}
+      {([7.1, -7.1] as const).map((x, i) => (
+        <mesh key={`utew-${i}`} position={[x, 22.5, 0]}>
+          <boxGeometry args={[0.1, 3, 2.5]} />
+          <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.6} roughness={0.12} />
+        </mesh>
+      ))}
+
+      {/* ── Windows — wing outer faces ────────────────────────────────────── */}
+      {([-14.1, 14.1] as const).flatMap((xf, wi) =>
+        ([-3.5, 3.5] as const).flatMap(z =>
+          ([4, 8] as const).map(y => (
+            <mesh key={`wgw-${wi}-${z}-${y}`} position={[xf, y, z]}>
+              <boxGeometry args={[0.1, 2.3, 2.3]} />
+              <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.45} roughness={0.15} />
+            </mesh>
+          ))
+        )
+      )}
+      {/* Wing front-face windows (north face of wings, Z=−7) */}
+      {([-12, 12] as const).flatMap((xc, wi) =>
+        ([4, 8] as const).map(y => (
+          <mesh key={`wgfr-${wi}-${y}`} position={[xc, y, -7.1]}>
+            <boxGeometry args={[3, 2.5, 0.1]} />
+            <meshStandardMaterial color="#88aacc" emissive="#aaccff" emissiveIntensity={0.45} roughness={0.15} />
+          </mesh>
+        ))
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          INTERIOR LOBBY (visible through entrance opening)
+          Lobby tiles: ty=42-44, tx=43-45 → rel X −6 to +6, rel Z −10 to +2
+      ══════════════════════════════════════════════════════════════════════ */}
+
+      {/* Marble floor */}
+      <mesh position={[0, 0.07, -4]} receiveShadow>
+        <boxGeometry args={[12, 0.14, 12]} />
+        <meshStandardMaterial color="#f0ece0" roughness={0.2} metalness={0.05} />
       </mesh>
 
-      {/* Sign board above entrance */}
-      <mesh position={[0, 9.5, -9.7]}>
-        <boxGeometry args={[8, 1.2, 0.15]} />
-        <meshStandardMaterial color="#1a2e4a" emissive="#1a3a6a" emissiveIntensity={0.5} roughness={0.5} />
+      {/* Interior ceiling */}
+      <mesh position={[0, 8.15, -4]}>
+        <boxGeometry args={[12, 0.22, 12]} />
+        <meshStandardMaterial color="#e8e4d8" roughness={0.8} />
       </mesh>
 
-      {/* Warm entrance glow */}
-      <pointLight position={[0, 4, -9]} color="#ffe8aa" intensity={2.5} distance={14} decay={2} />
-      <pointLight position={[0, 26, 0]} color="#a0c8ff" intensity={3} distance={30} decay={2} />
+      {/* Interior side walls */}
+      <mesh position={[-6.1, 4.5, -4]}>
+        <boxGeometry args={[0.4, 10, 12]} />
+        <meshStandardMaterial color="#ddd5c0" roughness={0.78} />
+      </mesh>
+      <mesh position={[6.1, 4.5, -4]}>
+        <boxGeometry args={[0.4, 10, 12]} />
+        <meshStandardMaterial color="#ddd5c0" roughness={0.78} />
+      </mesh>
+
+      {/* Interior columns — front pair (near entrance) */}
+      {([-4.5, 4.5] as const).map((x, i) => (
+        <mesh key={`ic-f-${i}`} position={[x, 4.5, -7]} castShadow>
+          <cylinderGeometry args={[0.42, 0.5, 9, 10]} />
+          <meshStandardMaterial color="#ddd8cc" roughness={0.7} metalness={0.04} />
+        </mesh>
+      ))}
+
+      {/* Interior columns — back pair */}
+      {([-4.5, 4.5] as const).map((x, i) => (
+        <mesh key={`ic-b-${i}`} position={[x, 4.5, -1]} castShadow>
+          <cylinderGeometry args={[0.42, 0.5, 9, 10]} />
+          <meshStandardMaterial color="#ddd8cc" roughness={0.7} metalness={0.04} />
+        </mesh>
+      ))}
+
+      {/* Interior back wall */}
+      <mesh position={[0, 4.5, 2.6]}>
+        <boxGeometry args={[12, 10, 0.4]} />
+        <meshStandardMaterial color="#ddd5c0" roughness={0.78} />
+      </mesh>
+      {/* Back wall high windows */}
+      {([-3, 3] as const).map((x, i) => (
+        <mesh key={`bww-${i}`} position={[x, 7.8, 2.7]}>
+          <boxGeometry args={[2.8, 4, 0.08]} />
+          <meshStandardMaterial color="#c8dff0" emissive="#c8dff0" emissiveIntensity={0.52} roughness={0.12} />
+        </mesh>
+      ))}
+
+      {/* Interior high side windows (daylight) */}
+      <mesh position={[-5.95, 7.5, -4]}>
+        <boxGeometry args={[0.08, 3.5, 4]} />
+        <meshStandardMaterial color="#ddeeff" emissive="#ddeeff" emissiveIntensity={0.4} roughness={0.12} />
+      </mesh>
+      <mesh position={[5.95, 7.5, -4]}>
+        <boxGeometry args={[0.08, 3.5, 4]} />
+        <meshStandardMaterial color="#ddeeff" emissive="#ddeeff" emissiveIntensity={0.4} roughness={0.12} />
+      </mesh>
+
+      {/* Reception / service counter */}
+      <mesh position={[0, 1.25, 1.2]} castShadow>
+        <boxGeometry args={[7.5, 2.5, 1.5]} />
+        <meshStandardMaterial color="#4a2e10" roughness={0.75} metalness={0} />
+      </mesh>
+      <mesh position={[0, 2.55, 1.2]}>
+        <boxGeometry args={[7.8, 0.12, 1.7]} />
+        <meshStandardMaterial color="#3a2008" roughness={0.55} metalness={0.06} />
+      </mesh>
+
+      {/* Chandelier */}
+      <mesh position={[0, 7.9, -4]}>
+        <cylinderGeometry args={[0.12, 0.12, 1.1, 6]} />
+        <meshStandardMaterial color="#c8a840" metalness={0.6} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 7.2, -4]}>
+        <cylinderGeometry args={[1.3, 0.9, 0.55, 10]} />
+        <meshStandardMaterial color="#c8a840" metalness={0.6} roughness={0.25} emissive="#aa8030" emissiveIntensity={0.6} />
+      </mesh>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          PLAZA & FORECOURT
+          Plaza tiles: gy=34-38 → group-relative Z −42 to −22 (center −32, size 20).
+          Road gy=40 (rel Z −18 to −14) left uncovered — shows normal road texture.
+          Sidewalks gy=39, 41 also left uncovered by regular ground canvas.
+      ══════════════════════════════════════════════════════════════════════ */}
+
+      {/* Main plaza stone floor — covers only plaza tiles gy=34-38 */}
+      <mesh position={[0, 0.05, -32]} receiveShadow>
+        <boxGeometry args={[22, 0.1, 20]} />
+        <meshStandardMaterial color="#b8b2a5" roughness={0.88} metalness={0} />
+      </mesh>
+
+      {/* Left boundary wall — trimmed to plaza extent */}
+      <mesh position={[-11.2, 0.9, -32]} castShadow>
+        <boxGeometry args={[0.35, 1.8, 20]} />
+        <meshStandardMaterial color="#9a9288" roughness={0.8} metalness={0.05} />
+      </mesh>
+      {/* Right boundary wall — trimmed to plaza extent */}
+      <mesh position={[11.2, 0.9, -32]} castShadow>
+        <boxGeometry args={[0.35, 1.8, 20]} />
+        <meshStandardMaterial color="#9a9288" roughness={0.8} metalness={0.05} />
+      </mesh>
+
+      {/* North gate posts */}
+      <mesh position={[-5, 2.5, -43]} castShadow>
+        <boxGeometry args={[1.1, 5, 1.1]} />
+        <meshStandardMaterial color="#c8c0a8" roughness={0.7} />
+      </mesh>
+      <mesh position={[5, 2.5, -43]} castShadow>
+        <boxGeometry args={[1.1, 5, 1.1]} />
+        <meshStandardMaterial color="#c8c0a8" roughness={0.7} />
+      </mesh>
+      <mesh position={[-5, 5.5, -43]}>
+        <sphereGeometry args={[0.75, 8, 6]} />
+        <meshStandardMaterial color="#b8a060" roughness={0.55} metalness={0.25} />
+      </mesh>
+      <mesh position={[5, 5.5, -43]}>
+        <sphereGeometry args={[0.75, 8, 6]} />
+        <meshStandardMaterial color="#b8a060" roughness={0.55} metalness={0.25} />
+      </mesh>
+
+      {/* Flag poles × 2 */}
+      <mesh position={[-7.5, 9, -32]}>
+        <cylinderGeometry args={[0.09, 0.09, 18, 6]} />
+        <meshStandardMaterial color="#c0c0c0" metalness={0.55} roughness={0.3} />
+      </mesh>
+      <mesh position={[7.5, 9, -32]}>
+        <cylinderGeometry args={[0.09, 0.09, 18, 6]} />
+        <meshStandardMaterial color="#c0c0c0" metalness={0.55} roughness={0.3} />
+      </mesh>
+      <mesh position={[-6, 17.5, -32]}>
+        <boxGeometry args={[3, 2, 0.05]} />
+        <meshStandardMaterial color="#e63946" emissive="#aa0010" emissiveIntensity={0.15} roughness={0.9} />
+      </mesh>
+      <mesh position={[9, 17.5, -32]}>
+        <boxGeometry args={[3, 2, 0.05]} />
+        <meshStandardMaterial color="#003087" emissive="#001e6e" emissiveIntensity={0.12} roughness={0.9} />
+      </mesh>
+
+      {/* Plaza lamp posts × 2 — moved into plaza (Z=−28), away from road */}
+      <mesh position={[-8, 3.5, -28]}>
+        <cylinderGeometry args={[0.13, 0.2, 7, 6]} />
+        <meshStandardMaterial color="#444455" roughness={0.5} metalness={0.3} />
+      </mesh>
+      <mesh position={[-8, 7.3, -28]}>
+        <boxGeometry args={[0.9, 0.9, 0.9]} />
+        <meshStandardMaterial color="#ffe090" emissive="#ffaa33" emissiveIntensity={2.5} roughness={0.4} metalness={0.2} />
+      </mesh>
+      <mesh position={[8, 3.5, -28]}>
+        <cylinderGeometry args={[0.13, 0.2, 7, 6]} />
+        <meshStandardMaterial color="#444455" roughness={0.5} metalness={0.3} />
+      </mesh>
+      <mesh position={[8, 7.3, -28]}>
+        <boxGeometry args={[0.9, 0.9, 0.9]} />
+        <meshStandardMaterial color="#ffe090" emissive="#ffaa33" emissiveIntensity={2.5} roughness={0.4} metalness={0.2} />
+      </mesh>
+
+      {/* ── Lighting ──────────────────────────────────────────────────────── */}
+      {/* Entrance warm glow */}
+      <pointLight position={[0, 5, -12]} color="#ffe8aa" intensity={3.5} distance={18} decay={2} />
+      {/* Interior chandelier */}
+      <pointLight position={[0, 6.5, -4]} color="#ffe8cc" intensity={3.2} distance={12} decay={2} />
+      {/* Interior wall sconces */}
+      <pointLight position={[-4.5, 4, -6]} color="#ffddaa" intensity={1.6} distance={8} decay={2} />
+      <pointLight position={[4.5, 4, -6]} color="#ffddaa" intensity={1.6} distance={8} decay={2} />
+      {/* Dome accent */}
+      <pointLight position={[0, 32, 0]} color="#a0c8ff" intensity={3.5} distance={35} decay={2} />
+      {/* Plaza lamps — matched to moved lamp posts at Z=−28 */}
+      <pointLight position={[-8, 7, -28]} color="#ffcc66" intensity={2.5} distance={15} decay={2} />
+      <pointLight position={[8, 7, -28]} color="#ffcc66" intensity={2.5} distance={15} decay={2} />
     </group>
   );
 }

@@ -88,6 +88,21 @@ export function generateWorld(seed = 42): WorldData {
   const heliBy = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2);
   blockTypes.set(heliBx * 1000 + heliBy, 'commercial');
 
+  // Small parks immediately surrounding the town hall (dist-1 blocks only)
+  // Dist-2+ blocks keep their natural commercial/residential character (buildings)
+  const thBx = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2); // 5
+  const thBy = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2); // 5
+  const civicParks: [number, number][] = [
+    [thBx - 1, thBy - 1], // NW of plaza  (dist 1)
+    [thBx - 1, thBy],     // W  of building (dist 1)
+    [thBx + 1, thBy - 1], // NE of plaza  (dist 1)
+    [thBx + 1, thBy],     // E  of building (dist 1)
+    [thBx,     thBy + 1], // S  of building (dist 1)
+  ];
+  for (const [bx, by] of civicParks) {
+    if (bx >= 0 && by >= 0) blockTypes.set(bx * 1000 + by, 'park');
+  }
+
   // Shop assignment tracker (one shop per block face on road)
   const shopBlocks = new Set<number>();
   // Assign ~30% of commercial blocks to have shops
@@ -217,17 +232,23 @@ export function generateWorld(seed = 42): WorldData {
     helipads.push({ x: hpGx * TILE_SIZE + TILE_SIZE / 2, y: hpGy * TILE_SIZE + TILE_SIZE / 2 });
   }
 
-  // ─── Town Hall: stamp a large civic building at exact world center ───────────
-  const thCenterGx = Math.floor(GRID_SIZE / 2);
-  const thCenterGy = Math.floor(GRID_SIZE / 2);
-  // Stamp a 5×5 tile footprint of TOWN_HALL type (skip roads/intersections)
-  for (let dy = 1; dy <= 5; dy++) {
-    for (let dx = 1; dx <= 5; dx++) {
+  // ─── Town Hall: two-block civic campus at world centre ────────────────────
+  // Layout (tile coords, thCenter = 40,40):
+  //   Building block  (south): tx=41-47, ty=42-46  → TOWN_HALL (solid)
+  //   Lobby entrance           tx=43-45, ty=42-44  → TOWN_HALL_INTERIOR (walkable)
+  //   Plaza / forecourt:       tx=42-46, ty=34-38  → TOWN_HALL_PLAZA (walkable)
+  //   Road at ty=40 is preserved as ROAD_H — vehicles and players cross in front of building.
+  const thCenterGx = Math.floor(GRID_SIZE / 2); // 40
+  const thCenterGy = Math.floor(GRID_SIZE / 2); // 40
+
+  // 1. Building body: full tile range of south block (ty=42-46, tx=41-47)
+  for (let dy = 2; dy <= 6; dy++) {
+    for (let dx = 1; dx <= 7; dx++) {
       const tx = thCenterGx + dx;
       const ty = thCenterGy + dy;
       if (tx >= GRID_SIZE || ty >= GRID_SIZE) continue;
-      const tile = grid[ty][tx];
-      if (tile.type === TileType.ROAD_H || tile.type === TileType.ROAD_V || tile.type === TileType.INTERSECTION) continue;
+      const t = grid[ty][tx];
+      if (t.type === TileType.ROAD_V || t.type === TileType.ROAD_H || t.type === TileType.INTERSECTION) continue;
       grid[ty][tx] = {
         type: TileType.TOWN_HALL,
         floors: 8,
@@ -237,9 +258,38 @@ export function generateWorld(seed = 42): WorldData {
       };
     }
   }
+
+  // 2. Lobby entrance: walkable interior tiles (ty=42-44, tx=43-45)
+  for (let dy = 2; dy <= 4; dy++) {
+    for (let dx = 3; dx <= 5; dx++) {
+      const tx = thCenterGx + dx;
+      const ty = thCenterGy + dy;
+      if (tx >= GRID_SIZE || ty >= GRID_SIZE) continue;
+      grid[ty][tx] = {
+        type: TileType.TOWN_HALL_INTERIOR,
+        floors: 8,
+        buildingType: BuildingType.OFFICE,
+        colorSeed: 999,
+        blockId: 9999,
+      };
+    }
+  }
+
+  // 3. Plaza forecourt: inner tiles of north block (ty=34-38, tx=42-46)
+  for (let dy = -6; dy <= -2; dy++) {
+    for (let dx = 2; dx <= 6; dx++) {
+      const tx = thCenterGx + dx;
+      const ty = thCenterGy + dy;
+      if (tx >= GRID_SIZE || ty < 0) continue;
+      const t = grid[ty][tx];
+      if (t.type === TileType.ROAD_V || t.type === TileType.ROAD_H || t.type === TileType.INTERSECTION) continue;
+      grid[ty][tx] = { type: TileType.TOWN_HALL_PLAZA, blockId: 9999 };
+    }
+  }
+
   const townHallPos: Point = {
-    x: (thCenterGx + 3) * TILE_SIZE + TILE_SIZE / 2,
-    y: (thCenterGy + 3) * TILE_SIZE + TILE_SIZE / 2,
+    x: (thCenterGx + 4) * TILE_SIZE + TILE_SIZE / 2, // tile 44 → 1780
+    y: (thCenterGy + 4) * TILE_SIZE + TILE_SIZE / 2, // tile 44 → 1780
   };
 
   return { grid, helipads, shopPositions, roadTiles, spawnPoints, townHallPos };
@@ -251,7 +301,8 @@ export function getZoneName(grid: Tile[][], wx: number, wy: number): string {
   if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return '城市外';
   const tile = grid[gy]?.[gx];
   if (!tile) return '未知區域';
-  if (tile.type === TileType.TOWN_HALL) return '城鎮中心辦事處';
+  if (tile.type === TileType.TOWN_HALL || tile.type === TileType.TOWN_HALL_INTERIOR) return '城鎮中心辦事處';
+  if (tile.type === TileType.TOWN_HALL_PLAZA) return '市政廣場';
   if (tile.type === TileType.HELIPAD) return '直升機停機坪';
   if (tile.type === TileType.PARK) return '公園區';
   if (tile.type === TileType.ROAD_H || tile.type === TileType.ROAD_V || tile.type === TileType.INTERSECTION) return '道路';
@@ -272,7 +323,10 @@ export function getTileAt(grid: Tile[][], wx: number, wy: number): Tile | null {
 export function isWalkable(grid: Tile[][], wx: number, wy: number): boolean {
   const tile = getTileAt(grid, wx, wy);
   if (!tile) return false;
-  return tile.type !== TileType.BUILDING && tile.type !== TileType.HELIPAD;
+  // TOWN_HALL_PLAZA and TOWN_HALL_INTERIOR are walkable; TOWN_HALL is solid
+  return tile.type !== TileType.BUILDING
+    && tile.type !== TileType.HELIPAD
+    && tile.type !== TileType.TOWN_HALL;
 }
 
 export function isDrivable(grid: Tile[][], wx: number, wy: number): boolean {

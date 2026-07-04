@@ -397,7 +397,10 @@ export class GameEngine3D {
     const gy = Math.floor(wy / TILE_SIZE);
     if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return true;
     const tile = this.world.grid[gy]?.[gx];
-    return tile?.type === TileType.BUILDING || tile?.type === TileType.HELIPAD || tile?.type === TileType.TOWN_HALL;
+    // TOWN_HALL_INTERIOR and TOWN_HALL_PLAZA are walkable — only TOWN_HALL is solid
+    return tile?.type === TileType.BUILDING
+      || tile?.type === TileType.HELIPAD
+      || tile?.type === TileType.TOWN_HALL;
   }
 
   addNotification(text: string, color = '#fff') {
@@ -506,7 +509,7 @@ export class GameEngine3D {
       playerY: Math.round(player.y),
       notifications: [...notifications],
       vehicleAltitude: curVeh?.altitude,
-      nearTownHall: dist(player.x, player.y, this.world.townHallPos.x, this.world.townHallPos.y) < 130,
+      nearTownHall: dist(player.x, player.y, this.world.townHallPos.x, this.world.townHallPos.y) < 220,
       callLog: [...this.callLog],
     };
     this.hudCallback(data);

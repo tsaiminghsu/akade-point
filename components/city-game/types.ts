@@ -25,6 +25,8 @@ export enum TileType {
   PARKING = 'PARKING',
   HELIPAD = 'HELIPAD',
   TOWN_HALL = 'TOWN_HALL',
+  TOWN_HALL_PLAZA = 'TOWN_HALL_PLAZA',   // civic grounds — walkable, not drivable
+  TOWN_HALL_INTERIOR = 'TOWN_HALL_INTERIOR', // lobby — walkable, enclosed
 }
 
 export enum BuildingType {
@@ -80,6 +82,10 @@ export interface Vehicle {
   // npc traffic state
   npcState?: 'driving' | 'stopped' | 'waiting';
   waitTimer?: number;
+  // stuck detection
+  stuckCheckX?: number;
+  stuckCheckY?: number;
+  stuckCheckTimer?: number;
   // service
   isService?: boolean;
 }
