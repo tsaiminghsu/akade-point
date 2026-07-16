@@ -295,10 +295,10 @@ const SERIES_4_CARDS: CardDetail[] = [
 ];
 
 const TIERS = [
-  { id: "SMALL", name: "小禮", desc: "任意 2 張 N 卡", bonus: "+50 點遊戲" },
-  { id: "MEDIUM", name: "中禮", desc: "2N + 1R", bonus: "+150 點遊戲" },
-  { id: "LARGE", name: "大禮", desc: "2N + 2R + 1SR", bonus: "+400 點遊戲" },
-  { id: "SSR_COMPLETE", name: "SSR 傳說卡", desc: "完整套組", bonus: "機器人之王 + 1000 點遊戲" },
+  { id: "SMALL", name: "小禮", desc: "任意 2 張 N 卡", bonus: "+5 點遊戲點數" },
+  { id: "MEDIUM", name: "中禮", desc: "2N + 1R", bonus: "+15 點遊戲點數" },
+  { id: "LARGE", name: "大禮", desc: "2N + 2R + 1SR", bonus: "+40 點遊戲點數" },
+  { id: "SSR_COMPLETE", name: "SSR 傳說卡", desc: "2N + 2R + 1SR", bonus: "機器人之王 + 100 點遊戲點數" },
 ] as const;
 
 export default function CollectionPage() {
