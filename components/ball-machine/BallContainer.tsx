@@ -1,7 +1,6 @@
 "use client";
 import { useMemo } from "react";
 import * as THREE from "three";
-import { RigidBody, CuboidCollider } from "@react-three/rapier";
 import { calcContainerSize, CONTAINER_H } from "./BallMachineGame";
 import { HOLE_SPACING, BALL_R, FLOOR_T, WALL_T } from "./constants";
 
@@ -58,23 +57,7 @@ export default function BallContainer({ cols, rows }: BallContainerProps) {
 
   return (
     <group>
-      {/* ── Static physics colliders ─────────────────────────────────────── */}
-      <RigidBody type="fixed" colliders={false}>
-        {/* Floor */}
-        <CuboidCollider args={[W / 2, FLOOR_T / 2, D / 2]} position={[0, FLOOR_T / 2, 0]} restitution={0.10} friction={0.9} />
-        {/* Back wall */}
-        <CuboidCollider args={[W / 2, H / 2, WALL_T / 2]} position={[0, H / 2, -D / 2 + WALL_T / 2]} restitution={0.4} friction={0.5} />
-        {/* Front wall */}
-        <CuboidCollider args={[W / 2, H / 2, WALL_T / 2]} position={[0, H / 2, D / 2 - WALL_T / 2]} restitution={0.4} friction={0.5} />
-        {/* Left wall */}
-        <CuboidCollider args={[WALL_T / 2, H / 2, D / 2]} position={[-W / 2 + WALL_T / 2, H / 2, 0]} restitution={0.4} friction={0.5} />
-        {/* Right wall */}
-        <CuboidCollider args={[WALL_T / 2, H / 2, D / 2]} position={[W / 2 - WALL_T / 2, H / 2, 0]} restitution={0.4} friction={0.5} />
-        {/* Lid */}
-        <CuboidCollider args={[W / 2, WALL_T / 2, D / 2]} position={[0, H - WALL_T / 2, 0]} restitution={0.3} friction={0.5} />
-      </RigidBody>
-
-      {/* ── Visual meshes (unchanged) ─────────────────────────────────────── */}
+      {/* ── Visual meshes ─────────────────────────────────────────────────── */}
       {/* Floor tray */}
       <mesh position={[0, FLOOR_T / 2, 0]} receiveShadow>
         <boxGeometry args={[W, FLOOR_T, D]} />
