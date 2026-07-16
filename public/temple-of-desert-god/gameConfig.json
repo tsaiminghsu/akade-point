@@ -1,0 +1,125 @@
+{
+  "version": "1.0.0",
+  "rtp": 0.96,
+  "grid": { "reels": 5, "rows": 4 },
+  "paylines": 40,
+  "betLevels": [1, 2, 5, 10, 20, 50, 100],
+  "defaultBetLevel": 1,
+  "maxCascades": 20,
+  "winThresholds": {
+    "bigWin": 10,
+    "megaWin": 30,
+    "epicWin": 100,
+    "legendaryWin": 500
+  },
+  "paytable": [
+    { "symbolId": "SAPPHIRE",      "payouts": { "3": 0.5,  "4": 1.0,  "5": 2.5   } },
+    { "symbolId": "EMERALD",       "payouts": { "3": 0.6,  "4": 1.2,  "5": 3.0   } },
+    { "symbolId": "RUBY",          "payouts": { "3": 0.7,  "4": 1.5,  "5": 3.5   } },
+    { "symbolId": "GOLD_RING",     "payouts": { "3": 0.8,  "4": 2.0,  "5": 5.0   } },
+    { "symbolId": "GOLD_NECKLACE", "payouts": { "3": 1.0,  "4": 2.5,  "5": 7.5   } },
+    { "symbolId": "PHARAOH",       "payouts": { "3": 2.5,  "4": 10.0, "5": 25.0  } },
+    { "symbolId": "GODDESS",       "payouts": { "3": 5.0,  "4": 15.0, "5": 40.0  } },
+    { "symbolId": "WAR_GOD",       "payouts": { "3": 7.5,  "4": 25.0, "5": 75.0  } },
+    { "symbolId": "IDOL",          "payouts": { "3": 10.0, "4": 50.0, "5": 200.0 } }
+  ],
+  "scatterPayouts": {
+    "4": 5,
+    "5": 20,
+    "6": 100
+  },
+  "freeSpinCounts": {
+    "4": 15,
+    "5": 20,
+    "6": 25
+  },
+  "wildMultiplierWeights": {
+    "2":  50,
+    "3":  30,
+    "5":  15,
+    "10":  5
+  },
+  "godPowerWeights": {
+    "STICKY_WILD":       35,
+    "EXPANDING_WILD":    30,
+    "RANDOM_MULTIPLIER": 25,
+    "EXTRA_SPIN":        10
+  },
+  "reelStrips": [
+    {
+      "reelIdx": 0,
+      "strip": [
+        "SAPPHIRE","EMERALD","SAPPHIRE","RUBY","GOLD_RING","EMERALD",
+        "SAPPHIRE","GOLD_NECKLACE","EMERALD","RUBY","SAPPHIRE","PHARAOH",
+        "EMERALD","SAPPHIRE","RUBY","GOLD_RING","SAPPHIRE","GODDESS",
+        "EMERALD","RUBY","SAPPHIRE","GOLD_NECKLACE","EMERALD","PHARAOH",
+        "SAPPHIRE","RUBY","EMERALD","WAR_GOD","SAPPHIRE","GOLD_RING",
+        "EMERALD","RUBY","SAPPHIRE","IDOL","EMERALD","GOLD_NECKLACE",
+        "RUBY","SAPPHIRE","GOLDEN_SUN","EMERALD","RUBY","GOLD_RING",
+        "SAPPHIRE","EMERALD","RUBY","PHARAOH","SAPPHIRE","GOLD_NECKLACE",
+        "EMERALD","RUBY","SAPPHIRE","TEMPLE_ENTRANCE","EMERALD","RUBY",
+        "SAPPHIRE","GOLD_RING","EMERALD","GODDESS","SAPPHIRE","RUBY"
+      ]
+    },
+    {
+      "reelIdx": 1,
+      "strip": [
+        "EMERALD","RUBY","SAPPHIRE","GOLD_RING","RUBY","EMERALD",
+        "GOLD_NECKLACE","SAPPHIRE","RUBY","EMERALD","PHARAOH","SAPPHIRE",
+        "RUBY","EMERALD","GOLD_RING","SAPPHIRE","RUBY","WAR_GOD",
+        "EMERALD","SAPPHIRE","RUBY","GOLD_NECKLACE","EMERALD","SAPPHIRE",
+        "RUBY","GOLD_RING","EMERALD","RUBY","IDOL","SAPPHIRE",
+        "EMERALD","RUBY","GOLD_NECKLACE","SAPPHIRE","GODDESS","EMERALD",
+        "RUBY","SAPPHIRE","GOLD_RING","EMERALD","GOLDEN_SUN","RUBY",
+        "SAPPHIRE","EMERALD","PHARAOH","RUBY","SAPPHIRE","GOLD_NECKLACE",
+        "EMERALD","RUBY","TEMPLE_ENTRANCE","SAPPHIRE","RUBY","EMERALD",
+        "GOLD_RING","SAPPHIRE","RUBY","PHARAOH","EMERALD","SAPPHIRE"
+      ]
+    },
+    {
+      "reelIdx": 2,
+      "strip": [
+        "RUBY","SAPPHIRE","EMERALD","PHARAOH","SAPPHIRE","RUBY",
+        "GOLD_RING","EMERALD","SAPPHIRE","RUBY","GODDESS","EMERALD",
+        "SAPPHIRE","RUBY","GOLD_NECKLACE","EMERALD","RUBY","SAPPHIRE",
+        "PHARAOH","EMERALD","RUBY","GOLD_RING","SAPPHIRE","RUBY",
+        "WAR_GOD","EMERALD","SAPPHIRE","RUBY","GOLD_NECKLACE","EMERALD",
+        "RUBY","IDOL","SAPPHIRE","EMERALD","RUBY","PHARAOH",
+        "SAPPHIRE","RUBY","EMERALD","GOLD_RING","RUBY","SAPPHIRE",
+        "GOLDEN_SUN","EMERALD","RUBY","SAPPHIRE","GOLD_NECKLACE","RUBY",
+        "EMERALD","SAPPHIRE","RUBY","TEMPLE_ENTRANCE","SAPPHIRE","EMERALD",
+        "RUBY","GOLD_RING","SAPPHIRE","RUBY","EMERALD","GODDESS"
+      ]
+    },
+    {
+      "reelIdx": 3,
+      "strip": [
+        "GOLD_RING","SAPPHIRE","RUBY","EMERALD","PHARAOH","RUBY",
+        "SAPPHIRE","GOLD_NECKLACE","EMERALD","RUBY","SAPPHIRE","GODDESS",
+        "RUBY","EMERALD","GOLD_RING","SAPPHIRE","RUBY","PHARAOH",
+        "EMERALD","SAPPHIRE","GOLD_NECKLACE","RUBY","EMERALD","WAR_GOD",
+        "SAPPHIRE","RUBY","EMERALD","GOLD_RING","RUBY","SAPPHIRE",
+        "IDOL","EMERALD","RUBY","GOLD_NECKLACE","SAPPHIRE","EMERALD",
+        "RUBY","GOLD_RING","SAPPHIRE","GOLDEN_SUN","RUBY","EMERALD",
+        "SAPPHIRE","PHARAOH","RUBY","EMERALD","GOLD_NECKLACE","SAPPHIRE",
+        "RUBY","EMERALD","SAPPHIRE","TEMPLE_ENTRANCE","RUBY","GOLD_RING",
+        "EMERALD","SAPPHIRE","RUBY","GODDESS","EMERALD","SAPPHIRE"
+      ]
+    },
+    {
+      "reelIdx": 4,
+      "strip": [
+        "GOLD_NECKLACE","RUBY","SAPPHIRE","EMERALD","GOLD_RING","SAPPHIRE",
+        "RUBY","PHARAOH","EMERALD","SAPPHIRE","RUBY","GOLD_NECKLACE",
+        "EMERALD","RUBY","GODDESS","SAPPHIRE","EMERALD","GOLD_RING",
+        "RUBY","SAPPHIRE","PHARAOH","EMERALD","RUBY","GOLD_NECKLACE",
+        "SAPPHIRE","WAR_GOD","EMERALD","RUBY","GOLD_RING","SAPPHIRE",
+        "RUBY","EMERALD","IDOL","SAPPHIRE","RUBY","GOLD_NECKLACE",
+        "EMERALD","SAPPHIRE","PHARAOH","RUBY","GOLDEN_SUN","EMERALD",
+        "SAPPHIRE","RUBY","GOLD_RING","EMERALD","PHARAOH","RUBY",
+        "SAPPHIRE","EMERALD","TEMPLE_ENTRANCE","RUBY","SAPPHIRE","GOLD_NECKLACE",
+        "EMERALD","RUBY","SAPPHIRE","GOLD_RING","RUBY","GODDESS"
+      ]
+    }
+  ]
+}
