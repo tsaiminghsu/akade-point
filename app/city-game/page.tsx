@@ -7,7 +7,7 @@ const CityGame = dynamic(() => import('@/components/city-game/CityGame'), {
   loading: () => <LoadingScreen progress={0} statusText="初始化 WebGL 3D 渲染引擎..." />,
 });
 
-export default function GtaCityPage() {
+export default function CityGamePage() {
   return <CityGame />;
 }
 

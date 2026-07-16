@@ -9,10 +9,14 @@ import { HUDData } from './types';
 import { toX3D, toZ3D, VehicleType, TILE_3D, GRID_SIZE, TILE_SIZE, Vehicle } from './types';
 import CityScene from './CityMesh';
 import { PlayerCar, PlayerCarHandle, NPCCars, NPCCarsHandle, HelicopterMesh } from './VehicleMeshes';
+import RaceGateMeshes from './RaceGateMeshes';
+import { getCourse } from './raceCourses';
 
 // Reusable temp objects (never recreate in hot loop)
 const tmpVec3  = new THREE.Vector3();
 const tmpVec3b = new THREE.Vector3();
+const fpvEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+const fpvQuat  = new THREE.Quaternion();
 
 // Camera config
 const CAM_DIST_CAR  = 13;
@@ -369,32 +373,82 @@ export default function GameScene({
     }
 
     // ─ Camera ─────────────────────────────────────────────────────────
-    const isDriving = player.state === 'inCar' || player.state === 'inHelicopter';
+    const isDriving = player.state === 'inCar' || player.state === 'inHelicopter' || player.state === 'inDrone';
     const droneVeh  = player.state === 'inDrone' && engine.drone.vehicleId
       ? engine.vehicles.get(engine.drone.vehicleId) : null;
 
-    let focusX = px3, focusZ = pz3, focusY = 0;
-    if (player.state === 'inHelicopter') {
-      const heli = engine.vehicles.get(player.currentVehicleId ?? '');
-      focusY = ((heli?.altitude ?? 0) * TILE_3D) / TILE_SIZE;
-    }
-    if (droneVeh) {
-      focusX = toX3D(droneVeh.x);
-      focusZ = toZ3D(droneVeh.y);
-      focusY = (droneVeh.altitude ?? 0) * TILE_3D / TILE_SIZE;
-    }
+    // ── FPV Race Camera ────────────────────────────────────────────────
+    const rs = engine.raceSession;
+    if (rs?.fpvMode && droneVeh && rs.phase !== 'idle') {
+      const dAngle = droneVeh.angle;
+      const dx = toX3D(droneVeh.x);
+      const dz = toZ3D(droneVeh.y);
+      const dy = (droneVeh.altitude ?? 0) * TILE_3D / TILE_SIZE;
 
-    const camDist   = isDriving ? CAM_DIST_CAR  : CAM_DIST_FOOT;
-    const camHeight = isDriving ? CAM_HEIGHT_CAR : CAM_HEIGHT_FOOT;
-    const camAngle  = -player.angle;
-    tmpVec3.set(
-      focusX + Math.sin(camAngle) * camDist,
-      focusY + camHeight,
-      focusZ + Math.cos(camAngle) * camDist
-    );
-    state.camera.position.lerp(tmpVec3, Math.min(1, delta * CAM_LERP));
-    tmpVec3b.set(focusX, focusY + 1.4, focusZ);
-    state.camera.lookAt(tmpVec3b);
+      // Position: slightly behind drone nose
+      const BACK = 0.25;
+      const camX = dx - Math.sin(dAngle) * BACK;
+      const camZ = dz + Math.cos(dAngle) * BACK;
+      const camY = dy + 0.12;
+
+      state.camera.position.lerp(tmpVec3.set(camX, camY, camZ), 0.85);
+
+      // Orientation: yaw + visual pitch/roll
+      const pitchTilt = engine.drone.pitch * -0.22;
+      const rollTilt  = engine.drone.roll  *  0.18;
+      fpvEuler.set(pitchTilt, -dAngle, rollTilt);
+      fpvQuat.setFromEuler(fpvEuler);
+      state.camera.quaternion.slerp(fpvQuat, 0.85);
+
+      // Dynamic FOV (70–95°)
+      const spd = Math.sqrt((engine.raceVx ?? 0) ** 2 + (engine.raceVy ?? 0) ** 2);
+      const targetFov = 70 + Math.min(1, spd / 320) * 25;
+      if (Math.abs((state.camera as THREE.PerspectiveCamera).fov - targetFov) > 0.5) {
+        (state.camera as THREE.PerspectiveCamera).fov = THREE.MathUtils.lerp(
+          (state.camera as THREE.PerspectiveCamera).fov, targetFov, 0.1,
+        );
+        (state.camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+      }
+
+      // Camera shake on crash
+      if (rs.cameraShake > 0) {
+        state.camera.position.x += (Math.random() - 0.5) * 0.2;
+        state.camera.position.y += (Math.random() - 0.5) * 0.12;
+        state.camera.position.z += (Math.random() - 0.5) * 0.2;
+      }
+    } else {
+      // ── Third-person camera ──────────────────────────────────────────
+      // Restore default FOV if coming out of FPV
+      if ((state.camera as THREE.PerspectiveCamera).fov !== 60) {
+        (state.camera as THREE.PerspectiveCamera).fov = THREE.MathUtils.lerp(
+          (state.camera as THREE.PerspectiveCamera).fov, 60, 0.05,
+        );
+        (state.camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+      }
+
+      let focusX = px3, focusZ = pz3, focusY = 0;
+      if (player.state === 'inHelicopter') {
+        const heli = engine.vehicles.get(player.currentVehicleId ?? '');
+        focusY = ((heli?.altitude ?? 0) * TILE_3D) / TILE_SIZE;
+      }
+      if (droneVeh) {
+        focusX = toX3D(droneVeh.x);
+        focusZ = toZ3D(droneVeh.y);
+        focusY = (droneVeh.altitude ?? 0) * TILE_3D / TILE_SIZE;
+      }
+
+      const camDist   = isDriving ? CAM_DIST_CAR  : CAM_DIST_FOOT;
+      const camHeight = isDriving ? CAM_HEIGHT_CAR : CAM_HEIGHT_FOOT;
+      const camAngle  = droneVeh ? -droneVeh.angle : -player.angle;
+      tmpVec3.set(
+        focusX + Math.sin(camAngle) * camDist,
+        focusY + camHeight,
+        focusZ + Math.cos(camAngle) * camDist,
+      );
+      state.camera.position.lerp(tmpVec3, Math.min(1, delta * CAM_LERP));
+      tmpVec3b.set(focusX, focusY + 1.4, focusZ);
+      state.camera.lookAt(tmpVec3b);
+    }
 
     // ─ Weather lerp (smooth transitions) ─────────────────────────────
     const L = Math.min(1, dt * 1.5); // lerp speed: full transition in ~0.7s
@@ -573,6 +627,13 @@ export default function GameScene({
           <meshStandardMaterial color="#ff3232" emissive="#ff1111" emissiveIntensity={2} transparent opacity={0.45} />
         </mesh>
       </group>
+
+      {/* ── Race gate meshes ─────────────────────────────────────── */}
+      <RaceGateMeshes
+        course={engine.raceSession ? getCourse(engine.raceSession.courseId) : null}
+        currentGateIndex={engine.raceSession?.currentGateIndex ?? 0}
+        phase={engine.raceSession?.phase ?? 'idle'}
+      />
     </>
   );
 }

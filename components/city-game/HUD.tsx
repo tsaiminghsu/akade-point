@@ -20,10 +20,11 @@ const statusColor: Record<OrderStatus, string> = {
 interface Props {
   data: HUDData;
   onPhone: () => void;
+  isMobile?: boolean;
   mapExpanded?: boolean;
 }
 
-export default function HUD({ data, onPhone }: Props) {
+export default function HUD({ data, onPhone, isMobile = false }: Props) {
   const { speedKMH, playerState, vehicleType, orders, drone, zone, playerX, playerY, notifications, vehicleAltitude } = data;
 
   const activeOrders = orders.filter(o => o.status !== 'completed');
@@ -67,36 +68,40 @@ export default function HUD({ data, onPhone }: Props) {
         )}
       </div>
 
-      {/* Bottom-left: controls hint */}
-      <div className="absolute bottom-3 left-3 pointer-events-none">
-        <div className="bg-black/60 backdrop-blur border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white/40 font-mono flex gap-3">
-          <span><kbd className="text-white/60">WASD</kbd> 移動</span>
-          <span><kbd className="text-white/60">F</kbd> 上/下車</span>
-          <button
-            className="pointer-events-auto text-amber-400 hover:text-amber-300 cursor-pointer"
-            onClick={onPhone}
-          >
-            <kbd className="text-white/60">P</kbd> 手機
-          </button>
-          <span><kbd className="text-white/60">M</kbd> 地圖</span>
-          {(playerState === 'inDrone' || playerState === 'inHelicopter') && (
-            <span><kbd className="text-white/60">Space</kbd>升 <kbd className="text-white/60">Q</kbd>降</span>
-          )}
+      {/* Bottom-left: controls hint — desktop only */}
+      {!isMobile && (
+        <div className="absolute bottom-3 left-3 pointer-events-none">
+          <div className="bg-black/60 backdrop-blur border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white/40 font-mono flex gap-3">
+            <span><kbd className="text-white/60">WASD</kbd> 移動</span>
+            <span><kbd className="text-white/60">F</kbd> 上/下車</span>
+            <button
+              className="pointer-events-auto text-amber-400 hover:text-amber-300 cursor-pointer"
+              onClick={onPhone}
+            >
+              <kbd className="text-white/60">P</kbd> 手機
+            </button>
+            <span><kbd className="text-white/60">M</kbd> 地圖</span>
+            {(playerState === 'inDrone' || playerState === 'inHelicopter') && (
+              <span><kbd className="text-white/60">Space</kbd>升 <kbd className="text-white/60">Q</kbd>降</span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Bottom-center: coordinates + zone */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none">
-        <div className="bg-black/60 backdrop-blur border border-white/10 rounded-lg px-3 py-1 text-[10px] text-white/40 font-mono text-center">
-          <span className="text-white/60">{zone}</span>
-          <span className="mx-2 text-white/20">|</span>
-          X:{playerX} Y:{playerY}
+      {/* Bottom-center: coordinates + zone — desktop only */}
+      {!isMobile && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="bg-black/60 backdrop-blur border border-white/10 rounded-lg px-3 py-1 text-[10px] text-white/40 font-mono text-center">
+            <span className="text-white/60">{zone}</span>
+            <span className="mx-2 text-white/20">|</span>
+            X:{playerX} Y:{playerY}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Bottom-right: active orders */}
+      {/* Bottom-right: active orders — shifted up on mobile to avoid action cluster */}
       {activeOrders.length > 0 && (
-        <div className="absolute bottom-12 right-3 flex flex-col gap-1 pointer-events-none">
+        <div className={`absolute ${isMobile ? 'bottom-36' : 'bottom-12'} right-3 flex flex-col gap-1 pointer-events-none`}>
           {activeOrders.map(order => (
             <div
               key={order.id}
@@ -119,7 +124,10 @@ export default function HUD({ data, onPhone }: Props) {
       )}
 
       {/* Notifications — top-right, slide in, auto-expire */}
-      <div className="absolute top-16 right-3 flex flex-col items-end gap-1.5 pointer-events-none" style={{ maxWidth: 280 }}>
+      <div
+        className="absolute top-16 right-3 flex flex-col items-end gap-1.5 pointer-events-none"
+        style={{ maxWidth: 'min(280px, calc(100vw - 24px))' }}
+      >
         {notifications.slice(-4).map(n => (
           <div
             key={n.id}
@@ -135,14 +143,16 @@ export default function HUD({ data, onPhone }: Props) {
         ))}
       </div>
 
-      {/* Phone button (floating) */}
-      <button
-        onClick={onPhone}
-        className="absolute bottom-3 right-3 w-10 h-10 bg-black/70 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-lg hover:border-amber-400/50 hover:bg-amber-950/30 transition-colors"
-        title="手機 (P)"
-      >
-        📱
-      </button>
+      {/* Phone button (floating) — desktop only; mobile has MobileControls quick strip */}
+      {!isMobile && (
+        <button
+          onClick={onPhone}
+          className="absolute bottom-3 right-3 w-10 h-10 bg-black/70 backdrop-blur border border-white/20 rounded-full flex items-center justify-center text-lg hover:border-amber-400/50 hover:bg-amber-950/30 transition-colors"
+          title="手機 (P)"
+        >
+          📱
+        </button>
+      )}
     </>
   );
 }

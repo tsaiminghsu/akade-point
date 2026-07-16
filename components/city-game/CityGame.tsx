@@ -11,6 +11,9 @@ import PhoneUI from './PhoneUI';
 import GameScene, { WeatherType } from './GameScene';
 import LoadingScreen from './LoadingScreen';
 import TownHallUI from './TownHallUI';
+import MobileControls from './MobileControls';
+import RaceHUD from './RaceHUD';
+import { getCourse } from './raceCourses';
 
 // ─── Weather cycle ────────────────────────────────────────────────────────────
 const WEATHER_CYCLE: WeatherType[] = [
@@ -92,6 +95,7 @@ export default function CityGame() {
   const [showTownHall, setShowTownHall] = useState(false);
   const [weatherIdx,   setWeatherIdx]  = useState(0);
   const [miniState,    setMiniState]   = useState<GameState | null>(null);
+  const [isMobile,     setIsMobile]    = useState(false);
 
   // ── Loading state ──────────────────────────────────────────────────────────
   const [loadProgress, setLoadProgress] = useState(0);
@@ -99,6 +103,15 @@ export default function CityGame() {
   const [loadVisible,  setLoadVisible]  = useState(true);
   const [loadFade,     setLoadFade]     = useState(false);
   const loadDone = useRef(false);
+
+  // ── Mobile detection ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   // Advance progress to the next phase above current value
   const advanceTo = useCallback((target: number, text: string) => {
@@ -157,6 +170,26 @@ export default function CityGame() {
   const onMapToggle     = useCallback(() => setMapExpanded(m => !m), []);
   const onWeatherCycle  = useCallback(() => setWeatherIdx(i => (i + 1) % WEATHER_CYCLE.length), []);
 
+  // ── Race callbacks ─────────────────────────────────────────────────────────
+  const onStartRace = useCallback((courseId: string) => {
+    engine.current.startRace(courseId);
+  }, []);
+  const onExitRace  = useCallback(() => { engine.current.exitRace(); }, []);
+  const onRetryRace = useCallback(() => { engine.current.retryRace(); }, []);
+
+  // Save best lap to localStorage when race finishes
+  useEffect(() => {
+    const rs = hud.raceSession;
+    if (!rs || rs.phase !== 'finished') return;
+    const course = getCourse(rs.courseId);
+    if (rs.bestLap <= 0) return;
+    const key = `race_best_${rs.courseId}`;
+    const prev = parseFloat(localStorage.getItem(key) ?? '0');
+    if (prev === 0 || rs.bestLap < prev) {
+      localStorage.setItem(key, String(rs.bestLap));
+    }
+  }, [hud.raceSession]);
+
   const weatherType = WEATHER_CYCLE[weatherIdx];
 
   useEffect(() => {
@@ -170,7 +203,15 @@ export default function CityGame() {
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#070b13]">
+    <div
+      className="relative overflow-hidden bg-[#070b13]"
+      style={{
+        width: '100vw',
+        height: '100dvh',
+        touchAction: 'none',
+        overscrollBehavior: 'none',
+      }}
+    >
 
       {/* ── 3D Canvas ── always mounted so rendering starts immediately ── */}
       <Canvas
@@ -200,7 +241,7 @@ export default function CityGame() {
       </Canvas>
 
       {/* ── HUD overlay ── */}
-      {!loadVisible && <HUD data={hud} onPhone={onPhoneToggle} />}
+      {!loadVisible && <HUD data={hud} onPhone={onPhoneToggle} isMobile={isMobile} />}
 
       {/* ── Weather indicator ── */}
       {!loadVisible && (
@@ -218,9 +259,11 @@ export default function CityGame() {
           }}
         >
           {WEATHER_LABELS[weatherType]}
-          <span style={{ color: 'rgba(255,255,255,0.35)', marginLeft: 8, fontSize: 11 }}>
-            G 切換
-          </span>
+          {!isMobile && (
+            <span style={{ color: 'rgba(255,255,255,0.35)', marginLeft: 8, fontSize: 11 }}>
+              G 切換
+            </span>
+          )}
         </div>
       )}
 
@@ -231,6 +274,8 @@ export default function CityGame() {
           world={engine.current.world}
           expanded={mapExpanded}
           onWaypointSet={handleWaypointSet}
+          isMobile={isMobile}
+          onCollapse={onMapToggle}
         />
       )}
 
@@ -245,9 +290,23 @@ export default function CityGame() {
           onLandDrone={() => { engine.current.landDrone(); setShowPhone(false); }}
           onRTLDrone={() => { engine.current.landDrone(); }}
           onCancelOrder={(id) => { engine.current.cancelOrder(id); }}
+          onStartRace={onStartRace}
+          onExitRace={onExitRace}
           orders={hud.orders}
           drone={hud.drone}
           callLog={hud.callLog ?? []}
+          raceSession={hud.raceSession}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* ── Race HUD ── */}
+      {!loadVisible && hud.raceSession && hud.raceSession.phase !== 'idle' && (
+        <RaceHUD
+          session={hud.raceSession}
+          course={hud.raceSession ? getCourse(hud.raceSession.courseId) : null}
+          onRetry={onRetryRace}
+          onExit={onExitRace}
         />
       )}
 
@@ -264,18 +323,33 @@ export default function CityGame() {
         >
           <button
             onClick={() => setShowTownHall(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white hover:scale-105 transition-all shadow-2xl"
+            className="flex items-center gap-2 rounded-xl text-sm font-semibold text-white hover:scale-105 transition-all shadow-2xl"
             style={{
               background: 'linear-gradient(135deg, #1e3a8a, #1d4ed8)',
               border: '1px solid rgba(96,165,250,0.4)',
               boxShadow: '0 0 24px rgba(59,130,246,0.35)',
+              padding: isMobile ? '14px 24px' : '10px 20px',
             }}
           >
             <span>🏛️</span>
             <span>進入城鎮辦事處</span>
-            <kbd className="bg-white/15 text-white/70 px-2 py-0.5 rounded text-[11px] ml-1">T</kbd>
+            {!isMobile && (
+              <kbd className="bg-white/15 text-white/70 px-2 py-0.5 rounded text-[11px] ml-1">T</kbd>
+            )}
           </button>
         </div>
+      )}
+
+      {/* ── Mobile touch controls ── */}
+      {!loadVisible && isMobile && (
+        <MobileControls
+          input={engine.current.input}
+          hud={hud}
+          onPhone={onPhoneToggle}
+          onMapToggle={onMapToggle}
+          onTownHallToggle={() => setShowTownHall(t => !t)}
+          onWeatherCycle={onWeatherCycle}
+        />
       )}
 
       {/* ── Loading overlay (semi-transparent, on top of live Canvas) ── */}

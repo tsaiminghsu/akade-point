@@ -11,6 +11,7 @@ import {
   WorldData,
   HUDData,
   CallRecord,
+  RaceSession,
   TILE_SIZE,
   GRID_SIZE,
   WORLD_SIZE,
@@ -28,6 +29,8 @@ import {
   nextVehicleId,
 } from './traffic';
 import { generateWorld, getZoneName } from './worldGen';
+import { createRaceSession, tickRace } from './race';
+import { getCourse } from './raceCourses';
 
 const CAR_MAX_SPEED = 160;      // 2D px / sec
 const CAR_ACCELERATION = 280;   // 2D px / sec²
@@ -46,6 +49,13 @@ function notifId() { return `n${Date.now()}_${Math.random().toString(36).slice(2
 
 export type HUDCallback3D = (data: HUDData) => void;
 
+// Race-mode drone physics constants (faster than free-fly)
+const RACE_FWD_SPEED  = 320;  // px/sec
+const RACE_SIDE_SPEED = 220;  // px/sec
+const RACE_YAW_RATE   = 3.5;  // rad/sec
+const RACE_THROTTLE   = 120;  // altitude units/sec
+const RACE_BOOST_MULT = 1.5;
+
 export class GameEngine3D {
   world: WorldData;
   player: Player;
@@ -58,10 +68,18 @@ export class GameEngine3D {
   zone: string;
   tick: number;
   camera: { x: number; y: number };
+  raceSession: RaceSession | null = null;
 
   input: InputManager;
   private hudCallback: HUDCallback3D | null = null;
   private lastHudTime = 0;
+  private racePrevX = 0;
+  private racePrevY = 0;
+  private racePrevAlt = 0;
+  private raceDroneCollision = false;
+  // Per-axis velocity for inertia in race mode (public for FPV FOV calculation in GameScene)
+  raceVx = 0;
+  raceVy = 0;
 
   constructor() {
     this.input = new InputManager();
@@ -125,6 +143,9 @@ export class GameEngine3D {
     // Expire notifications
     this.notifications = this.notifications.filter(n => n.expiresAt > nowMs);
 
+    // Reset race collision flag each tick
+    this.raceDroneCollision = false;
+
     // Player state update
     if (player.state === 'inCar') {
       this.updateCarPhysics(dt, input);
@@ -135,6 +156,48 @@ export class GameEngine3D {
     } else {
       this.updateFootPhysics(dt, input);
     }
+
+    // Race session tick (after drone physics so prevX/Y/Alt are stale-from-last-frame)
+    if (this.raceSession && drone.vehicleId) {
+      const dv = vehicles.get(drone.vehicleId);
+      if (dv) {
+        const course = getCourse(this.raceSession.courseId);
+        // tickRace mutates session in place — no allocation
+        const event = tickRace(
+          this.raceSession,
+          this.racePrevX, this.racePrevY, this.racePrevAlt,
+          dv.x, dv.y, dv.altitude ?? 0,
+          course, dt, nowMs,
+          input.boost,
+          this.raceDroneCollision,
+        );
+
+        if (event === 'gate') {
+          this.addNotification(`✓ 通過 ${this.raceSession.lastPassedGateIndex + 1}/${course.gates.length}`, '#00ff88');
+        } else if (event === 'lap') {
+          this.addNotification(`✅ 第 ${this.raceSession.currentLap - 1} 圈完成！`, '#ffff00');
+        } else if (event === 'finish') {
+          this.addNotification('🏁 完賽！', '#ffffff');
+        } else if (event === 'crash') {
+          this.addNotification('💥 撞機！自動重生中...', '#ff4444');
+        } else if (event === 'respawn') {
+          // Auto-respawn: teleport drone to last gate
+          this.respawnAtLastGate();
+        }
+
+        // Sync boost state to drone for physics multiplier
+        drone.throttle = this.raceSession.boostActive ? 1 : 0;
+
+        // Store prev position for next frame
+        this.racePrevX   = dv.x;
+        this.racePrevY   = dv.y;
+        this.racePrevAlt = dv.altitude ?? 0;
+      }
+    }
+
+    // Race control inputs (FPV toggle, respawn)
+    if (input.fpvToggle && this.raceSession) this.toggleFPV();
+    if (input.respawn  && this.raceSession) this.manualRespawn();
 
     // Enter / exit vehicle
     if (input.enter) this.handleEnterExit();
@@ -265,20 +328,105 @@ export class GameEngine3D {
     if (!drone.vehicleId) return;
     const dv = vehicles.get(drone.vehicleId);
     if (!dv) return;
+    const prevX = dv.x;
+    const prevY = dv.y;
 
-    const result = updateDrone(
-      dv,
-      input.droneThrottleUp, input.droneThrottleDown,
-      input.up, input.down, input.left, input.right,
-      input.droneYawLeft, input.droneYawRight,
-      player.x, player.y, dt
-    );
-    if (result.signalLost && drone.signal < 5) {
-      const alreadyNotified = this.notifications.some(n => n.text === '⚠️ 訊號失聯，自動返航');
-      if (!alreadyNotified) {
-        this.addNotification('⚠️ 訊號失聯，自動返航', '#ff4444');
+    const inRace = !!this.raceSession && this.raceSession.phase === 'racing';
+
+    if (inRace) {
+      this.updateRaceDronePhysics(dt, input, dv);
+    } else {
+      // Normal free-fly drone physics
+      // Skip physics entirely if crashed (race mode crashed phase)
+      if (this.raceSession?.phase === 'crashed') {
+        return;
+      }
+      const result = updateDrone(
+        dv,
+        input.droneThrottleUp, input.droneThrottleDown,
+        input.up, input.down, input.left, input.right,
+        input.droneYawLeft, input.droneYawRight,
+        player.x, player.y, dt,
+      );
+      if (result.signalLost && drone.signal < 5) {
+        const alreadyNotified = this.notifications.some(n => n.text === '⚠️ 訊號失聯，自動返航');
+        if (!alreadyNotified) this.addNotification('⚠️ 訊號失聯，自動返航', '#ff4444');
       }
     }
+
+    const halfDrone = 9;
+    const alt = dv.altitude ?? 0;
+    const canOccupy = (x: number, y: number) =>
+      !this.isSolidAtAlt(x, y, alt) &&
+      !this.isSolidAtAlt(x + halfDrone, y, alt) &&
+      !this.isSolidAtAlt(x - halfDrone, y, alt) &&
+      !this.isSolidAtAlt(x, y + halfDrone, alt) &&
+      !this.isSolidAtAlt(x, y - halfDrone, alt);
+
+    if (!canOccupy(dv.x, dv.y)) {
+      if (inRace) {
+        // In race mode, register collision (tickRace will handle crash state)
+        this.raceDroneCollision = true;
+      }
+      // Slide along axes or revert
+      if (canOccupy(dv.x, prevY)) {
+        dv.y = prevY;
+      } else if (canOccupy(prevX, dv.y)) {
+        dv.x = prevX;
+      } else {
+        dv.x = prevX;
+        dv.y = prevY;
+      }
+    }
+
+    player.angle = dv.angle;
+  }
+
+  private updateRaceDronePhysics(dt: number, input: ReturnType<InputManager['getState']>, dv: Vehicle) {
+    const rs = this.raceSession!;
+    const boost = rs.boostActive ? RACE_BOOST_MULT : 1;
+
+    // Yaw
+    if (input.droneYawLeft)  dv.angle -= RACE_YAW_RATE * dt;
+    if (input.droneYawRight) dv.angle += RACE_YAW_RATE * dt;
+
+    // Altitude (only when alt > 1 to ensure it's airborne)
+    const alt = dv.altitude ?? 0;
+    if (input.droneThrottleUp) {
+      dv.altitude = Math.min(200, alt + RACE_THROTTLE * dt);
+    } else if (input.droneThrottleDown) {
+      dv.altitude = Math.max(0, alt - RACE_THROTTLE * dt);
+    }
+    // Slight hover drift
+    dv.altitude = Math.max(0, (dv.altitude ?? 0) + ((dv.targetAltitude ?? 0) - (dv.altitude ?? 0)) * 0.01);
+
+    if ((dv.altitude ?? 0) < 2) return; // must be airborne to move
+
+    // Target horizontal velocities based on input (in local frame)
+    const fwdSpeed  = RACE_FWD_SPEED  * boost;
+    const sideSpeed = RACE_SIDE_SPEED * boost;
+    const targetVfwd  = input.up ? fwdSpeed : input.down ? -fwdSpeed * 0.6 : 0;
+    const targetVside = input.right ? sideSpeed : input.left ? -sideSpeed : 0;
+
+    // Rotate local velocity to world space using drone angle
+    const sin = Math.sin(dv.angle);
+    const cos = Math.cos(dv.angle);
+    const targetVx = sin * targetVfwd + cos * targetVside;
+    const targetVy = -cos * targetVfwd + sin * targetVside;
+
+    // Inertia: lerp toward target velocity
+    const inertiaRate = 8; // higher = snappier
+    this.raceVx += (targetVx - this.raceVx) * Math.min(1, inertiaRate * dt);
+    this.raceVy += (targetVy - this.raceVy) * Math.min(1, inertiaRate * dt);
+
+    dv.x += this.raceVx * dt;
+    dv.y += this.raceVy * dt;
+    dv.x = Math.max(5, Math.min(WORLD_SIZE - 5, dv.x));
+    dv.y = Math.max(5, Math.min(WORLD_SIZE - 5, dv.y));
+
+    // Update visual pitch/roll on drone state
+    this.drone.pitch = targetVfwd / fwdSpeed;
+    this.drone.roll  = targetVside / sideSpeed;
   }
 
   private updateFootPhysics(dt: number, input: ReturnType<InputManager['getState']>) {
@@ -403,6 +551,29 @@ export class GameEngine3D {
       || tile?.type === TileType.TOWN_HALL;
   }
 
+  // Altitude-aware solid check for drones. Returns false if the drone is physically
+  // above the building's roof (altitude > floors * 14 + 5 safety buffer).
+  private isSolidAtAlt(wx: number, wy: number, altitude: number): boolean {
+    const gx = Math.floor(wx / TILE_SIZE);
+    const gy = Math.floor(wy / TILE_SIZE);
+    if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return true;
+    const tile = this.world.grid[gy]?.[gx];
+    if (!tile) return false;
+    // 14 altitude units per floor (FLOOR_HEIGHT_3D=1.4 / (TILE_3D/TILE_SIZE)=0.1)
+    const ALT_PER_FLOOR = 14;
+    const BUFFER = 5;
+    if (tile.type === TileType.BUILDING) {
+      return altitude < (tile.floors ?? 1) * ALT_PER_FLOOR + BUFFER;
+    }
+    if (tile.type === TileType.HELIPAD) {
+      return altitude < (tile.floors ?? 15) * ALT_PER_FLOOR + BUFFER;
+    }
+    if (tile.type === TileType.TOWN_HALL) {
+      return altitude < (tile.floors ?? 8) * ALT_PER_FLOOR + BUFFER;
+    }
+    return false;
+  }
+
   addNotification(text: string, color = '#fff') {
     // Use performance.now() to match the expiry check in update()
     this.notifications.push({ id: notifId(), text, expiresAt: performance.now() + 3500, color });
@@ -460,6 +631,7 @@ export class GameEngine3D {
   launchDrone() {
     if (this.drone.active) { this.addNotification('無人機已在飛', '#00e5ff'); return; }
     const d = createDrone(this.player.x, this.player.y);
+    d.angle = this.player.angle;
     // Start slightly above ground so it's immediately visible
     d.altitude = 8;
     d.targetAltitude = 8;
@@ -470,10 +642,108 @@ export class GameEngine3D {
   }
 
   landDrone() {
+    if (this.raceSession) this.exitRace();
     if (this.drone.vehicleId) this.vehicles.delete(this.drone.vehicleId);
     this.drone = { active: false, altitude: 0, throttle: 0, pitch: 0, roll: 0, yaw: 0, battery: 100, signal: 100, vehicleId: null };
     this.player.state = 'onFoot';
     this.addNotification('無人機已降落', '#00e5ff');
+  }
+
+  // ── Race management ────────────────────────────────────────────────────────
+
+  startRace(courseId: string) {
+    const course = getCourse(courseId);
+    if (!this.drone.active) {
+      this.launchDrone();
+    }
+    // Teleport drone to start gate
+    if (this.drone.vehicleId) {
+      const sf = course.gates[0];
+      const dv = this.vehicles.get(this.drone.vehicleId);
+      if (dv && sf) {
+        const APPROACH_DIST = 100;
+        const nx = Math.sin(sf.yaw);
+        const nz = -Math.cos(sf.yaw);
+        dv.x = sf.x - nx * APPROACH_DIST;
+        dv.y = sf.y - nz * APPROACH_DIST;
+        dv.altitude = sf.altitude;
+        dv.targetAltitude = sf.altitude;
+        dv.angle = sf.yaw;
+        this.player.angle = sf.yaw;
+      }
+    }
+    this.raceSession = { ...createRaceSession(course), respawnInvincTimer: 2.0 };
+    this.raceVx = 0;
+    this.raceVy = 0;
+    this.raceDroneCollision = false;
+    if (this.drone.vehicleId) {
+      const dv = this.vehicles.get(this.drone.vehicleId);
+      this.racePrevX   = dv?.x   ?? this.player.x;
+      this.racePrevY   = dv?.y   ?? this.player.y;
+      this.racePrevAlt = dv?.altitude ?? 8;
+    }
+    this.addNotification(`🏁 ${course.name} — 準備起飛！`, course.color);
+  }
+
+  exitRace() {
+    this.raceSession = null;
+    this.raceVx = 0;
+    this.raceVy = 0;
+    // Reset drone visual tilt
+    this.drone.pitch = 0;
+    this.drone.roll  = 0;
+    this.addNotification('退出賽道模式', '#aaa');
+  }
+
+  respawnAtLastGate() {
+    if (!this.raceSession || !this.drone.vehicleId) return;
+    const course = getCourse(this.raceSession.courseId);
+    // Respawn before the next gate to pass (currentGateIndex), or before gate 0 if none passed
+    const nextIdx = Math.min(this.raceSession.currentGateIndex, course.gates.length - 1);
+    const gate = course.gates[nextIdx];
+    if (!gate) return;
+
+    // Place drone 100px BEFORE the gate (approaching from correct side)
+    const APPROACH_DIST = 100;
+    const nx = Math.sin(gate.yaw);
+    const nz = -Math.cos(gate.yaw);
+    const dv = this.vehicles.get(this.drone.vehicleId);
+    if (dv) {
+      dv.x = gate.x - nx * APPROACH_DIST;
+      dv.y = gate.y - nz * APPROACH_DIST;
+      dv.altitude = gate.altitude;
+      dv.targetAltitude = gate.altitude;
+      dv.angle = gate.yaw;
+      this.player.angle = gate.yaw;
+    }
+    this.raceVx = 0;
+    this.raceVy = 0;
+    this.racePrevX   = dv?.x   ?? this.player.x;
+    this.racePrevY   = dv?.y   ?? this.player.y;
+    this.racePrevAlt = dv?.altitude ?? gate.altitude;
+    // Mutate in place — no allocation
+    this.raceSession.phase = 'racing';
+    this.raceSession.autoRespawnTimer = 0;
+    this.raceSession.cameraShake = 0;
+    this.raceSession.respawnInvincTimer = 1.5;  // 1.5s collision immunity after respawn
+  }
+
+  manualRespawn() {
+    if (!this.raceSession) return;
+    if (this.raceSession.phase === 'crashed' || this.raceSession.phase === 'racing') {
+      this.respawnAtLastGate();
+    }
+  }
+
+  toggleFPV() {
+    if (!this.raceSession) return;
+    this.raceSession.fpvMode = !this.raceSession.fpvMode;
+  }
+
+  retryRace() {
+    if (!this.raceSession) return;
+    const courseId = this.raceSession.courseId;
+    this.startRace(courseId);
   }
 
   // For mini-map (returns 2D world state snapshot)
@@ -511,6 +781,7 @@ export class GameEngine3D {
       vehicleAltitude: curVeh?.altitude,
       nearTownHall: dist(player.x, player.y, this.world.townHallPos.x, this.world.townHallPos.y) < 220,
       callLog: [...this.callLog],
+      raceSession: this.raceSession ? { ...this.raceSession } : null,
     };
     this.hudCallback(data);
   }

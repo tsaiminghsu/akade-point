@@ -495,6 +495,11 @@ export function updateDrone(
   const dx = v.x - playerX;
   const dy = v.y - playerY;
   const distFromPlayer = Math.sqrt(dx * dx + dy * dy);
+  const forwardX = Math.sin(v.angle);
+  const forwardY = -Math.cos(v.angle);
+  const rightX = Math.cos(v.angle);
+  const rightY = Math.sin(v.angle);
+  const moveSpeed = 180 * dt;
 
   // Signal loss > 500 units → RTL
   if (distFromPlayer > 500) {
@@ -523,20 +528,20 @@ export function updateDrone(
   // Only move horizontally if airborne
   if ((v.altitude ?? 0) > 5) {
     if (pitchFwd) {
-      v.x += Math.cos(v.angle + Math.PI / 2) * v.maxSpeed;
-      v.y += Math.sin(v.angle + Math.PI / 2) * v.maxSpeed;
+      v.x += forwardX * moveSpeed;
+      v.y += forwardY * moveSpeed;
     }
     if (pitchBack) {
-      v.x -= Math.cos(v.angle + Math.PI / 2) * v.maxSpeed * 0.7;
-      v.y -= Math.sin(v.angle + Math.PI / 2) * v.maxSpeed * 0.7;
+      v.x -= forwardX * moveSpeed * 0.7;
+      v.y -= forwardY * moveSpeed * 0.7;
     }
     if (rollLeft) {
-      v.x += Math.cos(v.angle) * v.maxSpeed * 0.7;
-      v.y += Math.sin(v.angle) * v.maxSpeed * 0.7;
+      v.x -= rightX * moveSpeed * 0.7;
+      v.y -= rightY * moveSpeed * 0.7;
     }
     if (rollRight) {
-      v.x -= Math.cos(v.angle) * v.maxSpeed * 0.7;
-      v.y -= Math.sin(v.angle) * v.maxSpeed * 0.7;
+      v.x += rightX * moveSpeed * 0.7;
+      v.y += rightY * moveSpeed * 0.7;
     }
   }
 

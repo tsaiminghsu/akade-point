@@ -176,6 +176,7 @@ export interface HUDData {
   vehicleAltitude?: number;
   nearTownHall?: boolean;
   callLog: CallRecord[];
+  raceSession?: RaceSession | null;
 }
 
 export interface WorldData {
@@ -185,4 +186,64 @@ export interface WorldData {
   roadTiles: Point[];
   spawnPoints: Point[];
   townHallPos: Point;
+}
+
+// ── Race Mode Types ────────────────────────────────────────────────────────────
+
+export type RaceGateShape = 'ring' | 'rectangle' | 'arch';
+export type RacePhase = 'idle' | 'countdown' | 'racing' | 'crashed' | 'finished';
+
+export interface RaceGate {
+  id: string;
+  order: number;
+  x: number;           // world x (0–3200)
+  y: number;           // world y (0–3200)
+  altitude: number;    // altitude units (0–200)
+  yaw: number;         // radians — heading direction drone should fly through
+  width: number;       // 3D units — opening width
+  height: number;      // 3D units — opening height
+  thickness: number;   // 3D units — frame bar thickness
+  shape: RaceGateShape;
+  isCheckpoint?: boolean;
+  isFinishGate?: boolean;
+  color?: string;
+  glow?: boolean;
+}
+
+export interface RaceCourse {
+  id: string;
+  name: string;
+  description: string;
+  gates: RaceGate[];
+  totalLaps: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  color: string;
+  parTime: number;  // seconds, target for 3★
+}
+
+export interface RaceSession {
+  courseId: string;
+  phase: RacePhase;
+  currentGateIndex: number;   // index of next gate to pass
+  currentLap: number;
+  totalLaps: number;
+  startTime: number;          // performance.now() at race start
+  lapStartTime: number;
+  elapsedTime: number;        // seconds since race start
+  bestLap: number;            // seconds, 0 = not set yet
+  lapTimes: number[];
+  splitTimes: number[];       // elapsed time at each gate crossing (current lap)
+  lastGateTime: number;       // performance.now() when last gate was passed
+  crashCount: number;
+  lastPassedGateIndex: number; // for respawn (−1 = before start)
+  fpvMode: boolean;
+  countdownValue: number;     // 3 → 2 → 1 → 0 (GO)
+  countdownTimer: number;     // seconds until next countdown tick
+  boostActive: boolean;
+  boostTimer: number;         // seconds remaining on boost
+  boostCooldown: number;      // seconds until boost available again
+  cameraShake: number;        // seconds of shake remaining
+  autoRespawnTimer: number;   // seconds until auto-respawn after crash (2s)
+  respawnInvincTimer: number; // seconds of collision immunity after respawn
+  crashesAtCurrentGate: number; // crash loop counter — resets when gate advances
 }
