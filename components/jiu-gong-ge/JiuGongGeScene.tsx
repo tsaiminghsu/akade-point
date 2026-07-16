@@ -20,8 +20,8 @@ export default function JiuGongGeScene({
 }: JiuGongGeSceneProps) {
   return (
     <div className="flex" style={{ height: 340 }}>
-      {/* Left: 九宮格 grid (58%) */}
-      <div className="relative flex-[58]">
+      {/* Left: 九宮格 grid (50%) */}
+      <div className="relative w-0 flex-1 min-w-0 overflow-hidden">
         <div className="absolute top-1 left-2 z-10 text-[10px] text-amber-400/70 font-bold tracking-widest">
           九宮格
         </div>
@@ -34,10 +34,10 @@ export default function JiuGongGeScene({
       </div>
 
       {/* Divider */}
-      <div className="w-px bg-amber-500/20 self-stretch my-2" />
+      <div className="w-px bg-amber-500/20 self-stretch my-2 flex-none" />
 
-      {/* Right: 風骰 dice (42%) */}
-      <div className="relative flex-[42]">
+      {/* Right: 風骰 dice (50%) */}
+      <div className="relative w-0 flex-1 min-w-0 overflow-hidden">
         <div className="absolute top-1 right-2 z-10 text-[10px] text-amber-400/70 font-bold tracking-widest">
           風骰
         </div>

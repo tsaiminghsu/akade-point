@@ -17,7 +17,7 @@ export default function GridScene({ balls, phase, winCells, holePositions }: Gri
   return (
     <Canvas
       shadows
-      camera={{ position: [0, CONTAINER_H * 1.3, 6.5], fov: 48 }}
+      camera={{ position: [0, CONTAINER_H * 1.3, 6.5], fov: 52 }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       style={{ background: "transparent", width: "100%", height: "100%" }}
     >
@@ -47,8 +47,8 @@ export default function GridScene({ balls, phase, winCells, holePositions }: Gri
         enablePan={false}
         minPolarAngle={0.1}
         maxPolarAngle={Math.PI / 2 - 0.05}
-        minDistance={4}
-        maxDistance={16}
+        minDistance={2.5}
+        maxDistance={11}
         target={[0, CONTAINER_H * 0.3, 0]}
       />
     </Canvas>

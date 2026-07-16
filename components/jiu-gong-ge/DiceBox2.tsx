@@ -2,9 +2,9 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 
-export const DBOX_HW = 1.1;  // half-width X
-export const DBOX_HD = 1.0;  // half-depth Z
-export const DBOX_H  = 2.6;  // height Y
+export const DBOX_HW = 1.54;  // half-width X  ×1.4
+export const DBOX_HD = 1.40;  // half-depth Z  ×1.4
+export const DBOX_H  = 3.64;  // height Y      ×1.4
 
 export default function DiceBox2() {
   const W = DBOX_HW * 2, D = DBOX_HD * 2, H = DBOX_H;

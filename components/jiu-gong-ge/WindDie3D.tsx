@@ -21,8 +21,8 @@ const HALF = DIE_SIZE / 2;
 
 const GRAVITY     = 24;
 const KICK_INTERVAL = 0.28;
-const KICK_UP     = 8;
-const KICK_HORIZ  = 2.5;
+const KICK_UP     = 12;
+const KICK_HORIZ  = 3.0;
 const BOUNCE      = 0.62;
 const ROT_DAMP    = 0.88;
 
@@ -118,9 +118,9 @@ export default function WindDie3D({ targetValue, phase, restPosition, finalPos, 
     p.vx = (rng(rollSeed, 1) - 0.5) * 2;
     p.vy = rng(rollSeed, 2) * 2 + 1;
     p.vz = (rng(rollSeed, 3) - 0.5) * 2;
-    p.vrx = (rng(rollSeed, 4) - 0.5) * 18;
-    p.vry = (rng(rollSeed, 5) - 0.5) * 18;
-    p.vrz = (rng(rollSeed, 6) - 0.5) * 18;
+    p.vrx = (rng(rollSeed, 4) - 0.5) * 20;
+    p.vry = (rng(rollSeed, 5) - 0.5) * 20;
+    p.vrz = (rng(rollSeed, 6) - 0.5) * 20;
   }, [phase, rollSeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const targetEuler = useMemo(() => {
@@ -145,9 +145,9 @@ export default function WindDie3D({ targetValue, phase, restPosition, finalPos, 
         p.vy = phase === "vibrating" ? KICK_UP * 0.35 : KICK_UP;
         p.vx += (rng(rollSeed, currKick * 7 + 1) - 0.5) * KICK_HORIZ * 2;
         p.vz += (rng(rollSeed, currKick * 7 + 2) - 0.5) * KICK_HORIZ * 2;
-        p.vrx += (rng(rollSeed, currKick * 7 + 3) - 0.5) * (phase === "vibrating" ? 6 : 14);
-        p.vry += (rng(rollSeed, currKick * 7 + 4) - 0.5) * (phase === "vibrating" ? 6 : 14);
-        p.vrz += (rng(rollSeed, currKick * 7 + 5) - 0.5) * (phase === "vibrating" ? 6 : 14);
+        p.vrx += (rng(rollSeed, currKick * 7 + 3) - 0.5) * (phase === "vibrating" ? 6 : 15);
+        p.vry += (rng(rollSeed, currKick * 7 + 4) - 0.5) * (phase === "vibrating" ? 6 : 15);
+        p.vrz += (rng(rollSeed, currKick * 7 + 5) - 0.5) * (phase === "vibrating" ? 6 : 15);
       }
       p.vy -= GRAVITY * delta;
       p.px += p.vx * delta; p.py += p.vy * delta; p.pz += p.vz * delta;

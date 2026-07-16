@@ -6,8 +6,8 @@ import WindDie3D from "./WindDie3D";
 import type { GamePhase } from "./JiuGongGeGame";
 
 const REST_POSITIONS: [number, number, number][] = [
-  [-0.38, 0, 0],
-  [ 0.38, 0, 0],
+  [-0.53, 0, 0],
+  [ 0.53, 0, 0],
 ];
 
 interface DiceScene2Props {
@@ -22,7 +22,7 @@ export default function DiceScene2({ diceValues, phase, rollId, diceFinalPos, di
   return (
     <Canvas
       shadows
-      camera={{ position: [-0.1, DBOX_H * 0.85, 5.2], fov: 58 }}
+      camera={{ position: [0, 4.21, 6.58], fov: 50 }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       style={{ background: "transparent", width: "100%", height: "100%" }}
     >
@@ -50,9 +50,9 @@ export default function DiceScene2({ diceValues, phase, rollId, diceFinalPos, di
         enablePan={false}
         minPolarAngle={Math.PI / 18}
         maxPolarAngle={Math.PI / 2.1}
-        minDistance={4}
-        maxDistance={14}
-        target={[0, 1.0, 0]}
+        minDistance={6.5}
+        maxDistance={20}
+        target={[0, 1.82, 0]}
       />
     </Canvas>
   );

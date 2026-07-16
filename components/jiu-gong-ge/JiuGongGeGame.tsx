@@ -19,14 +19,14 @@ export interface WinCell { row: number; col: number; }
 
 export const GRID_COLS = 3;
 export const GRID_ROWS = 3;
-export const HOLE_SPACING = 1.1;
-export const BALL_R = 0.42;
-export const CONTAINER_H = 2.8;
-export const FLOOR_T = 0.18;
-export const WALL_T = 0.07;
+export const HOLE_SPACING = 0.77;   // ×0.7
+export const BALL_R = 0.294;        // ×0.7
+export const CONTAINER_H = 1.96;    // ×0.7
+export const FLOOR_T = 0.126;       // ×0.7
+export const WALL_T = 0.049;        // ×0.7
 
 export function calcContainerSize() {
-  const side = GRID_COLS * HOLE_SPACING + 1.4;
+  const side = GRID_COLS * HOLE_SPACING + 0.98; // 1.4 ×0.7
   return { containerW: side, containerD: side };
 }
 
@@ -115,7 +115,7 @@ function rollDice(): [number, number] {
   ];
 }
 
-const DICE_FINAL_POS: [[number,number,number],[number,number,number]] = [[-0.38, 0.4, 0], [0.38, 0.4, 0]];
+const DICE_FINAL_POS: [[number,number,number],[number,number,number]] = [[-0.53, 0.4, 0], [0.53, 0.4, 0]];
 
 export default function JiuGongGeGame() {
   const [balls, setBalls] = useState<Ball[]>(() => makeBalls());
