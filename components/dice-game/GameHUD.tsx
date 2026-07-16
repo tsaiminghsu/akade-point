@@ -1,5 +1,5 @@
 'use client'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { DicePhase } from './Die'
 
 export type BetAmount = 10 | 50 | 100
@@ -15,23 +15,23 @@ interface GameHUDProps {
   credits: number
   bet: BetAmount
   phase: DicePhase
-  result: ResultInfo | null
-  diceValues: number[]
   diceCount: number
   windCount: number
   numberDieSize: number
   windDieSize: number
+  consecutiveCount: number
   onBetChange: (b: BetAmount) => void
   onDiceCountChange: (n: number) => void
   onWindCountChange: (n: number) => void
   onNumberDieSizeChange: (mm: number) => void
   onWindDieSizeChange: (mm: number) => void
+  onConsecutiveChange: (n: number) => void
   onStart: () => void
 }
 
 const BET_OPTIONS: BetAmount[] = [10, 50, 100]
 const DIE_SIZES = [12, 16, 20, 22, 25]
-const WIND_CHARS = ['東', '西', '南', '北', '中', '發']
+const CONSECUTIVE_OPTIONS = [1, 5, 10, 20, 50, 100]
 
 interface PayRow { matches: number; label: string; multiplier: number }
 
@@ -63,27 +63,6 @@ export function getMatchInfo(diceValues: number[], bet: BetAmount, diceCount: nu
   return { matches: max, multiplier: entry.multiplier, winAmount: bet * entry.multiplier, label: entry.label }
 }
 
-function DiceChip({ value, isWind }: { value: number; isWind: boolean }) {
-  if (!isWind) {
-    return (
-      <span className="w-7 h-7 rounded bg-white text-black font-bold text-sm flex items-center justify-center shadow">
-        {value}
-      </span>
-    )
-  }
-  const char = WIND_CHARS[value - 1]
-  const bg = '#f7f5f0'
-  const fg = value === 5 ? '#c0392b' : value === 6 ? '#1e8449' : '#1a1a1a'
-  return (
-    <span
-      className="w-7 h-7 rounded font-bold text-sm flex items-center justify-center shadow"
-      style={{ background: bg, color: fg, fontFamily: '"PingFang SC","Microsoft YaHei",serif' }}
-    >
-      {char}
-    </span>
-  )
-}
-
 function CounterRow({
   label, value, max, onChange, disabled,
 }: { label: string; value: number; max: number; onChange: (n: number) => void; disabled: boolean }) {
@@ -111,18 +90,17 @@ function CounterRow({
 }
 
 export default function GameHUD({
-  credits, bet, phase, result, diceValues, diceCount, windCount, numberDieSize, windDieSize,
-  onBetChange, onDiceCountChange, onWindCountChange, onNumberDieSizeChange, onWindDieSizeChange, onStart,
+  credits, bet, phase, diceCount, windCount, numberDieSize, windDieSize, consecutiveCount,
+  onBetChange, onDiceCountChange, onWindCountChange, onNumberDieSizeChange, onWindDieSizeChange, onConsecutiveChange, onStart,
 }: GameHUDProps) {
-  const isJackpot = diceCount === 1 ? result?.matches === 6 : result?.matches === diceCount
   const canPlay = phase === 'idle' && credits >= bet
   const table = buildPayoutTable(diceCount)
   const disabled = phase !== 'idle'
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col" style={{ zIndex: 10 }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+      {/* Top bar — pt-14 leaves space for the tab bar above */}
+      <div className="flex items-center justify-between px-4 pt-14 pb-2">
         <div>
           <span className="text-xs text-amber-400/70 tracking-widest uppercase block">大怒神</span>
           <span className="text-base font-bold text-white">{diceCount}顆 · 數{numberDieSize}mm · 風{windDieSize}mm</span>
@@ -207,6 +185,30 @@ export default function GameHUD({
         {/* Wind dice count */}
         <CounterRow label="風向:" value={windCount} max={Math.min(diceCount, 6)} onChange={onWindCountChange} disabled={disabled} />
 
+        {/* Consecutive count */}
+        <div className="flex items-center gap-1 justify-center">
+          <span className="text-[10px] text-white/40 w-10 text-right shrink-0">局數:</span>
+          {CONSECUTIVE_OPTIONS.map(n => (
+            <button
+              key={n}
+              onClick={() => onConsecutiveChange(n)}
+              disabled={disabled}
+              className={[
+                'px-2 h-7 rounded-lg font-bold text-xs transition-all border',
+                consecutiveCount === n
+                  ? 'bg-rose-600 border-rose-400 text-white'
+                  : 'bg-white/10 border-white/15 text-white/60 hover:bg-white/20',
+                disabled ? 'opacity-40 cursor-not-allowed' : '',
+              ].join(' ')}
+            >
+              {n}
+            </button>
+          ))}
+          {consecutiveCount > 1 && (
+            <span className="text-[10px] text-white/30 ml-1">共 {(consecutiveCount * bet).toLocaleString()} 幣</span>
+          )}
+        </div>
+
         {/* Bet */}
         <div className="flex gap-2">
           {BET_OPTIONS.map(b => (
@@ -235,62 +237,13 @@ export default function GameHUD({
             canPlay ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-xl shadow-amber-500/30' : 'bg-white/10 text-white/30 cursor-not-allowed',
           ].join(' ')}
         >
-          {phase === 'idle' ? '開始遊戲' : phase === 'rolling' ? '搖動中…' : phase === 'settling' ? '落定中…' : '結果'}
-          {phase === 'idle' && <span className="ml-2 text-sm font-normal opacity-70">{bet} 幣/次</span>}
+          {phase === 'idle'
+            ? <>開始遊戲<span className="ml-2 text-sm font-normal opacity-70">{consecutiveCount > 1 ? `${consecutiveCount}局 × ${bet} 幣` : `${bet} 幣/次`}</span></>
+            : phase === 'rolling' ? '搖動中…'
+            : phase === 'settling' ? '落定中…'
+            : '結果'}
         </motion.button>
       </div>
-
-      {/* Result banner */}
-      <AnimatePresence>
-        {result && phase === 'result' && (
-          <motion.div
-            initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 60 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="absolute bottom-56 left-3 right-3 pointer-events-none"
-          >
-            <div className={[
-              'rounded-2xl p-4 text-center border backdrop-blur-sm',
-              result.winAmount > 0 ? 'bg-amber-500/20 border-amber-400/60' : 'bg-white/5 border-white/20',
-            ].join(' ')}>
-              <div className="text-3xl font-black text-white mb-1">{result.label}</div>
-              {result.winAmount > 0 ? (
-                <div className="text-amber-300 font-bold text-lg">
-                  +{result.winAmount.toLocaleString()} 幣
-                  <span className="text-sm text-amber-400/70 ml-2">({result.multiplier}×)</span>
-                </div>
-              ) : (
-                <div className="text-white/50 text-sm">再接再厲！</div>
-              )}
-              <div className="flex justify-center gap-1 mt-2 flex-wrap">
-                {diceValues.map((v, i) => (
-                  <DiceChip key={i} value={v} isWind={i < windCount} />
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Jackpot overlay */}
-      <AnimatePresence>
-        {isJackpot && phase === 'result' && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 pointer-events-none flex items-center justify-center"
-            style={{ background: 'radial-gradient(ellipse at center, rgba(251,191,36,0.28) 0%, transparent 70%)' }}
-          >
-            <motion.div
-              animate={{ scale: [1, 1.1, 1], rotate: [-2, 2, -2, 0] }}
-              transition={{ duration: 0.45, repeat: 5 }}
-              className="text-center"
-            >
-              <div className="text-6xl mb-2">🎰</div>
-              <div className="text-4xl font-black text-amber-300 drop-shadow-lg">全同豹子！</div>
-              <div className="text-xl text-amber-200 mt-1">{table.at(-1)?.multiplier}×</div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

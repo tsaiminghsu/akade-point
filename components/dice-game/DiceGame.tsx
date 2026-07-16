@@ -3,10 +3,10 @@ import { useState, useCallback, useRef } from 'react'
 import DiceScene from './DiceScene'
 import GameHUD, { BetAmount, getMatchInfo } from './GameHUD'
 import { DicePhase } from './Die'
+import ScratchCard from './ScratchCard'
 
 const ROLL_MS = 2800
 const SETTLE_MS = 900
-const RESULT_MS = 3000
 const STARTING_CREDITS = 500
 const MM_TO_UNIT = 0.9 / 25
 
@@ -27,7 +27,7 @@ function computeFinalPositions(dieSizes: number[], rollSeed: number): [number, n
   const sizes = dieSizes.map(mm => mm * MM_TO_UNIT)
   const halves = sizes.map(s => s / 2)
   const maxHalf = Math.max(...halves)
-  const spreadX = 2.5 - maxHalf - 0.10   // stay inside box with margin
+  const spreadX = 2.5 - maxHalf - 0.10
   const spreadZ = 1.75 - maxHalf - 0.10
 
   const r = (n: number) => seededRng(rollSeed, n)
@@ -73,29 +73,30 @@ function computeFinalPositions(dieSizes: number[], rollSeed: number): [number, n
   return pos
 }
 
+type ActiveTab = 'dice' | 'scratch'
+
 export default function DiceGame() {
-  const [credits, setCredits]         = useState(STARTING_CREDITS)
-  const [bet, setBet]                 = useState<BetAmount>(10)
-  const [diceCount, setDiceCount]     = useState(9)
-  const [windCount, setWindCount]     = useState(0)
+  const [activeTab, setActiveTab]      = useState<ActiveTab>('dice')
+  const [credits, setCredits]          = useState(STARTING_CREDITS)
+  const [bet, setBet]                  = useState<BetAmount>(10)
+  const [diceCount, setDiceCount]      = useState(9)
+  const [windCount, setWindCount]      = useState(0)
   const [numberDieSize, setNumberDieSize] = useState(22)
   const [windDieSize, setWindDieSize]     = useState(22)
-  const [phase, setPhase]             = useState<DicePhase>('idle')
-  const [diceValues, setDiceValues]   = useState<number[]>(
+  const [consecutiveCount, setConsecutiveCount] = useState(1)
+  const [phase, setPhase]              = useState<DicePhase>('idle')
+  const [diceValues, setDiceValues]    = useState<number[]>(
     Array.from({ length: 9 }, (_, i) => (i % 6) + 1)
   )
-  const [rollId, setRollId]           = useState(0)
+  const [rollId, setRollId]            = useState(0)
   const [finalPositions, setFinalPositions] = useState<[number, number, number][]>([])
-  const [result, setResult]           = useState<ReturnType<typeof getMatchInfo> | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoRollRef = useRef(0)
 
   const clearTimer = () => { if (timerRef.current) clearTimeout(timerRef.current) }
 
-  const handleStart = useCallback(() => {
-    if (phase !== 'idle' || credits < bet) return
-    clearTimer()
-
-    const nextId = rollId + 1
+  const doRoll = useCallback((currentRollId: number) => {
+    const nextId = currentRollId + 1
     const newValues = Array.from({ length: diceCount }, () => Math.ceil(Math.random() * 6))
     const positions = computeFinalPositions(getDieSizes(diceCount, windCount, numberDieSize, windDieSize), nextId)
 
@@ -103,21 +104,35 @@ export default function DiceGame() {
     setDiceValues(newValues)
     setFinalPositions(positions)
     setRollId(nextId)
-    setResult(null)
     setPhase('rolling')
 
     timerRef.current = setTimeout(() => {
       setPhase('settling')
       timerRef.current = setTimeout(() => {
-        setPhase('result')
-        const info = getMatchInfo(newValues, bet, diceCount)
-        setResult(info)
-        if (info.winAmount > 0) setCredits(c => c + info.winAmount)
-        timerRef.current = setTimeout(() => setPhase('idle'), RESULT_MS)
+        autoRollRef.current -= 1
+        if (autoRollRef.current > 0) {
+          // More rolls remaining — apply winnings then start next roll
+          const info = getMatchInfo(newValues, bet, diceCount)
+          if (info.winAmount > 0) setCredits(c => c + info.winAmount)
+          doRoll(nextId)
+        } else {
+          // Last roll — apply winnings and go idle (no result banner)
+          const info = getMatchInfo(newValues, bet, diceCount)
+          if (info.winAmount > 0) setCredits(c => c + info.winAmount)
+          setPhase('idle')
+        }
       }, SETTLE_MS)
     }, ROLL_MS)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, credits, bet, diceCount, windCount, numberDieSize, windDieSize, rollId])
+  }, [bet, diceCount, windCount, numberDieSize, windDieSize])
+
+  const handleStart = useCallback(() => {
+    if (phase !== 'idle' || credits < bet * consecutiveCount) return
+    clearTimer()
+    autoRollRef.current = consecutiveCount
+    doRoll(rollId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, credits, bet, consecutiveCount, rollId, doRoll])
 
   const handleBetChange = (b: BetAmount) => {
     if (phase !== 'idle') return
@@ -130,25 +145,25 @@ export default function DiceGame() {
     setDiceCount(n)
     setWindCount(wc => Math.min(wc, n))
     setDiceValues(Array.from({ length: n }, (_, i) => (i % 6) + 1))
-    setFinalPositions([]); setRollId(0); setResult(null)
+    setFinalPositions([]); setRollId(0)
   }
 
   const handleWindCountChange = (n: number) => {
     if (phase !== 'idle') return
     setWindCount(Math.min(n, diceCount))
-    setFinalPositions([]); setRollId(0); setResult(null)
+    setFinalPositions([]); setRollId(0)
   }
 
   const handleNumberDieSizeChange = (mm: number) => {
     if (phase !== 'idle') return
     setNumberDieSize(mm)
-    setFinalPositions([]); setRollId(0); setResult(null)
+    setFinalPositions([]); setRollId(0)
   }
 
   const handleWindDieSizeChange = (mm: number) => {
     if (phase !== 'idle') return
     setWindDieSize(mm)
-    setFinalPositions([]); setRollId(0); setResult(null)
+    setFinalPositions([]); setRollId(0)
   }
 
   return (
@@ -156,36 +171,68 @@ export default function DiceGame() {
       className="relative w-full h-dvh overflow-hidden"
       style={{ background: 'radial-gradient(ellipse at 50% 30%, hsl(222 47% 14%) 0%, hsl(222 47% 5%) 100%)' }}
     >
-      <div className="absolute inset-0">
-        <DiceScene
-          diceValues={diceValues}
-          phase={phase}
-          rollId={rollId}
-          diceCount={diceCount}
-          windCount={windCount}
-          numberDieSize={numberDieSize}
-          windDieSize={windDieSize}
-          finalPositions={finalPositions}
-        />
+      {/* Tab bar */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-1 z-20 bg-white/10 rounded-xl p-1 pointer-events-auto">
+        <button
+          onClick={() => { if (phase === 'idle') setActiveTab('dice') }}
+          className={[
+            'px-4 py-1.5 rounded-lg text-sm font-bold transition-all',
+            activeTab === 'dice' ? 'bg-amber-500 text-black' : 'text-white/60 hover:text-white',
+            phase !== 'idle' && activeTab !== 'dice' ? 'opacity-40 cursor-not-allowed' : '',
+          ].join(' ')}
+        >
+          骰子
+        </button>
+        <button
+          onClick={() => { if (phase === 'idle') setActiveTab('scratch') }}
+          className={[
+            'px-4 py-1.5 rounded-lg text-sm font-bold transition-all',
+            activeTab === 'scratch' ? 'bg-amber-500 text-black' : 'text-white/60 hover:text-white',
+            phase !== 'idle' && activeTab !== 'scratch' ? 'opacity-40 cursor-not-allowed' : '',
+          ].join(' ')}
+        >
+          刮刮卡
+        </button>
       </div>
 
-      <GameHUD
-        credits={credits}
-        bet={bet}
-        phase={phase}
-        result={result}
-        diceValues={diceValues}
-        diceCount={diceCount}
-        windCount={windCount}
-        numberDieSize={numberDieSize}
-        windDieSize={windDieSize}
-        onBetChange={handleBetChange}
-        onDiceCountChange={handleDiceCountChange}
-        onWindCountChange={handleWindCountChange}
-        onNumberDieSizeChange={handleNumberDieSizeChange}
-        onWindDieSizeChange={handleWindDieSizeChange}
-        onStart={handleStart}
-      />
+      {activeTab === 'dice' && (
+        <>
+          <div className="absolute inset-0">
+            <DiceScene
+              diceValues={diceValues}
+              phase={phase}
+              rollId={rollId}
+              diceCount={diceCount}
+              windCount={windCount}
+              numberDieSize={numberDieSize}
+              windDieSize={windDieSize}
+              finalPositions={finalPositions}
+            />
+          </div>
+
+          <GameHUD
+            credits={credits}
+            bet={bet}
+            phase={phase}
+            diceCount={diceCount}
+            windCount={windCount}
+            numberDieSize={numberDieSize}
+            windDieSize={windDieSize}
+            consecutiveCount={consecutiveCount}
+            onBetChange={handleBetChange}
+            onDiceCountChange={handleDiceCountChange}
+            onWindCountChange={handleWindCountChange}
+            onNumberDieSizeChange={handleNumberDieSizeChange}
+            onWindDieSizeChange={handleWindDieSizeChange}
+            onConsecutiveChange={setConsecutiveCount}
+            onStart={handleStart}
+          />
+        </>
+      )}
+
+      {activeTab === 'scratch' && (
+        <ScratchCard credits={credits} onCreditsChange={setCredits} />
+      )}
     </div>
   )
 }
