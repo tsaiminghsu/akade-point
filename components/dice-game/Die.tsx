@@ -180,7 +180,9 @@ export default function Die({ targetValue, phase, restPosition, finalPos, rollId
     if (phase !== 'rolling') return
     const p = phys.current
     p.elapsed = 0; p.prevKick = -1
+    p.px = restPosition[0]
     p.py = floorY + 0.05
+    p.pz = restPosition[2]
     p.vx = (rng(rollSeed, 1) - 0.5) * 2
     p.vy = rng(rollSeed, 2) * 3 + 1
     p.vz = (rng(rollSeed, 3) - 0.5) * 2
@@ -240,7 +242,7 @@ export default function Die({ targetValue, phase, restPosition, finalPos, rollId
     } else if (phase === 'settling') {
       const k = Math.min(delta * 5, 1)
       p.rx += (targetEuler.x - p.rx) * k; p.ry += (targetEuler.y - p.ry) * k; p.rz += (targetEuler.z - p.rz) * k
-      p.px += (finalPos[0] - p.px) * k; p.py += (floorY - p.py) * k; p.pz += (finalPos[2] - p.pz) * k
+      p.px += (restPosition[0] - p.px) * k; p.py += (floorY - p.py) * k; p.pz += (restPosition[2] - p.pz) * k
       mesh.position.set(p.px, p.py, p.pz); mesh.rotation.set(p.rx, p.ry, p.rz)
 
     } else if (phase === 'result') {
@@ -250,12 +252,11 @@ export default function Die({ targetValue, phase, restPosition, finalPos, rollId
       mesh.position.set(p.px, p.py, p.pz); mesh.rotation.set(p.rx, p.ry, p.rz)
 
     } else {
-      if (rollId === 0) {
-        const bob = Math.sin(p.elapsed * 1.4 + rollSeed * 0.01) * 0.025
-        p.px = restPosition[0]; p.py = floorY + bob; p.pz = restPosition[2]
-        mesh.position.set(p.px, p.py, p.pz)
-      }
-      // After a roll: leave where result phase settled it
+      p.px = restPosition[0]
+      p.pz = restPosition[2]
+      const bob = Math.sin(p.elapsed * 1.4 + rollSeed * 0.01) * 0.025
+      p.py = floorY + bob
+      mesh.position.set(p.px, p.py, p.pz)
     }
   })
 

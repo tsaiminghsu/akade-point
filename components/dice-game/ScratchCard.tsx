@@ -1,5 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useScratchCardStore } from '@/store/useScratchCardStore'
+import ScratchCardDashboard from '@/components/dice-game/ScratchCardDashboard'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -57,7 +59,6 @@ interface CardResult {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DENOMINATIONS: Denomination[] = [20, 40, 60, 80, 120, 160]
-const DEFAULT_MULTIPLIERS: Record<number, number> = { 20: 3, 40: 3, 60: 2.5, 80: 2.5, 120: 2, 160: 2 }
 
 function makeDefaultTemplate(id: string): ScratchTemplate {
   return {
@@ -72,7 +73,22 @@ function makeDefaultTemplate(id: string): ScratchTemplate {
 
 // ─── Cell Generation ─────────────────────────────────────────────────────────
 
-function generateCells(template: ScratchTemplate): CardCell[] {
+function shufflePositions(arr: number[]): number[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+// outcome.won = true  → guaranteed win (>= winCondition prize cells)
+// outcome.won = false → guaranteed loss (< winCondition prize cells)
+// outcome omitted    → original random behaviour
+function generateCells(
+  template: ScratchTemplate,
+  outcome?: { won: boolean },
+): CardCell[] {
   const { prizeNumbers, fillMode } = template
   const nonPrize = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(n => !prizeNumbers.includes(n))
   const randPrize = () => prizeNumbers[Math.floor(Math.random() * prizeNumbers.length)]
@@ -80,7 +96,21 @@ function generateCells(template: ScratchTemplate): CardCell[] {
 
   let values: number[]
 
-  if (fillMode.type === 'fixed') {
+  if (outcome?.won === true) {
+    // RTP engine says win: place exactly winCondition prize cells at random positions
+    const prizePos = new Set(shufflePositions([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, template.winCondition))
+    values = Array.from({ length: 9 }, (_, i) =>
+      prizePos.has(i + 1) ? randPrize() : randNon()
+    )
+  } else if (outcome?.won === false) {
+    // RTP engine says no-win: at most (winCondition - 1) prize cells
+    const maxPrize = Math.max(0, template.winCondition - 1)
+    const prizeCount = Math.floor(Math.random() * (maxPrize + 1))
+    const prizePos = new Set(shufflePositions([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, prizeCount))
+    values = Array.from({ length: 9 }, (_, i) =>
+      prizePos.has(i + 1) ? randPrize() : randNon()
+    )
+  } else if (fillMode.type === 'fixed') {
     values = fillMode.cells.slice(0, 9).map(v => Math.max(1, Math.min(9, v || 1)))
     while (values.length < 9) values.push(1)
   } else if (fillMode.type === 'guaranteed') {
@@ -100,17 +130,6 @@ function generateCells(template: ScratchTemplate): CardCell[] {
     revealed: false,
     stopped: false,
   }))
-}
-
-function evaluateCards(cards: CardResult[], templates: ScratchTemplate[], denomination: Denomination): CardResult[] {
-  return cards.map(card => {
-    const tmpl = templates.find(t => t.id === card.templateId)
-    if (!tmpl) return card
-    const prizeCount = card.cells.filter(c => c.revealed && c.isPrize).length
-    const won = prizeCount >= tmpl.winCondition
-    const winAmount = won ? denomination * tmpl.prizeMultiplier : 0
-    return { ...card, won, winAmount, prizeCount }
-  })
 }
 
 // ─── Simulate rule steps on a card ───────────────────────────────────────────
@@ -575,6 +594,11 @@ export default function ScratchCard({
   credits: number
   onCreditsChange: (c: number) => void
 }) {
+  // RTP Engine hooks
+  const executeRTPDraw = useScratchCardStore(s => s.executeDraw)
+  const rtpSnapshot = useScratchCardStore(s => s.snapshot)
+  const engineConfig = useScratchCardStore(s => s.engineConfig)
+
   const [templates, setTemplates] = useState<ScratchTemplate[]>([makeDefaultTemplate('A')])
   const [denomination, setDenomination] = useState<Denomination>(40)
   const [cardCount, setCardCount] = useState(5)
@@ -619,10 +643,11 @@ export default function ScratchCard({
     setSimRunning(true)
     setAnimStep(null)
 
-    // Generate initial cards with final cell values pre-computed
-    const initialCards: CardResult[] = cardConfigs.map(cfg => {
+    // Pre-determine each card's outcome via RTP Engine, then generate matching cells
+    const rtpOutcomes = cardConfigs.map(() => executeRTPDraw())
+    const initialCards: CardResult[] = cardConfigs.map((cfg, ci) => {
       const tmpl = templates.find(t => t.id === cfg.templateId) ?? templates[0]
-      const cells = generateCells(tmpl)
+      const cells = generateCells(tmpl, { won: rtpOutcomes[ci].won })
       return { serialId: cfg.serialId, templateId: cfg.templateId, cells, won: false, winAmount: 0, prizeCount: 0 }
     })
     setResults(initialCards)
@@ -680,10 +705,10 @@ export default function ScratchCard({
 
       setAnimStep(null)
 
-      // Compute final win for this card
+      // Compute final win for this card using RTP Engine's pre-determined prize amount
       const prizeCount = card.cells.filter(c => c.revealed && c.isPrize).length
       const won = prizeCount >= tmpl.winCondition
-      const winAmount = won ? denomination * tmpl.prizeMultiplier : 0
+      const winAmount = rtpOutcomes[ci].won ? rtpOutcomes[ci].prizeAmount : 0
       if (winAmount > 0) {
         runningCredits += winAmount
         onCreditsChange(runningCredits)
@@ -695,8 +720,7 @@ export default function ScratchCard({
 
     simRef.current = false
     setSimRunning(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [credits, totalCost, cardConfigs, templates, denomination])
+  }, [credits, totalCost, cardConfigs, templates, denomination, executeRTPDraw])
 
   // Running total of winnings for display after sim
   const totalWon = results.reduce((s, r) => s + (r.winAmount ?? 0), 0)
@@ -842,26 +866,35 @@ export default function ScratchCard({
         {/* ── Results ── */}
         {hasResults && (
           <section>
-            {/* Stats bar */}
+            {/* Stats bar — reads from RTP Engine snapshot */}
             <div className="bg-white/5 rounded-xl border border-white/10 px-4 py-2.5 flex gap-4 justify-around text-center mb-3">
               <div>
                 <div className="text-[10px] text-white/40">共花</div>
-                <div className="text-sm font-bold text-white">{(results.length * denomination).toLocaleString()} 幣</div>
+                <div className="text-sm font-bold text-white">
+                  {(rtpSnapshot?.totalSpent ?? results.length * denomination).toLocaleString()} 幣
+                </div>
               </div>
               <div>
                 <div className="text-[10px] text-white/40">共贏</div>
-                <div className="text-sm font-bold text-emerald-400">{totalWon.toLocaleString()} 幣</div>
+                <div className="text-sm font-bold text-emerald-400">
+                  {(rtpSnapshot?.totalWon ?? totalWon).toLocaleString()} 幣
+                </div>
               </div>
               <div>
-                <div className="text-[10px] text-white/40">淨損益</div>
-                <div className={['text-sm font-bold', totalWon - results.length * denomination >= 0 ? 'text-emerald-400' : 'text-rose-400'].join(' ')}>
-                  {totalWon - results.length * denomination >= 0 ? '+' : ''}{(totalWon - results.length * denomination).toLocaleString()}
+                <div className="text-[10px] text-white/40">即時RTP</div>
+                <div className={[
+                  'text-sm font-bold',
+                  rtpSnapshot && rtpSnapshot.currentRTP >= engineConfig.targetRTP - 0.02
+                    ? 'text-emerald-400' : 'text-amber-400',
+                ].join(' ')}>
+                  {rtpSnapshot ? `${(rtpSnapshot.currentRTP * 100).toFixed(1)}%` : '–'}
                 </div>
               </div>
               <div>
                 <div className="text-[10px] text-white/40">中獎率</div>
                 <div className="text-sm font-bold text-amber-400">
-                  {results.length > 0 ? Math.round((totalWonCards / results.length) * 100) : 0}%
+                  {rtpSnapshot ? `${(rtpSnapshot.winRate * 100).toFixed(1)}%`
+                    : results.length > 0 ? `${Math.round((totalWonCards / results.length) * 100)}%` : '0%'}
                 </div>
               </div>
             </div>
@@ -879,6 +912,12 @@ export default function ScratchCard({
             </div>
           </section>
         )}
+
+        {/* ── RTP Dashboard ── */}
+        <section>
+          <ScratchCardDashboard />
+        </section>
+
       </div>
     </div>
   )
