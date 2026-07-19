@@ -16,18 +16,20 @@ interface CardData {
 }
 
 export default function RegisterPage() {
-  const { token } = useParams<{ token: string }>();
+  const params = useParams<{ token: string }>();
+  const token = params?.token;
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const [card, setCard] = useState<CardData | null>(null);
-  const [shopCode, setShopCode] = useState(searchParams.get("shop") ?? "");
+  const [shopCode, setShopCode] = useState(searchParams?.get("shop") ?? "");
   const [choice, setChoice] = useState<"POINTS" | "TICKET" | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!token) return;
     fetch(`/api/cards/${token}`)
       .then((r) => r.json())
       .then((data) => {

@@ -6,10 +6,10 @@ import { Suspense } from "react";
 function SuccessContent() {
   const params = useSearchParams();
   const router = useRouter();
-  const choice = params.get("choice");
-  const points = params.get("points");
-  const name = params.get("name");
-  const newRewards = params.get("newRewards")?.split(",").filter(Boolean) ?? [];
+  const choice = params?.get("choice");
+  const points = params?.get("points");
+  const name = params?.get("name");
+  const newRewards = params?.get("newRewards")?.split(",").filter(Boolean) ?? [];
 
   const TIER_NAMES: Record<string, string> = {
     SMALL: "小禮",

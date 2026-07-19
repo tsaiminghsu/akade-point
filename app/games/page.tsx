@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 const GAMES = [
   {
-    slug: 'test-game',
+    slug: 'combo-arena',
     name: '消除符石對抗賽',
     description: '拖拉六色符石消除連擊，累積戰力點數',
     tag: '解謎',

@@ -16,7 +16,8 @@ interface VerifyData {
 }
 
 export default function VerifyPage() {
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const params = useParams<{ sessionId: string }>();
+  const sessionId = params?.sessionId;
   const router = useRouter();
   const [data, setData] = useState<VerifyData | null>(null);
   const [error, setError] = useState("");
@@ -24,6 +25,7 @@ export default function VerifyPage() {
   const [browserVerified, setBrowserVerified] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (!sessionId) return;
     fetch(`/api/game/${sessionId}/verify`)
       .then((r) => r.json())
       .then((d) => {

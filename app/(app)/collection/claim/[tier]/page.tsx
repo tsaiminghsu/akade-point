@@ -11,12 +11,13 @@ const TIER_INFO: Record<string, { name: string; base: number; desc: string }> = 
 };
 
 export default function ClaimPage() {
-  const { tier } = useParams<{ tier: string }>();
+  const params = useParams<{ tier: string }>();
+  const tier = params?.tier;
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const info = TIER_INFO[tier];
+  const info = tier ? TIER_INFO[tier] : undefined;
 
   const claim = async () => {
     setLoading(true);

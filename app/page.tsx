@@ -39,7 +39,7 @@ const BANNERS = [
     accentColor: "from-amber-500/20 to-red-600/20",
     glowColor: "rgba(245,158,11,0.3)",
     tag: "特色玩法",
-    link: "/games/test-game"
+    link: "/games/combo-arena"
   }
 ];
 
@@ -421,7 +421,7 @@ function HomePageContent() {
 
                     {BANNERS[activeSlide].id !== 3 && (
                       <Link
-                        href="/games/test-game"
+                        href="/games/combo-arena"
                         className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 font-bold text-xs md:text-sm rounded-xl transition-colors hidden sm:block"
                       >
                         小隊模擬戰
@@ -671,7 +671,7 @@ function HomePageContent() {
                 宇宙圖鑑
               </Link>
               <Link
-                href="/games/test-game"
+                href="/games/combo-arena"
                 className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 font-bold text-xs rounded-xl transition-colors"
               >
                 小隊模擬戰
@@ -774,7 +774,7 @@ function HomePageContent() {
               </p>
             </div>
             <Link
-              href="/games/test-game"
+              href="/games/combo-arena"
               className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[11px] rounded-lg transition-transform hover:scale-[1.02] shrink-0"
             >
               進入試玩
@@ -842,7 +842,7 @@ function HomePageContent() {
                 重置數據
               </button>
               <Link
-                href="/games/test-game"
+                href="/games/combo-arena"
                 className="px-3.5 py-1 bg-purple-500 hover:bg-purple-400 text-white font-extrabold text-[10px] rounded transition-transform hover:scale-[1.02] shadow-[0_2px_8px_rgba(147,51,234,0.3)] flex items-center gap-1"
               >
                 <span>進入正式模擬戰</span>
@@ -1037,7 +1037,7 @@ function HomePageContent() {
             )}
 
             <Link
-              href="/games/test-game"
+              href="/games/combo-arena"
               className="px-6 py-3.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 font-bold rounded-xl transition-colors"
             >
               免登入試玩戰隊模擬戰

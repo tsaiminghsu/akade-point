@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
+
+const ScratchCardFloatingPanel = dynamic(
+  () => import("@/components/scratch-card/ScratchCardFloatingPanel"),
+  { ssr: false }
+);
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-TW" className={inter.variable}>
       <body>
         {children}
+        <ScratchCardFloatingPanel />
       </body>
     </html>
   );

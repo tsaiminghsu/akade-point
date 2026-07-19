@@ -9,20 +9,21 @@ import { Sparkles, Gift, ArrowRight, ShieldCheck } from "lucide-react";
 type OpenState = "closed" | "opening" | "opened";
 
 function ResultContent() {
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const urlParams = useParams<{ sessionId: string }>();
+  const sessionId = urlParams?.sessionId;
   const params = useSearchParams();
   const router = useRouter();
 
-  const combos = parseInt(params.get("combos") ?? "0");
-  const multiplier = parseFloat(params.get("multiplier") ?? "1");
-  const bonus = parseInt(params.get("bonus") ?? "0");
-  const total = parseInt(params.get("total") ?? "0");
-  const ssr = params.get("ssr") === "true";
+  const combos = parseInt(params?.get("combos") ?? "0");
+  const multiplier = parseFloat(params?.get("multiplier") ?? "1");
+  const bonus = parseInt(params?.get("bonus") ?? "0");
+  const total = parseInt(params?.get("total") ?? "0");
+  const ssr = params?.get("ssr") === "true";
 
   // Blind Box Reward Query Details
-  const itemName = params.get("itemName") ? decodeURIComponent(params.get("itemName")!) : "";
-  const itemRarity = params.get("itemRarity") || "";
-  const itemDesc = params.get("itemDesc") ? decodeURIComponent(params.get("itemDesc")!) : "";
+  const itemName = params?.get("itemName") ? decodeURIComponent(params?.get("itemName")!) : "";
+  const itemRarity = params?.get("itemRarity") || "";
+  const itemDesc = params?.get("itemDesc") ? decodeURIComponent(params?.get("itemDesc")!) : "";
 
   const [openState, setOpenState] = useState<OpenState>("closed");
 

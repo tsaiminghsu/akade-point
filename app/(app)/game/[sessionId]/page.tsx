@@ -24,7 +24,8 @@ const TRIGGER_LABEL: Record<string, string> = {
 };
 
 export default function GamePage() {
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const params = useParams<{ sessionId: string }>();
+  const sessionId = params?.sessionId;
   const router = useRouter();
 
   const [phase, setPhase] = useState<Phase>("loading");
@@ -43,6 +44,7 @@ export default function GamePage() {
   currentGridRef.current = currentGrid;
 
   useEffect(() => {
+    if (!sessionId) return;
     fetch(`/api/game/${sessionId}`)
       .then((r) => r.json())
       .then((data) => {
