@@ -7,23 +7,14 @@ import { useSession } from "next-auth/react";
 import { Providers } from "./providers";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Compass,
   BookOpen,
   Gamepad2,
-  HelpCircle,
   ChevronLeft,
   ChevronRight,
   Volume2,
   Sparkles,
-  Flame,
-  Droplet,
-  Leaf,
-  Sun,
-  Moon,
-  Zap,
   ArrowRight,
-  TrendingUp,
-  Award
+  Award,
 } from "lucide-react";
 
 // Carousel banners data
@@ -48,7 +39,7 @@ const BANNERS = [
     accentColor: "from-amber-500/20 to-red-600/20",
     glowColor: "rgba(245,158,11,0.3)",
     tag: "特色玩法",
-    link: "/test-game"
+    link: "/games/test-game"
   }
 ];
 
@@ -112,88 +103,6 @@ const NEWS_ITEMS = [
   { category: "系統", date: "2026-06-17", title: "修復 LINE 快速登入在部分 iOS 版本瀏覽器重定向迴圈問題" },
   { category: "活動", date: "2026-06-15", title: "第二彈【星海啟航】將於 2026 年第 3 季度開啟，敬請期待" },
   { category: "公告", date: "2026-06-12", title: "點數加成與實體 QR-code 集卡規則詳細說明，快來兌換大禮" }
-];
-
-// Interactive Games List
-const GAMES = [
-  {
-    id: "test-game",
-    title: "消除符石對抗賽",
-    subtitle: "Battle Arena",
-    desc: "致敬神魔之塔與龍族拼圖！消除五屬性與心靈符石，測試戰隊傷害增幅極限，衝擊即時排行榜！",
-    image: "/test-game.png",
-    link: "/test-game",
-    tag: "經典消除",
-    icon: Gamepad2,
-    color: "from-purple-900/40 via-[#070b13] to-purple-950/20",
-    borderColor: "border-purple-500/20 hover:border-purple-500/60 shadow-[0_0_15px_rgba(168,85,247,0.05)] hover:shadow-[0_0_25px_rgba(168,85,247,0.2)]",
-    glowColor: "rgba(168,85,247,0.3)"
-  },
-  {
-    id: "tiao-dou-ji",
-    title: "3D 物理跳豆機",
-    subtitle: "Bounce Bean Physics",
-    desc: "使用 R3F 3D 渲染與 Rapier 物理引擎。玩家控制發射力道將跳豆射入物理碰撞盒，體驗極致反彈！",
-    image: "/tiao_dou_ji_page.png",
-    link: "/tiao-dou-ji",
-    tag: "3D 物理",
-    icon: Zap,
-    color: "from-blue-900/40 via-[#070b13] to-blue-950/20",
-    borderColor: "border-blue-500/20 hover:border-blue-500/60 shadow-[0_0_15px_rgba(59,130,246,0.05)] hover:shadow-[0_0_25px_rgba(59,130,246,0.2)]",
-    glowColor: "rgba(59,130,246,0.3)"
-  },
-  {
-    id: "city-game",
-    title: "3D 模擬城市",
-    subtitle: "3D City Simulator",
-    desc: "包含 3D 城市地形、交通流量與車輛物理生成。駕駛載具在 procedural 城市中漫遊，配合虛擬手機互動！",
-    image: "/city_game_page.png",
-    link: "/city-game",
-    tag: "3D 漫遊",
-    icon: Compass,
-    color: "from-red-900/40 via-[#070b13] to-red-950/20",
-    borderColor: "border-red-500/20 hover:border-red-500/60 shadow-[0_0_15px_rgba(239,68,68,0.05)] hover:shadow-[0_0_25px_rgba(239,68,68,0.2)]",
-    glowColor: "rgba(239,68,68,0.3)"
-  },
-  {
-    id: "da-nu-shen",
-    title: "3D 骰子大女神",
-    subtitle: "3D Dice Shaker",
-    desc: "使用 3D 物理骰子模型與骰盅。玩家可以模擬搖晃骰盅，擲出隨機點數的 3D 骰子，測試好運氣。",
-    image: "/da_nu_shen_page.png",
-    link: "/da-nu-shen",
-    tag: "3D 骰子",
-    icon: Sparkles,
-    color: "from-amber-900/40 via-[#070b13] to-amber-950/20",
-    borderColor: "border-amber-500/20 hover:border-amber-500/60 shadow-[0_0_15px_rgba(245,158,11,0.05)] hover:shadow-[0_0_25px_rgba(245,158,11,0.2)]",
-    glowColor: "rgba(245,158,11,0.3)"
-  },
-  {
-    id: "jiu-gong-ge",
-    title: "3D 投擲九宮格",
-    subtitle: "Jiu Gong Ge Physics",
-    desc: "網格九宮格球體投擲物理碰撞遊戲，內含風向與發射力道控制，考驗精準操作與技巧！",
-    image: "/jiu_gong_ge_page.png",
-    link: "/jiu-gong-ge",
-    tag: "物理投擲",
-    icon: Award,
-    color: "from-emerald-900/40 via-[#070b13] to-emerald-950/20",
-    borderColor: "border-emerald-500/20 hover:border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.05)] hover:shadow-[0_0_25px_rgba(16,185,129,0.2)]",
-    glowColor: "rgba(16,185,129,0.3)"
-  },
-  {
-    id: "scratch-card",
-    title: "刮刮樂幸運發財券",
-    subtitle: "Scratch Card Game",
-    desc: "使用 Canvas 畫布遮罩與擦除技術，提供極致逼真刮刮樂體驗，刮開銀漆即可獲得隨機點數！",
-    image: "/scratch_card_page.png",
-    link: "/scratch-card",
-    tag: "經典好運",
-    icon: TrendingUp,
-    color: "from-pink-900/40 via-[#070b13] to-pink-950/20",
-    borderColor: "border-pink-500/20 hover:border-pink-500/60 shadow-[0_0_15px_rgba(244,114,182,0.05)] hover:shadow-[0_0_25px_rgba(244,114,182,0.2)]",
-    glowColor: "rgba(244,114,182,0.3)"
-  }
 ];
 
 function HomePageContent() {
@@ -316,7 +225,7 @@ function HomePageContent() {
             <Link href="/collection" className="text-zinc-400 hover:text-zinc-100 transition-colors flex items-center gap-1">
               <BookOpen className="w-3.5 h-3.5" /> 宇宙圖鑑
             </Link>
-            <Link href="#games-section" className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+            <Link href="/games" className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
               <Gamepad2 className="w-3.5 h-3.5" /> 遊戲大廳
             </Link>
             <Link href="/leaderboard" className="text-zinc-400 hover:text-zinc-100 transition-colors flex items-center gap-1">
@@ -400,7 +309,7 @@ function HomePageContent() {
               <BookOpen className="w-4 h-4" /> 宇宙圖鑑
             </Link>
             <Link
-              href="#games-section"
+              href="/games"
               onClick={() => setMobileMenuOpen(false)}
               className="text-amber-400 py-1.5 border-b border-white/5 flex items-center gap-2"
             >
@@ -512,7 +421,7 @@ function HomePageContent() {
 
                     {BANNERS[activeSlide].id !== 3 && (
                       <Link
-                        href="/test-game"
+                        href="/games/test-game"
                         className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 font-bold text-xs md:text-sm rounded-xl transition-colors hidden sm:block"
                       >
                         小隊模擬戰
@@ -551,6 +460,55 @@ function HomePageContent() {
           ))}
         </div>
 
+      </section>
+
+      {/* 2.3 PRODUCT HERO SECTION */}
+      <section className="w-full max-w-6xl mx-auto px-4 md:px-6 pt-10 pb-2">
+        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 md:p-10 text-center space-y-6">
+          <div className="space-y-3 max-w-xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-amber-400 to-yellow-200 bg-clip-text text-transparent">
+              機器人收藏宇宙
+            </h2>
+            <p className="text-zinc-400 text-sm leading-relaxed">
+              掃描實體卡牌 QR Code，獲得點數、解鎖收藏，並在符石消除對戰中挑戰排行榜
+            </p>
+          </div>
+
+          {/* Flow steps */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-0 text-xs font-bold">
+            {[
+              { icon: "📸", label: "掃描卡牌" },
+              { icon: "⭐", label: "獲得點數" },
+              { icon: "🗂️", label: "解鎖收藏" },
+              { icon: "🎮", label: "挑戰遊戲" },
+            ].map((step, i) => (
+              <div key={step.label} className="flex items-center gap-2 sm:gap-0">
+                <div className="flex flex-col items-center gap-1 px-4 sm:px-6">
+                  <span className="text-2xl">{step.icon}</span>
+                  <span className="text-zinc-300">{step.label}</span>
+                </div>
+                {i < 3 && (
+                  <span className="text-zinc-600 text-lg rotate-90 sm:rotate-0">→</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <Link
+              href="/scan"
+              className="px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-black text-sm rounded-xl shadow-[0_4px_15px_rgba(245,158,11,0.3)] hover:scale-[1.02] transition-transform"
+            >
+              📸 開始掃描卡牌
+            </Link>
+            <Link
+              href="/games"
+              className="px-6 py-3 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 font-bold text-sm rounded-xl transition-colors"
+            >
+              🎮 遊戲大廳
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* 2.5 PERSONAL USER DASHBOARD WIDGET (ONLY SHOWN WHEN LOGGED IN) */}
@@ -713,7 +671,7 @@ function HomePageContent() {
                 宇宙圖鑑
               </Link>
               <Link
-                href="/test-game"
+                href="/games/test-game"
                 className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 font-bold text-xs rounded-xl transition-colors"
               >
                 小隊模擬戰
@@ -724,88 +682,28 @@ function HomePageContent() {
         </section>
       )}
 
-      {/* 2.8 INTERACTIVE GAMES GALLERY (遊戲大廳) */}
-      <section id="games-section" className="w-full max-w-6xl mx-auto px-4 md:px-6 pt-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-white/5 pb-4 mb-8">
-          <div className="space-y-2">
+      {/* 2.8 GAMES ENTRY CARD */}
+      <section className="w-full max-w-6xl mx-auto px-4 md:px-6 pt-12">
+        <Link
+          href="/games"
+          className="group flex flex-col sm:flex-row items-center justify-between gap-6 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-[#070b13] to-purple-500/10 p-6 md:p-8 transition-all hover:border-amber-400/40 hover:bg-amber-500/5"
+        >
+          <div className="space-y-2 text-center sm:text-left">
             <span className="inline-block px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-black tracking-widest uppercase">
               Interactive Arcade
             </span>
-            <h3 className="text-2xl md:text-3xl font-black text-white tracking-wide flex items-center gap-2">
-              <span className="w-1.5 h-6 bg-gradient-to-b from-amber-500 to-yellow-500 rounded-sm" />
+            <h3 className="text-2xl md:text-3xl font-black text-white tracking-wide">
               🎮 遊戲大廳
             </h3>
-            <p className="text-zinc-400 text-xs md:text-sm">
-              體驗物理碰撞、經典消除與 3D 模擬城市等多款獨家互動遊戲，狂賺積分與抽獎盲盒！
+            <p className="text-zinc-400 text-sm">
+              9 款獨家互動遊戲 · 3D 物理、符石消除、沙盒探索一次收錄
             </p>
           </div>
-          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-bold mt-2 md:mt-0">
-            6 PLAYABLE GAMES ONLINE
-          </span>
-        </div>
-
-        {/* Games Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {GAMES.map((game) => {
-            const IconComponent = game.icon;
-            return (
-              <motion.div
-                key={game.id}
-                whileHover={{ y: -8 }}
-                className={`rounded-2xl border p-5 bg-gradient-to-br ${game.color} ${game.borderColor} flex flex-col justify-between transition-all duration-300 relative overflow-hidden group`}
-              >
-                {/* Background Game Image Overlay (glowing and blurred by default, clears on hover) */}
-                <div className="absolute inset-0 -z-10 opacity-10 group-hover:opacity-20 transition-opacity duration-500">
-                  <Image
-                    src={game.image}
-                    alt={game.title}
-                    fill
-                    className="object-cover scale-105 group-hover:scale-100 transition-transform duration-500 filter blur-[2px] group-hover:blur-0"
-                  />
-                </div>
-
-                {/* Top Badge & Icon */}
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300 group-hover:text-amber-400 group-hover:border-amber-500/30 transition-all shadow-inner">
-                    <IconComponent className="w-5 h-5 group-hover:animate-pulse" />
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-black uppercase text-zinc-400 tracking-wider">
-                    {game.tag}
-                  </span>
-                </div>
-
-                {/* Game Title & Desc */}
-                <div className="space-y-2">
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-bold text-zinc-500 tracking-wider font-mono uppercase block">
-                      {game.subtitle}
-                    </span>
-                    <h4 className="text-base font-black text-white group-hover:text-amber-400 transition-colors">
-                      {game.title}
-                    </h4>
-                  </div>
-                  <p className="text-zinc-400 text-xs leading-relaxed min-h-[48px] line-clamp-3 font-medium">
-                    {game.desc}
-                  </p>
-                </div>
-
-                {/* Play Action Button */}
-                <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[9px] font-bold text-zinc-500 tracking-wider uppercase font-mono">
-                    STATUS: READY
-                  </span>
-                  <Link
-                    href={game.link}
-                    className="px-4 py-2 bg-white/5 group-hover:bg-gradient-to-r group-hover:from-amber-500 group-hover:to-yellow-500 text-zinc-300 group-hover:text-black font-extrabold text-xs rounded-xl border border-white/10 group-hover:border-transparent transition-all shadow-[0_2px_8px_rgba(0,0,0,0.2)] hover:scale-[1.02] flex items-center gap-1.5"
-                  >
-                    <span>立即遊玩</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+          <div className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-black text-sm rounded-xl shadow-[0_4px_15px_rgba(245,158,11,0.3)] group-hover:scale-[1.03] transition-transform shrink-0">
+            查看所有遊戲
+            <ArrowRight className="w-4 h-4" />
+          </div>
+        </Link>
       </section>
 
       {/* 3. MAIN BODY SECTION (TWO COLUMN - LATEST NEWS & CARD SPOTLIGHT) */}
@@ -876,7 +774,7 @@ function HomePageContent() {
               </p>
             </div>
             <Link
-              href="/test-game"
+              href="/games/test-game"
               className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[11px] rounded-lg transition-transform hover:scale-[1.02] shrink-0"
             >
               進入試玩
@@ -944,7 +842,7 @@ function HomePageContent() {
                 重置數據
               </button>
               <Link
-                href="/test-game"
+                href="/games/test-game"
                 className="px-3.5 py-1 bg-purple-500 hover:bg-purple-400 text-white font-extrabold text-[10px] rounded transition-transform hover:scale-[1.02] shadow-[0_2px_8px_rgba(147,51,234,0.3)] flex items-center gap-1"
               >
                 <span>進入正式模擬戰</span>
@@ -1139,7 +1037,7 @@ function HomePageContent() {
             )}
 
             <Link
-              href="/test-game"
+              href="/games/test-game"
               className="px-6 py-3.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 font-bold rounded-xl transition-colors"
             >
               免登入試玩戰隊模擬戰
@@ -1153,7 +1051,7 @@ function HomePageContent() {
         <div className="max-w-6xl mx-auto px-4 md:px-6 space-y-4">
           <div className="flex flex-wrap justify-center gap-6 text-[11px] font-semibold text-zinc-400">
             <Link href="/collection" className="hover:text-white transition-colors">宇宙圖鑑</Link>
-            <Link href="#games-section" className="hover:text-white transition-colors">遊戲大廳</Link>
+            <Link href="/games" className="hover:text-white transition-colors">遊戲大廳</Link>
             <Link href="/leaderboard" className="hover:text-white transition-colors">戰力排行榜</Link>
             <Link href="/login" className="hover:text-white transition-colors">快速登入</Link>
           </div>

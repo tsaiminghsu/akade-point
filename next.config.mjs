@@ -1,6 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  async redirects() {
+    const gameRoutes = [
+      'city-game', 'da-nu-shen', 'jiu-gong-ge', 'minecraft',
+      'scratch-card', 'ship-tracker', 'temple-of-desert-god',
+      'test-game', 'tiao-dou-ji',
+    ];
+    return gameRoutes.map((slug) => ({
+      source: `/${slug}`,
+      destination: `/games/${slug}`,
+      permanent: true,
+    }));
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

@@ -181,7 +181,7 @@ export default function LoginPage() {
 
           {/* 測試按鈕 */}
           <Link
-            href="/test-game"
+            href="/games/test-game"
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-bold text-sm transition-all"
           >
             🎮 免登入直接測試轉珠
