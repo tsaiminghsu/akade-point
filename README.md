@@ -1,94 +1,182 @@
-# 🤖 Akade Point - Robot Universe
+# 🤖 Akade Point + ARIP + IoT Control Center
 
-**星際機器人宇宙 ․ 點數集卡系統**
+**星際機器人宇宙 ․ 集卡遊戲平台 + 企業級 IoT 監控系統 + AI機器人整合系統**
 
-Akade Point 是一個集**實體卡牌數位化、3D互動遊戲、社群排行榜**於一身的全棧 Web 應用。玩家透過掃描實體卡牌、完成遊戲挑戰賺取點數，系統自動管理卡牌圖鑑、獎勵兌換和玩家排名。
-
-- 🎯 **掃卡集點**：QR-Code 一掃即登錄，實體卡牌永久綁定至數位圖鑑
-- 🎮 **6款3D遊戲**：從物理跳豆到城市駕駛，娛樂與競技並行
-- 📊 **即時排行榜**：社群積分實時排名，激勵玩家持續互動
-- 🎁 **自動獎勵**：達成圖鑑進度自動解鎖 SSR 傳說卡等獎勵
-- 👤 **LINE 快速登入**：一鍵登入，無需繁瑣註冊
+Akade Point 是一個**三引擎全棧應用**：
+1. **消費端（Akade Point）** - 玩家掃卡集點、挑戰9款遊戲、換獲獎勵
+2. **IoT Control Center** - 實體設備（販賣機/機台）即時監控與樓層平面圖編輯器
+3. **操作端（ARIP）** - AI機器人、IoT設備、工作流、視覺管理平台原型
 
 ---
 
-## ✨ 核心功能
+## 🎮 系統總覽
 
-### 1. 玩家系統
-- **LINE OAuth 驗證**：透過 LINE 帳號快速登入與綁定
-- **個人儀表板**：查看積分、抽獎券、卡牌進度、背包戰利品
-- **卡牌圖鑑**：追蹤已收集與未收集卡牌（五大屬性 × 稀有度）
+### Akade Point（消費者應用）
+- 🎯 **掃卡集點**：QR-Code 實體卡→數位圖鑑
+- 🎮 **9款遊戲**：消除符石對抗賽、3D跳豆機、3D模擬城市（含FPV無人機賽道）、3D骰子大女神、3D投擲九宮格、刮刮樂、方塊世界、船隻追蹤、沙漠神殿拉霸機
+- 📊 **即時排行榜**：社群積分實時排名
+- 🎁 **自動獎勵**：圖鑑進度 30%/60%/90%/100% 解鎖獎品
 
-### 2. 卡牌掃描與登錄
-- 支援**實時 QR-Code 掃描**（ZXing.js）
-- 自動更新玩家圖鑑與積分
-- 重複掃描防護與交易記錄
+### IoT Control Center（企業監控端）
+- 🖥️ **Dashboard** - 聚合 KPI、店家/機台狀態總覽
+- 🗺️ **Control Center Editor** - 拖拉式樓層平面圖編輯器（機台、區域、攝影機、地圖等圖層元件）
+- 🖴 **Machines** - 機台清單、狀態（online/warning/alarm/offline）、電流/開門警報閾值
+- 🚨 **Alerts** - 即時警報列表
+- 🕐 **History** - 機台事件歷史紀錄
+- 📈 **Analytics** - 數據分析儀表板
+- 🏬 **Store Management** - 店家/品牌/分組管理
+- 👥 **Users** - 使用者管理
+- ⚙️ **Settings** - 店家設定、佈局版本管理
 
-### 3. 獎勵兌換系統
-根據圖鑑收集進度自動解鎖：
-- 🎁 **探索小禮** (30%)
-- 💎 **科學中禮** (60%)  
-- 🏆 **領航大禮** (90%)
-- 👑 **SSR 傳說卡大獎** (100%)
-
-### 4. 後台管理系統
-- **卡牌列印引擎** (`/print-cards`)：生成含 QR-Code 的卡牌排版
-- **管理控制台** (`/admin`)：使用者、卡牌、登入設定、問卷維護
-
----
-
-## 🎮 6大互動遊戲
-
-| 遊戲 | 描述 | 特性 |
-| :--- | :--- | :--- |
-| **跳豆機** 🎯 `/tiao-dou-ji` | 3D物理跳豆發射遊戲 | Rapier 3D物理引擎、重力碰撞、力道控制 |
-| **大女神** 🎲 `/da-nu-shen` | 搖晃骰盅擲骰子 | 3D骰子模型、物理搖晃、隨機點數 |
-| **九宮格** 🎯 `/jiu-gong-ge` | 網格碰撞投擲遊戲 | 3D球體、風向控制、發射力道、多物理場景 |
-| **消除對抗賽** ⚔️ `/test-game` | 五屬性符石消除 | COMBO 連擊、戰隊傷害、實時排行榜、致敬龍族拼圖 |
-| **3D城市駕駛** 🏙️ `/city-game` | 駕駛漫遊城市 | Procedural地形、交通流量、虛擬手機UI、FPV無人機模式 |
-| **刮刮樂** ✨ `/scratch-card` | Canvas擦除塗層 | 逼真刮刮感、隨機獎勵、盲盒券產出 |
+### ARIP（AI Robotics Integration Platform，原型）
+- 📱 **Device Manager** - 管理 ESP32、Pixhawk、無人機、機器人、攝像頭、感測器
+- 🚁 **Fleet Manager** - 編隊無人機、AGV、機器人
+- ⚡ **Workflow** - Node-RED 工作流引擎（支援多提供商：n8n、Kestra、Flowise）
+- 🤖 **AI Agent** - OpenAI、Claude、Gemini、Ollama 整合
+- 👁 **Vision** - YOLO、OpenCV、OCR、即時偵測追蹤
+- 📍 **GIS/Map** - MapLibre 艦隊地圖、地理圍欄、任務規劃
+- 🔄 **Event Bus** - Redis Pub/Sub + MQTT 訊息母線
 
 ---
 
-## 🖼️ 系統頁面與遊戲示意圖 (Previews & Mockups)
+## 📁 專案結構
 
-以下為本平台之目前頁面與遊戲互動畫面截圖（已存於 `public/` 目錄中）：
-
-### 🖥️ 首頁與圖鑑系統
-
-| 頁面 | 畫面預覽 |
-| :--- | :--- |
-| **首頁儀表板 & 動態輪播圖** <br> 包含最新消息、首頁大圖、COMBO 模擬器 | ![首頁](./public/home.png) |
-| **宇宙圖鑑 (Card Collection)** <br> 展示已收集與未收集的星際卡牌及屬性 | ![宇宙圖鑑](./public/collection.png) |
-| **積分排行榜 (Leaderboard)** <br> 實時拉取玩家積分排名 | ![排行榜](./public/leaderboard.png) |
-
-### 🕹️ 遊戲畫面預覽
-
-| 遊戲 | 畫面預覽 |
-| :--- | :--- |
-| **跳豆機 (3D Bounce Bean)** <br> 3D 物理反彈發射與碰撞模擬 | ![跳豆機](./public/tiao_dou_ji_page.png) |
-| **大女神 (3D Dice Shaker)** <br> 3D 骰盅搖骰體驗 | ![大女神骰子](./public/da_nu_shen_page.png) |
-| **九宮格 (Jiu Gong Ge)** <br> 網格球體投擲與風力控制 | ![九宮格](./public/jiu_gong_ge_page.png) |
-| **消除符石對抗賽 (Battle Arena)** <br> 消除符石引爆連擊，傷害排行榜挑戰 | ![消除符石對抗賽](./public/test-game.png) |
-| **3D 模擬城市 (3D City Simulator)** <br> 3D 載具駕駛與城市漫遊 | ![3D 模擬城市](./public/city_game_page.png) |
-| **刮刮樂 (Scratch Card)** <br> 刮除塗層取得盲盒戰利品 | ![刮刮樂](./public/scratch_card_page.png) |
-
----
+```
+akade-point/
+│
+├─ 【消費端 - Akade Point】
+│  ├── app/(app)/                    # 認證玩家頁面
+│  │   ├── profile/                 # 個人檔案 & 積分
+│  │   ├── collection/              # 卡牌圖鑑
+│  │   ├── leaderboard/             # 排行榜
+│  │   └── game/[sessionId]/         # 遊戲記錄 & 驗證
+│  │
+│  ├── app/games/                   # 遊戲大廳 + 9 款遊戲頁面
+│  │   ├── combo-arena/            # 消除符石對戰 (Pixi.js)
+│  │   ├── tiao-dou-ji/            # 跳豆機 (3D物理+Rapier)
+│  │   ├── city-game/              # 3D城市駕駛 (程序生成 + FPV無人機賽道)
+│  │   ├── da-nu-shen/             # 大女神 (3D骰子)
+│  │   ├── jiu-gong-ge/            # 九宮格 (投擲+風向)
+│  │   ├── scratch-card/           # 刮刮樂 (Canvas)
+│  │   ├── minecraft/              # 方塊世界 (體素沙盒)
+│  │   ├── ship-tracker/           # 船隻追蹤 (連接 Python 偵測後端)
+│  │   └── temple-of-desert-god/   # 沙漠神殿拉霸機 (PixiJS)
+│  │       └── README.md           # 拉霸機架構/狀態機文件
+│  │
+│  ├── app/admin/                   # 後台管理
+│  │   ├── cards/                  # QR-Code 卡牌管理
+│  │   ├── users/                  # 玩家管理
+│  │   ├── shops/                  # 店家碼管理
+│  │   ├── questionnaire-maintenance/  # 問卷維護
+│  │   ├── knowledge-base/         # AI 推薦知識庫
+│  │   └── line-auth-settings/     # LINE 登入設定
+│  │
+│  ├── backend/                     # Python FastAPI（船隻偵測）
+│  │   ├── core/detector.py        # YOLOv8 船隻偵測
+│  │   ├── core/tracker.py         # 船隻軌跡追蹤
+│  │   ├── core/matcher.py         # AIS 數據匹配
+│  │   └── backend.py              # Fastify + WebSocket
+│  │
+│  ├── components/                  # React 元件庫（依遊戲/功能分資料夾）
+│  │   ├── city-game/, ship-tracker/, minecraft/, dice-game/,
+│  │   │   scratch-card/, temple-of-desert-god/, jiu-gong-ge/, cards/, ...
+│  │
+│  ├── lib/                         # 工具函式
+│  │   ├── auth/                   # NextAuth + LINE OAuth
+│  │   ├── dynamo/                 # DynamoDB 操作 (含 cc-* 系列)
+│  │   ├── game/                   # 遊戲邏輯
+│  │   ├── scratch-card/           # 刮刮樂邏輯
+│  │   └── temple-of-desert-god/   # 拉霸機引擎 (RNG/Payline/Cascade/Bonus)
+│  │
+│  └── store/                       # Zustand 狀態管理
+│      ├── useSlotStore.ts         # 老虎機狀態
+│      ├── useScratchCardStore.ts  # 刮刮樂狀態
+│      └── ...
+│
+├─ 【企業監控端 - IoT Control Center】
+│  │
+│  ├── app/(control-center)/iot-control-center/
+│  │   ├── layout.tsx              # 側邊欄殼層
+│  │   ├── page.tsx                # Dashboard
+│  │   ├── editor/                 # 樓層平面圖編輯器
+│  │   ├── machines/               # 機台清單
+│  │   ├── alerts/                 # 警報列表
+│  │   ├── history/                # 事件歷史
+│  │   ├── analytics/              # 數據分析
+│  │   ├── stores/                 # 店家/品牌管理
+│  │   ├── users/                  # 使用者管理
+│  │   └── settings/               # 店家設定 & 佈局版本
+│  │
+│  ├── app/api/control-center/      # Control Center API Routes
+│  │   └── storage/                # 開發用 JSON 檔案儲存（暫代真實資料庫）
+│  │
+│  ├── components/control-center/
+│  │   ├── shell/                  # 側邊欄/頁面殼層
+│  │   ├── canvas/                 # 平面圖編輯器（Toolbar、LayoutEditor、版本選單）
+│  │   ├── dashboard/, machines/, alerts/, history/, analytics/,
+│  │   │   stores/, settings/, drawer/, shared/
+│  │
+│  └── lib/
+│      ├── control-center/         # 常數、型別、fileStorage 轉接器
+│      └── dynamo/cc-*.ts          # machines / stores / brands / groups /
+│                                    # alerts / machine-events / maintenance /
+│                                    # store-settings / layout-versions
+│
+├─ 【操作端 - ARIP】
+│  │
+│  ├── app/(arip)/                  # ARIP 操作員儀表板
+│  │   ├── layout.tsx              # 暗色主題側邊欄佈局
+│  │   ├── dashboard/              # 聚合狀態卡片
+│  │   ├── devices/                # Device Manager
+│  │   ├── fleet/                  # Fleet Manager
+│  │   ├── workflows/              # Workflow 列表 + Node-RED iframe
+│  │   │   └── [id]/              # Workflow 詳情 (嵌入編輯器)
+│  │   ├── ai/                     # AI Agent Manager
+│  │   ├── vision/                 # Vision Pipeline
+│  │   └── events/                 # Event Log (實時流)
+│  │
+│  ├── components/arip/             # ARIP UI 元件
+│  │
+│  ├── arip/                        # ARIP 單體應用
+│  │   ├── backend/                # NestJS 後端 (port 3001)
+│  │   │   └── src/
+│  │   │       ├── main.ts         # Fastify 啟動 + Swagger
+│  │   │       ├── config/         # 環境設定
+│  │   │       └── modules/        # device / fleet / workflow / ai /
+│  │   │                            # vision / event-bus / plugin
+│  │   ├── sdk/                    # 跨平台 SDK (Provider 介面型別定義)
+│  │   └── infra/                  # mosquitto / postgres / nodered 設定
+│  │
+│  └── docker-compose.arip.yml      # 6 服務堆疊
+│      # 服務: PostgreSQL, Redis, Mosquitto, MinIO, Node-RED, NestJS
+│
+├── public/                         # 靜態資源 & 預覽圖
+├── scripts/                        # create-tables.mjs 等初始化指令
+├── tsconfig.json                   # Next.js TS 設定 (排除 ARIP)
+├── package.json                    # 根部依賴
+├── next.config.mjs                 # Next.js 設定（含舊遊戲路由 301 轉址至 /games/*）
+├── docker-compose.arip.yml         # ARIP Docker 堆疊
+├── .env.arip.example               # ARIP 環境變數範本
+└── .env.local                      # 本地設定
+```
 
 ---
 
 ## 🛠️ 技術棧
 
-| 層級 | 技術 |
-| :--- | :--- |
-| **前端框架** | Next.js 14 (App Router), React 18, TypeScript |
-| **樣式引擎** | Tailwind CSS, Framer Motion |
-| **3D/物理** | Three.js, React Three Fiber, Rapier 3D, Drei |
-| **掃碼** | ZXing.js (QR-Code) |
-| **後端** | Next.js API Routes, NextAuth (LINE Provider) |
-| **資料庫** | AWS DynamoDB |
-| **部署** | AWS Amplify |
-| **測試** | Playwright E2E |
+| 層級 | Akade Point | IoT Control Center | ARIP |
+|:---|:---|:---|:---|
+| **前端** | Next.js 14, React 18, TypeScript | Next.js 14 + TailwindCSS | Next.js 14 + TailwindCSS (暗色主題) |
+| **3D/遊戲** | Three.js, React Three Fiber, Rapier 3D, Pixi.js | — | — |
+| **後端** | Next.js API Routes, NextAuth.js (LINE) | Next.js API Routes | NestJS 10 + Fastify |
+| **資料庫** | AWS DynamoDB | AWS DynamoDB (`akade-cc-*`) + 開發期本地 JSON | PostgreSQL 16 + TypeORM |
+| **狀態管理** | Zustand | Zustand (自訂 fileStorage persist) | — |
+| **快取/訊息** | — | — | Redis 7 (Pub/Sub + 快取) |
+| **IoT/裝置** | — | 機台遙測（電流/開門/心跳警報） | MQTT (Mosquitto) + 裝置遙測 |
+| **檔案存儲** | — | — | MinIO (S3 相容) |
+| **Workflow** | — | — | Node-RED (+ 多提供商支援) |
+| **虛擬化** | Docker (可選) | — | Docker Compose (6 服務) |
+| **部署** | AWS Amplify | AWS Amplify | ECS / 容器 (待定) |
 
 ---
 
@@ -97,134 +185,291 @@ Akade Point 是一個集**實體卡牌數位化、3D互動遊戲、社群排行�
 ### 前置要求
 - Node.js 18+
 - npm 或 yarn
-- AWS 帳號（DynamoDB）
-- LINE Developers 帳號（登入整合）
+- Python 3.10+（船隻追蹤後端）
+- Docker & Docker Compose (ARIP 需要)
+- AWS 帳號 (DynamoDB - Akade Point / Control Center)
+- LINE Developers 帳號 (LINE OAuth)
 
-### 安裝與設定
+### 1️⃣ 安裝與設定
 
 ```bash
-# 1. 複製倉庫
-git clone https://github.com/your-org/akade-point.git
+# Clone 倉庫
+git clone <repo-url>
 cd akade-point
 
-# 2. 安裝依賴
+# 安裝根部 + Akade Point + Control Center 依賴
 npm install
 
-# 3. 設定環境變數
+# 安裝 ARIP 後端依賴
+cd arip/backend && npm install && cd ../..
+
+# 複製環境變數
 cp .env.local.example .env.local
-# 編輯 .env.local 填入：
-# - LINE Channel ID/Secret
-# - NextAuth Secret
-# - AWS credentials & DynamoDB table names
+cp .env.arip.example .env.arip
 ```
 
-### 本地開發
+編輯 `.env.local` 和 `.env.arip` 填入：
+- LINE Channel ID/Secret
+- NextAuth Secret
+- AWS 憑證
+- Database URL (ARIP)
+
+### 2️⃣ 啟動 Akade Point / Control Center（消費端 + 監控端共用 Next.js App）
 
 ```bash
-# 4. 初始化資料庫（首次執行）
+# 初始化 DynamoDB 表格（首次，含 akade-cc-* Control Center 表格）
 node scripts/create-tables.mjs
 
-# 5. 啟動開發伺服器
+# 啟動開發伺服器 (Next.js port 3000 + Python FastAPI port 8000，並行執行)
 npm run dev
 ```
 
-開啟 [http://localhost:3000](http://localhost:3000) 即可體驗！
+訪問：
+- **遊戲大廳** [http://localhost:3000/games](http://localhost:3000/games)
+- **IoT Control Center** [http://localhost:3000/iot-control-center](http://localhost:3000/iot-control-center)
+
+### 3️⃣ 啟動 ARIP（操作端）
+
+```bash
+# 啟動 Docker 基礎設施 (PostgreSQL, Redis, Mosquitto, MinIO, Node-RED)
+docker compose -f docker-compose.arip.yml up -d
+
+# 驗證服務
+docker compose -f docker-compose.arip.yml ps
+
+# 啟動 NestJS 後端 (port 3001)
+cd arip/backend && npm run start:dev
+
+# 在另一個終端啟動 Next.js 前端
+npm run dev
+```
+
+訪問：
+- **ARIP 儀表板** [http://localhost:3000/arip/dashboard](http://localhost:3000/arip/dashboard)
+- **Swagger API 文件** [http://localhost:3001/api/docs](http://localhost:3001/api/docs)
+- **Node-RED 編輯器** [http://localhost:1880](http://localhost:1880)
 
 ### 可用指令
 
 ```bash
-npm run dev        # 開發伺服器
-npm run build      # 生產構建
-npm run start      # 啟動生產伺服器
-npm run lint       # 代碼檢查
-npm run test:e2e   # Playwright E2E 測試
+# Akade Point / Control Center
+npm run dev               # Next.js 開發伺服器 + Python FastAPI（並行）
+npm run dev:next          # 僅啟動 Next.js 開發伺服器
+npm run build             # 生產構建
+npm run start             # 啟動生產伺服器
+npm run lint              # ESLint 檢查
+npm run test              # Vitest 單元測試
+npm run format            # Prettier 格式化
+npm run format:check      # Prettier 檢查（不寫入）
+
+# ARIP Backend
+cd arip/backend
+npm run start:dev         # NestJS 開發模式
+npm run build             # 生產構建
+npm run typecheck         # 型別檢查
+
+# ARIP Infrastructure
+docker compose -f docker-compose.arip.yml up -d    # 啟動
+docker compose -f docker-compose.arip.yml down     # 停止
+docker compose -f docker-compose.arip.yml logs -f  # 查看日誌
 ```
 
 ---
 
-## 📁 專案結構
+## 🎮 Akade Point 核心功能
 
-```
-akade-point/
-├── app/                      # Next.js App Router
-│   ├── (auth)/              # 登入相關頁面
-│   ├── admin/               # 後台管理系統
-│   ├── collection/          # 卡牌圖鑑頁面
-│   ├── games/               # 6大互動遊戲
-│   │   ├── tiao-dou-ji/     # 跳豆機
-│   │   ├── da-nu-shen/      # 大女神
-│   │   ├── jiu-gong-ge/     # 九宮格
-│   │   ├── test-game/       # 消除對抗賽
-│   │   ├── city-game/       # 3D城市駕駛
-│   │   └── scratch-card/    # 刮刮樂
-│   ├── api/                 # API Routes
-│   └── layout.tsx           # 根佈局
-├── components/              # React 元件庫
-│   ├── GameScene.tsx        # 3D場景基礎元件
-│   ├── QRScanner.tsx        # QR-Code 掃描器
-│   └── ...
-├── lib/                      # 工具函數
-│   ├── auth.ts              # NextAuth 設定
-│   ├── dynamodb.ts          # DynamoDB 操作
-│   └── ...
-├── public/                   # 靜態資源 & 預覽圖
-└── scripts/                 # 輔助指令
-    └── create-tables.mjs    # 初始化資料表
-```
+### 玩家系統
+- **LINE 快速登入** - 無需註冊，一鍵認證
+- **個人儀表板** - 積分、抽獎券、卡牌進度
+- **卡牌圖鑑** - 5 大屬性 × 5 稀有度追蹤
+
+### 掃卡集點
+- ZXing.js 實時 QR-Code 掃描
+- 自動更新圖鑑 & 積分
+- 防重複掃描 & 交易記錄
+
+### 獎勵兌換
+- 30% → 探索小禮
+- 60% → 科學中禮
+- 90% → 領航大禮
+- 100% → SSR 傳說卡大獎
+
+### 9 大遊戲
+
+舊路由（如 `/city-game`）會 301 轉址至新的 `/games/*` 路由。
+
+| 遊戲 | 路由 | 引擎 | 特性 |
+|:---|:---|:---|:---|
+| 消除符石對抗賽 | `/games/combo-arena` | Pixi.js | COMBO × 戰隊傷害 |
+| 3D 物理跳豆機 | `/games/tiao-dou-ji` | R3F + Rapier | 物理發射 × 碰撞 |
+| 3D 模擬城市 | `/games/city-game` | R3F 程序生成 | 開放世界 × 交通 AI × FPV 無人機賽道 |
+| 3D 骰子大女神 | `/games/da-nu-shen` | R3F + Rapier | 搖晃骰盅 × 隨機點數 |
+| 3D 投擲九宮格 | `/games/jiu-gong-ge` | R3F + Rapier | 網格投擲 × 風向 |
+| 刮刮樂幸運發財券 | `/games/scratch-card` | HTML5 Canvas | 真實刮感 × 盲盒 |
+| 方塊世界 | `/games/minecraft` | R3F 體素 | 建造/挖掘 × 飛行模式 |
+| 船隻追蹤 | `/games/ship-tracker` | MapLibre + WebSocket | 連接 Python YOLOv8 偵測後端 |
+| 沙漠神殿拉霸機 | `/games/temple-of-desert-god` | PixiJS v7 | 40 派線 × 連環消除 × Free Spin |
+
+FPV 無人機賽道（3D 模擬城市內建功能）：3 條賽道、機首視角攝影機、重生點、加速衝刺、閘門穿越判定。
+
+### 後台管理
+- 卡牌 QR-Code 生成與印刷
+- 玩家管理與統計
+- 店家碼管理
+- 問卷維護 & AI 推薦引擎（知識庫 `app/admin/knowledge-base`）
 
 ---
 
-## 🔐 環境變數參考
+## 🖥️ IoT Control Center 核心功能
 
+Enterprise IoT Control Center 原型：針對實體設備（販賣機/機台等）的即時監控與樓層平面圖管理。
+
+### Dashboard
+- 聚合 KPI 卡片、店家/機台狀態列表
+
+### Control Center Editor（`/iot-control-center/editor`）
+- 拖拉式樓層平面圖畫布，支援機台、文字、矩形、圓形、箭頭、區域、攝影機、圖片、計數器、地圖、分隔線等 widget
+- 分層群組管理（背景/區域/機台/文字/疊加層），Undo/Redo（上限 50 步）
+- 縮放（0.2×–3×）、網格對齊、佈局版本歷史（每店最多保留 20 版）
+
+### Machines
+- 機台狀態：online / warning / alarm / offline
+- 電流警報閾值：警告 8.5A、警報 11A
+- 開門超時警報（30 秒）、心跳離線判定（15 秒無回報）
+
+### Alerts / History / Analytics
+- 即時警報列表、機台事件歷史、數據分析儀表板
+
+### Store Management / Users / Settings
+- 店家、品牌、分組管理；使用者管理；店家設定與佈局版本控制
+
+### 資料儲存
+- 正式環境：AWS DynamoDB（`akade-cc-brands`、`akade-cc-stores`、`akade-cc-groups`、`akade-cc-machines`、`akade-cc-machine-events`、`akade-cc-alerts`、`akade-cc-maintenance-records`、`akade-cc-store-settings`、`akade-cc-layout-versions`）
+- 開發期：Zustand persist 透過 `app/api/control-center/storage` 寫入本地 JSON（`data/control-center/*.json`），為真實資料庫串接前的暫代方案
+
+---
+
+## 🤖 ARIP 核心功能
+
+### Device Manager
+- ESP32, Arduino, Pixhawk, 無人機, 機器人, AGV 登錄
+- MQTT 心跳檢測 & 離線警報
+- OTA 韌體更新
+- 即時遙測（電池、GPS、溫度等）
+
+### Fleet Manager
+- 無人機編隊組織
+- 集中命令下達
+- 聚合狀態檢查
+- 任務協調
+
+### Workflow Engine (Node-RED)
+- 拖拽式工作流設計
+- 支援多提供商適配器（n8n、Kestra、Flowise 預留）
+- 版本控制 & 歷史追蹤
+- Webhook 觸發 & 事件驅動
+
+### AI Agent Manager
+- OpenAI, Claude, Gemini, Ollama, Azure 整合
+- 工具調用 & 函數執行
+- 記憶 & RAG 支援
+- 多代理協調
+
+### Vision Pipeline
+- YOLO 物件偵測
+- 實時追蹤
+- OCR & 條碼識別
+- IP 攝像頭流接入
+
+### Event Bus
+- Redis Pub/Sub 內部通訊
+- MQTT 裝置遙測橋接
+- 事件聚合與回放
+
+---
+
+## 📝 架構原則
+
+**Akade Point** (消費端)
+- ✅ 高度簡化的玩家體驗
+- ✅ 實時動畫與遊戲物理
+- ✅ 社群排行榜與獎勵驅動
+
+**IoT Control Center** (監控端)
+- ✅ 元件化 Widget 系統（型別 → 預設圖層 → 渲染器）
+- ✅ 樂觀更新 + 版本快照，佈局變更可回溯
+- ✅ 開發/正式儲存介面分離，方便未來換底層資料庫
+
+**ARIP** (操作端)
+- ✅ **Provider Pattern** - 所有廠商能力可替換
+- ✅ **事件驅動架構** - 模組只通過事件溝通
+- ✅ **API First** - REST + WebSocket + gRPC (預留)
+- ✅ **Microservice Ready** - NestJS 可獨立擴展
+
+---
+
+## 🔐 環境變數
+
+### Akade Point / Control Center (`.env.local`)
 ```env
 # LINE OAuth
-NEXT_PUBLIC_LINE_CHANNEL_ID=your_line_channel_id
-LINE_CHANNEL_SECRET=your_line_channel_secret
+NEXT_PUBLIC_LINE_CHANNEL_ID=your_channel_id
+LINE_CHANNEL_SECRET=your_secret
 
 # NextAuth
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your_secret_key
 
 # AWS DynamoDB
-AWS_REGION=ap-southeast-1
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-DYNAMODB_USERS_TABLE=users
-DYNAMODB_CARDS_TABLE=cards
-DYNAMODB_INVENTORY_TABLE=inventory
+AWS_REGION=ap-northeast-1
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+
+# Ship Tracker (Python FastAPI)
+NEXT_PUBLIC_SHIP_TRACKER_BACKEND_URL=http://localhost:8000
+```
+
+### ARIP (`.env.arip`)
+```env
+# NestJS
+ARIP_PORT=3001
+NODE_ENV=development
+
+# Database
+DATABASE_URL=postgresql://arip:arip@localhost:5432/arip
+REDIS_URL=redis://localhost:6379
+
+# MQTT
+MQTT_BROKER_URL=mqtt://localhost:1883
+MQTT_CLIENT_ID=arip-backend-bridge
+
+# MinIO
+MINIO_ENDPOINT=localhost
+MINIO_ACCESS_KEY=arip_minio
+MINIO_SECRET_KEY=arip_minio_secret
+
+# Node-RED
+NODE_RED_BASE_URL=http://localhost:1880
+NODE_RED_API_KEY=your_api_key
 ```
 
 ---
 
 ## 🤝 貢獻指南
 
-1. Fork 本倉庫
-2. 建立功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交變更 (`git commit -m 'feat: add amazing feature'`)
-4. 推送到遠端 (`git push origin feature/amazing-feature`)
-5. 開啟 Pull Request
-
-### 提交規範
-遵循 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
-- `feat: ` 新功能
-- `fix: ` 錯誤修復
-- `refactor: ` 程式碼重構
-- `docs: ` 文件更新
-- `test: ` 測試新增
-- `perf: ` 性能優化
+遵循 Conventional Commits 格式：
+- `feat:` 新功能
+- `fix:` 錯誤修復
+- `refactor:` 重構
+- `docs:` 文件
+- `test:` 測試
 
 ---
 
 ## 📝 授權
 
-MIT License - 詳見 [LICENSE](./LICENSE)
+MIT License - 見 [LICENSE](./LICENSE)
 
 ---
-
-## 💬 聯絡與支持
-
-- 📧 Email: support@akade.point
-- 🐛 Issues: [GitHub Issues](https://github.com/your-org/akade-point/issues)
-- 💡 Discussions: [GitHub Discussions](https://github.com/your-org/akade-point/discussions)
 
 **Made with ❤️ by Akade Team**
