@@ -1,11 +1,16 @@
+"use client";
+
+import { useLocale, useTranslations } from "next-intl";
 import { Wrench } from "lucide-react";
 
 import { EmptyState } from "@/components/control-center/shared/EmptyState";
 import type { MaintenanceRecord } from "@/lib/control-center/types";
 
 export function MachineMaintenanceRecords({ records }: { records: MaintenanceRecord[] }) {
+  const t = useTranslations("MachineMaintenanceRecords");
+  const locale = useLocale();
   if (records.length === 0) {
-    return <EmptyState icon={Wrench} title="No maintenance records" description="No maintenance has been logged for this machine." />;
+    return <EmptyState icon={Wrench} title={t("emptyTitle")} description={t("emptyDescription")} />;
   }
   return (
     <div className="space-y-1.5">
@@ -15,7 +20,7 @@ export function MachineMaintenanceRecords({ records }: { records: MaintenanceRec
           <div className="min-w-0 flex-1">
             <p className="text-foreground">{r.description}</p>
             <p className="text-muted-foreground">
-              {new Date(r.date).toLocaleDateString("zh-TW")} · {r.technician}
+              {new Date(r.date).toLocaleDateString(locale)} · {r.technician}
             </p>
           </div>
         </div>

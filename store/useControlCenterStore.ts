@@ -1,11 +1,23 @@
 import { create } from "zustand";
+import { createId } from "@paralleldrive/cuid2";
 
 import { computeAlignDeltas, computeDistributeDeltas, type AlignEdge, type DistributeAxis } from "@/lib/control-center/align";
-import { DEFAULT_GRID_SIZE, MAX_ZOOM, MIN_ZOOM, UNDO_HISTORY_LIMIT, WIDGET_DEFAULT_LAYER, ZOOM_STEP } from "@/lib/control-center/constants";
+import {
+  DEFAULT_GRID_SIZE,
+  LAYER_GROUP_Z_BASE,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  UNDO_HISTORY_LIMIT,
+  WIDGET_DEFAULT_LAYER,
+  ZOOM_STEP,
+} from "@/lib/control-center/constants";
 import { canvasToScreen, clamp, screenToCanvas } from "@/lib/control-center/geometry";
 import type { EditorMode, Point, StoreSettings, Viewport, Widget, WidgetType } from "@/lib/control-center/types";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import { useStoreSettingsStore } from "@/store/useStoreSettingsStore";
+
+/** Shared so the initial `widgets` and `history[0]` are the same reference. */
+const EMPTY_WIDGETS: Widget[] = [];
 
 function cloneWidgets(widgets: Widget[]): Widget[] {
   return widgets.map((w) => ({ ...w }));
@@ -18,10 +30,45 @@ function writeThroughStoreSettings(patch: Partial<StoreSettings>) {
   if (activeStoreId) useStoreSettingsStore.getState().updateSettings(activeStoreId, patch);
 }
 
-let widgetIdCounter = 0;
 function newWidgetId(): string {
-  widgetIdCounter += 1;
-  return `w-${Date.now().toString(36)}-${widgetIdCounter}`;
+  return createId();
+}
+
+/**
+ * Re-numbers z so that widgets stay inside their layer group's band (see
+ * LAYER_GROUP_Z_BASE). Relative order *within* a group is taken from the given
+ * array order. Without this, "bring to front" or adding a widget assigned a
+ * flat 0..n index and permanently flattened the bands, letting a background
+ * shape paint over machines — while LayersPanel still grouped by band.
+ */
+function restackWithinBands(widgets: Widget[]): Widget[] {
+  const nextInBand: Record<string, number> = {};
+  return widgets.map((w) => {
+    const base = LAYER_GROUP_Z_BASE[w.layerGroup];
+    const offset = nextInBand[w.layerGroup] ?? 0;
+    nextInBand[w.layerGroup] = offset + 1;
+    const zIndex = base + offset;
+    return zIndex === w.zIndex ? w : { ...w, zIndex };
+  });
+}
+
+/**
+ * Ordered comparison. Selection order is meaningful (the drag snap anchor and
+ * the single-selection property editor both read index 0), so this is not set
+ * equality. Marquee dragging recomputes the same hit list on every frame, and
+ * bailing out here keeps one context-menu wrapper per widget from re-rendering.
+ */
+function sameIds(a: string[], b: string[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** Ordered by paint order (back to front), which is what the ordering actions
+ *  and LayersPanel both reason about. */
+function inPaintOrder(widgets: Widget[]): Widget[] {
+  return [...widgets].sort((a, b) => a.zIndex - b.zIndex);
 }
 
 interface ControlCenterState {
@@ -38,6 +85,11 @@ interface ControlCenterState {
 
   history: Widget[][];
   historyIndex: number;
+  /** History slot whose content is what the server currently holds, or null when
+   *  the saved state is no longer reachable by undo/redo (a new branch replaced
+   *  it, or it aged out of the capped history). Lets undo/redo recompute
+   *  `isDirty` instead of leaving it stale. */
+  savedHistoryIndex: number | null;
 
   loadWidgets: (widgets: Widget[]) => void;
 
@@ -93,7 +145,7 @@ interface ControlCenterState {
 const initialViewport: Viewport = { x: 400, y: 160, zoom: 1 };
 
 export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
-  widgets: [],
+  widgets: EMPTY_WIDGETS,
   selection: [],
   viewport: initialViewport,
   mode: "edit",
@@ -104,14 +156,18 @@ export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
   clipboard: [],
   isDirty: false,
 
-  history: [[]],
+  history: [EMPTY_WIDGETS],
   historyIndex: 0,
+  savedHistoryIndex: 0,
 
   loadWidgets: (widgets) =>
     set({
       widgets,
-      history: [cloneWidgets(widgets)],
+      // Same reference in both, so `history[historyIndex] === widgets` is an
+      // exact "nothing uncommitted" test (widgets are never mutated in place).
+      history: [widgets],
       historyIndex: 0,
+      savedHistoryIndex: 0,
       selection: [],
       isDirty: false,
       savedWidgets: cloneWidgets(widgets),
@@ -119,9 +175,13 @@ export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
 
   addWidget: (partial) => {
     const id = newWidgetId();
-    const zIndex = get().widgets.length;
-    const widget = { ...partial, id, zIndex } as Widget;
-    set((s) => ({ widgets: [...s.widgets, widget], selection: [id], isDirty: true }));
+    const widget = { ...partial, id, zIndex: 0 } as Widget;
+    set((s) => ({
+      // Front of its own band, not of the whole canvas.
+      widgets: restackWithinBands([...s.widgets, widget]),
+      selection: [id],
+      isDirty: true,
+    }));
     return id;
   },
 
@@ -165,9 +225,9 @@ export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
       const copies = originals.map((w) => {
         const id = newWidgetId();
         newIds.push(id);
-        return { ...w, id, x: w.x + 24, y: w.y + 24, zIndex: s.widgets.length + newIds.length, name: `${w.name} copy` };
+        return { ...w, id, x: w.x + 24, y: w.y + 24, name: `${w.name} copy` };
       });
-      return { widgets: [...s.widgets, ...copies], selection: newIds, isDirty: true };
+      return { widgets: restackWithinBands([...s.widgets, ...copies]), selection: newIds, isDirty: true };
     });
     get().commit();
     return newIds;
@@ -176,10 +236,10 @@ export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
   bringToFront: (ids) => {
     const idSet = new Set(ids);
     set((s) => {
-      const rest = s.widgets.filter((w) => !idSet.has(w.id));
-      const moved = s.widgets.filter((w) => idSet.has(w.id));
-      const reordered = [...rest, ...moved].map((w, i) => ({ ...w, zIndex: i }));
-      return { widgets: reordered, isDirty: true };
+      const ordered = inPaintOrder(s.widgets);
+      const rest = ordered.filter((w) => !idSet.has(w.id));
+      const moved = ordered.filter((w) => idSet.has(w.id));
+      return { widgets: restackWithinBands([...rest, ...moved]), isDirty: true };
     });
     get().commit();
   },
@@ -187,35 +247,36 @@ export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
   sendToBack: (ids) => {
     const idSet = new Set(ids);
     set((s) => {
-      const moved = s.widgets.filter((w) => idSet.has(w.id));
-      const rest = s.widgets.filter((w) => !idSet.has(w.id));
-      const reordered = [...moved, ...rest].map((w, i) => ({ ...w, zIndex: i }));
-      return { widgets: reordered, isDirty: true };
+      const ordered = inPaintOrder(s.widgets);
+      const moved = ordered.filter((w) => idSet.has(w.id));
+      const rest = ordered.filter((w) => !idSet.has(w.id));
+      return { widgets: restackWithinBands([...moved, ...rest]), isDirty: true };
     });
     get().commit();
   },
 
   reorderWidget: (id, beforeId) => {
     set((s) => {
-      const widget = s.widgets.find((w) => w.id === id);
+      const ordered = inPaintOrder(s.widgets);
+      const widget = ordered.find((w) => w.id === id);
       if (!widget) return s;
-      const withoutMoved = s.widgets.filter((w) => w.id !== id);
+      const withoutMoved = ordered.filter((w) => w.id !== id);
       const targetIndex = beforeId ? withoutMoved.findIndex((w) => w.id === beforeId) : withoutMoved.length;
       const insertAt = targetIndex === -1 ? withoutMoved.length : targetIndex;
       const next = [...withoutMoved.slice(0, insertAt), widget, ...withoutMoved.slice(insertAt)];
-      return { widgets: next.map((w, i) => ({ ...w, zIndex: i })), isDirty: true };
+      return { widgets: restackWithinBands(next), isDirty: true };
     });
     get().commit();
   },
 
-  setSelection: (ids) => set({ selection: ids }),
+  setSelection: (ids) => set((s) => (sameIds(s.selection, ids) ? s : { selection: ids })),
   toggleSelection: (id, additive) =>
     set((s) => {
       if (!additive) return { selection: s.selection.includes(id) && s.selection.length === 1 ? [] : [id] };
       const has = s.selection.includes(id);
       return { selection: has ? s.selection.filter((x) => x !== id) : [...s.selection, id] };
     }),
-  clearSelection: () => set({ selection: [] }),
+  clearSelection: () => set((s) => (s.selection.length === 0 ? s : { selection: [] })),
 
   setViewport: (partial) => set((s) => ({ viewport: { ...s.viewport, ...partial } })),
   panBy: (dx, dy) => set((s) => ({ viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy } })),
@@ -314,9 +375,9 @@ export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
       const copies = state.clipboard.map((w) => {
         const id = newWidgetId();
         newIds.push(id);
-        return { ...w, id, x: w.x + 32, y: w.y + 32, zIndex: state.widgets.length + newIds.length };
+        return { ...w, id, x: w.x + 32, y: w.y + 32 };
       });
-      return { widgets: [...state.widgets, ...copies], selection: newIds, isDirty: true };
+      return { widgets: restackWithinBands([...state.widgets, ...copies]), selection: newIds, isDirty: true };
     });
     get().commit();
     return newIds;
@@ -324,38 +385,71 @@ export const useControlCenterStore = create<ControlCenterState>((set, get) => ({
 
   commit: () =>
     set((s) => {
-      const snapshot = cloneWidgets(s.widgets);
+      // Nothing changed since the last commit (a click without a drag, a blur
+      // with no edit). Pushing a duplicate would also throw away the redo
+      // branch, so bail out instead.
+      if (s.history[s.historyIndex] === s.widgets) return s;
+
       const truncated = s.history.slice(0, s.historyIndex + 1);
-      const nextHistory = [...truncated, snapshot].slice(-UNDO_HISTORY_LIMIT);
-      return { history: nextHistory, historyIndex: nextHistory.length - 1 };
+      const appended = [...truncated, s.widgets];
+      const dropped = Math.max(0, appended.length - UNDO_HISTORY_LIMIT);
+      const nextHistory = appended.slice(dropped);
+
+      // The saved snapshot survives only if it is still in the kept window and
+      // wasn't on the redo branch this commit just discarded.
+      let savedHistoryIndex = s.savedHistoryIndex;
+      if (savedHistoryIndex !== null) {
+        savedHistoryIndex = savedHistoryIndex > s.historyIndex ? null : savedHistoryIndex - dropped;
+        if (savedHistoryIndex !== null && savedHistoryIndex < 0) savedHistoryIndex = null;
+      }
+
+      return { history: nextHistory, historyIndex: nextHistory.length - 1, savedHistoryIndex };
     }),
 
   undo: () =>
     set((s) => {
       if (s.historyIndex <= 0) return s;
       const newIndex = s.historyIndex - 1;
-      return { widgets: cloneWidgets(s.history[newIndex]), historyIndex: newIndex, selection: [] };
+      return {
+        widgets: s.history[newIndex],
+        historyIndex: newIndex,
+        selection: [],
+        isDirty: s.savedHistoryIndex === null || newIndex !== s.savedHistoryIndex,
+      };
     }),
 
   redo: () =>
     set((s) => {
       if (s.historyIndex >= s.history.length - 1) return s;
       const newIndex = s.historyIndex + 1;
-      return { widgets: cloneWidgets(s.history[newIndex]), historyIndex: newIndex, selection: [] };
+      return {
+        widgets: s.history[newIndex],
+        historyIndex: newIndex,
+        selection: [],
+        isDirty: s.savedHistoryIndex === null || newIndex !== s.savedHistoryIndex,
+      };
     }),
 
-  markSaved: () => set({ isDirty: false }),
+  // Same thing as save(): both mean "the server now holds what's on screen".
+  // Keeping them different let discard() revert past a "save as new version".
+  markSaved: () => get().save(),
 
   canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
 
   savedWidgets: null,
-  save: () => set((s) => ({ savedWidgets: cloneWidgets(s.widgets), isDirty: false })),
+  save: () => {
+    // Fold any uncommitted edit into history first, so savedHistoryIndex points
+    // at a slot that actually holds what was saved.
+    if (get().history[get().historyIndex] !== get().widgets) get().commit();
+    set((s) => ({ savedWidgets: cloneWidgets(s.widgets), savedHistoryIndex: s.historyIndex, isDirty: false }));
+  },
   discard: () => {
     const s = get();
     if (!s.savedWidgets) return;
     set({ widgets: cloneWidgets(s.savedWidgets), selection: [], isDirty: false });
     get().commit();
+    set({ savedHistoryIndex: get().historyIndex });
   },
 
   autoArrange: () => {

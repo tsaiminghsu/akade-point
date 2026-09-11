@@ -1,4 +1,15 @@
-import type { MachineStatus, MachineWidgetSize, WidgetLayerGroup, WidgetType } from "./types";
+import type { ControlCenterLocale, MachineStatus, MachineWidgetSize, WidgetLayerGroup, WidgetType } from "./types";
+
+export const SUPPORTED_LOCALES: ControlCenterLocale[] = ["zh-TW", "en-US", "ja-JP"];
+export const DEFAULT_LOCALE: ControlCenterLocale = "zh-TW";
+export const LOCALE_COOKIE_NAME = "cc-locale";
+
+// Endonyms — always shown in their own language regardless of the active locale.
+export const LOCALE_NATIVE_LABEL: Record<ControlCenterLocale, string> = {
+  "zh-TW": "繁體中文",
+  "en-US": "English",
+  "ja-JP": "日本語",
+};
 
 export const STATUS_LABEL: Record<MachineStatus, string> = {
   online: "Online",
@@ -87,9 +98,15 @@ export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 3;
 export const ZOOM_STEP = 1.2;
 export const UNDO_HISTORY_LIMIT = 50;
+export const MAX_LAYOUT_VERSIONS_PER_STORE = 20;
 export const LIVE_TICK_MS = 1000;
 
 export const CURRENT_WARNING_THRESHOLD = 8.5; // amps
 export const CURRENT_ALARM_THRESHOLD = 11; // amps
 export const DOOR_OPEN_ALARM_MS = 30_000;
 export const HEARTBEAT_OFFLINE_MS = 15_000;
+
+/** How many recent events/alerts the shell pulls on hydration. The stores cap
+ *  their in-memory history at the same size, so asking for more would only
+ *  transfer rows that get dropped on arrival. */
+export const HYDRATE_EVENT_LIMIT = 500;

@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { AlertOctagon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +13,8 @@ interface ErrorStateProps {
   className?: string;
 }
 
-export function ErrorState({ title = "發生錯誤", description = "資料載入失敗，請重試。", onRetry, className }: ErrorStateProps) {
+export function ErrorState({ title, description, onRetry, className }: ErrorStateProps) {
+  const t = useTranslations("ErrorState");
   return (
     <div
       className={cn(
@@ -22,12 +26,12 @@ export function ErrorState({ title = "發生錯誤", description = "資料載入
         <AlertOctagon className="h-6 w-6" />
       </span>
       <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-sm font-medium text-foreground">{title ?? t("title")}</p>
+        <p className="text-xs text-muted-foreground">{description ?? t("description")}</p>
       </div>
       {onRetry && (
         <Button size="sm" variant="outline" onClick={onRetry}>
-          重試
+          {t("retry")}
         </Button>
       )}
     </div>

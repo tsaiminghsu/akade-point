@@ -13,6 +13,12 @@ export function toX3D(wx: number): number {
 export function toZ3D(wy: number): number {
   return wy * (TILE_3D / TILE_SIZE) - WORLD_3D_HALF;
 }
+export function fromX3D(x3: number): number {
+  return (x3 + WORLD_3D_HALF) * (TILE_SIZE / TILE_3D);
+}
+export function fromZ3D(z3: number): number {
+  return (z3 + WORLD_3D_HALF) * (TILE_SIZE / TILE_3D);
+}
 
 export enum TileType {
   EMPTY = 'EMPTY',
@@ -55,6 +61,7 @@ export enum VehicleType {
   HELICOPTER = 'HELICOPTER',
   RC_DRONE = 'RC_DRONE',
   NPC_CAR = 'NPC_CAR',
+  POLICE = 'POLICE',
 }
 
 export interface Point {
@@ -80,7 +87,7 @@ export interface Vehicle {
   altitude?: number;
   targetAltitude?: number;
   // npc traffic state
-  npcState?: 'driving' | 'stopped' | 'waiting';
+  npcState?: 'driving' | 'stopped' | 'waiting' | 'hijacked' | 'pulledOver';
   waitTimer?: number;
   // stuck detection
   stuckCheckX?: number;
@@ -88,7 +95,39 @@ export interface Vehicle {
   stuckCheckTimer?: number;
   // service
   isService?: boolean;
+
+  // -- Simulation additions (GTA systems) --------------------------------
+  /** Durability 0-100. 0 = wrecked. */
+  hp: number;
+  /** Collision mass. Default 1; POLICE 1.3; parked 0.6; wreck = immovable. */
+  mass?: number;
+  /** Position at the start of the tick, used to derive true velocity. */
+  prevX?: number;
+  prevY?: number;
+  /**
+   * Derived world velocity in px/SECOND. Always use these across the
+   * NPC/player boundary: `speed` is px/s for the player but px/FRAME for NPCs.
+   */
+  vx?: number;
+  vy?: number;
+  /** Parked or abandoned: traffic AI skips it, the player may enter freely. */
+  isParked?: boolean;
+  /** > 0 while this is a static wreck; counts down to despawn. */
+  wreckTimer?: number;
+  /** Palette index the ejected driver inherits. */
+  driverColorIdx?: number;
+  /** performance.now() of the last damaging impact (cooldown gate). */
+  lastHitTime?: number;
 }
+
+/**
+ * A scripted, input-locking player animation. While this is non-null the
+ * normal physics branch is skipped and `updateAction` drives the player.
+ */
+export type PlayerAction =
+  | { kind: 'carjack'; vehicleId: string; timer: number; total: number; fromX: number; fromY: number }
+  | { kind: 'busted';  timer: number; total: number }
+  | { kind: 'ejected'; timer: number; total: number };
 
 export interface Player {
   x: number;
@@ -99,6 +138,11 @@ export interface Player {
   state: 'onFoot' | 'inCar' | 'inHelicopter' | 'inDrone';
   currentVehicleId: string | null;
   health: number;
+  /** Jump altitude in world px (0 = ground). Same unit as Vehicle.altitude. */
+  z: number;
+  /** Vertical velocity in px/s while airborne. */
+  jumpVel: number;
+  action: PlayerAction | null;
 }
 
 export type OrderType = 'taxi' | 'food' | 'helicopter';
@@ -140,6 +184,86 @@ export interface Waypoint {
   x: number;
   y: number;
   active: boolean;
+  /** 'mission' waypoints are owned by MissionManager and cleared with the session. */
+  source?: 'user' | 'mission';
+}
+
+// -- Minimap -----------------------------------------------------------------
+
+export type BlipKind =
+  | 'mission' | 'marker' | 'passenger' | 'police' | 'paynspray' | 'vehicle' | 'custom';
+
+/** A point of interest drawn on the minimap, in world px. */
+export interface MinimapBlip {
+  x: number;
+  y: number;
+  kind: BlipKind;
+  color: string;
+  /** Radians, same convention as Player.angle. Drawn as an arrow when set. */
+  heading?: number;
+  pulse?: boolean;
+  label?: string;
+}
+
+// -- Orbit camera ------------------------------------------------------------
+
+/** GTA-style third-person orbit camera. Owned by the engine, applied in GameScene. */
+export interface OrbitCamState {
+  /** Radians, 0 = North, clockwise-positive (same convention as Player.angle). */
+  yaw: number;
+  /** Radians above the horizon. */
+  pitch: number;
+  zoomIdx: 0 | 1 | 2;
+  /** Smoothed, occlusion-adjusted boom length in 3D units. */
+  dist: number;
+  /** performance.now() of the last look input. Drives vehicle auto-recenter. */
+  lastLookMs: number;
+  /** Focus altitude in 3D units (helicopter / drone). */
+  focusAlt: number;
+}
+
+// -- Pedestrians -------------------------------------------------------------
+
+export type PedState = 'walk' | 'idle' | 'crossing' | 'flee' | 'knocked' | 'getup' | 'waiting';
+
+export interface Pedestrian {
+  active: boolean;
+  x: number;
+  y: number;
+  angle: number;
+  /** px/s */
+  speed: number;
+  state: PedState;
+  stateTimer: number;
+  /** Next tile centre being walked to. */
+  targetX: number;
+  targetY: number;
+  /** Position of the threat being fled from. */
+  fleeX: number;
+  fleeY: number;
+  /** Walk-cycle phase in radians. */
+  phase: number;
+  /** 0 = upright, 1 = flat on the ground. */
+  fallT: number;
+  fallDir: 1 | -1;
+  /** Decaying post-impact velocity, px/s. */
+  flingVx: number;
+  flingVy: number;
+  colorIdx: number;
+  skinIdx: number;
+  /** Seconds until this ped can be scored as a fresh hit again. */
+  hitCooldown: number;
+}
+
+// -- Banners -----------------------------------------------------------------
+
+export interface Banner {
+  id: string;
+  text: string;
+  sub?: string;
+  color: string;
+  /** performance.now() at which the banner expires. */
+  until: number;
 }
 
 export interface GameState {
@@ -152,6 +276,11 @@ export interface GameState {
   tick: number;
   notifications: Notification[];
   zone: string;
+  /** Camera yaw in radians. The minimap rotates by this. */
+  camYaw: number;
+  /** Cached GPS route to the active waypoint, or null. */
+  route: Point[] | null;
+  blips: MinimapBlip[];
 }
 
 export interface Notification {
@@ -177,6 +306,73 @@ export interface HUDData {
   nearTownHall?: boolean;
   callLog: CallRecord[];
   raceSession?: RaceSession | null;
+
+  // -- GTA systems -------------------------------------------------------
+  /** Player health 0-100. */
+  health: number;
+  /** Current vehicle durability 0-100, if in one. */
+  vehicleHp?: number;
+  wantedStars: number;
+  /** True while out of police sight and the star timer is draining. */
+  wantedEvading: boolean;
+  /** 0-1 while an officer is arresting the player. */
+  arrestProgress: number;
+  /** 0 = clear, 1 = fully black (Busted transition). */
+  screenFade: number;
+  screenLabel: string | null;
+  /** What pressing F would do right now. Drives the hint and mobile label. */
+  nearVehicle: 'none' | 'free' | 'occupied' | 'police';
+
+  // -- Economy and missions ----------------------------------------------
+  cash: number;
+  /** Floating +$ / -$ figures the HUD animates. */
+  cashTicker: { id: string; amount: number; at: number }[];
+  mission: MissionHUDLike | null;
+  /** Set while standing on an available mission marker. */
+  nearMarker: { defId: string; title: string; icon: string } | null;
+  canStartTaxi: boolean;
+  banner: Banner | null;
+  jobs: JobListLike[];
+}
+
+/**
+ * Structural mirrors of the mission manager's DTOs. Declared here so types.ts
+ * stays free of imports from the mission layer.
+ */
+export interface MissionHUDLike {
+  defId: string;
+  title: string;
+  icon: string;
+  color: string;
+  phase: 'briefing' | 'active' | 'success' | 'failed';
+  objectiveText: string;
+  progressText: string;
+  timeLeft: number | null;
+  timeText: string | null;
+  earned: number;
+  resultText: string;
+  cancelArmed: boolean;
+  description: string;
+  reward: number;
+}
+
+export interface JobListLike {
+  defId: string;
+  title: string;
+  icon: string;
+  color: string;
+  description: string;
+  reward: number;
+  status: 'available' | 'cooldown' | 'active';
+  cooldownLeft: number;
+  best: number | null;
+  progressText: string | null;
+}
+
+export interface ParkingBlock {
+  id: number;
+  center: Point;
+  tiles: Point[];
 }
 
 export interface WorldData {
@@ -186,6 +382,12 @@ export interface WorldData {
   roadTiles: Point[];
   spawnPoints: Point[];
   townHallPos: Point;
+  /** Every SIDEWALK tile centre. The pedestrian spawn/wander domain. */
+  sidewalkTiles: Point[];
+  /** PARKING tiles grouped by block: parked cars and pay-n-spray sites. */
+  parkingBlocks: ParkingBlock[];
+  /** Walkable Town Hall lobby tile used for the Busted respawn. */
+  respawnPos: Point;
 }
 
 // ── Race Mode Types ────────────────────────────────────────────────────────────

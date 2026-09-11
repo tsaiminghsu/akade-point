@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Check, ChevronDown, Menu, Moon, Radio, Search, Store as StoreIcon, Sun, User } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,8 @@ import { useUIStore } from "@/store/useUIStore";
 import { cn } from "@/lib/utils";
 
 export function ControlCenterTopNav() {
+  const t = useTranslations("TopNav");
+  const locale = useLocale();
   const [darkMode, setDarkMode] = useState(true);
   const stores = useMachinesStore((s) => s.stores);
   const activeStoreId = useMachinesStore((s) => s.activeStoreId);
@@ -58,8 +61,8 @@ export function ControlCenterTopNav() {
           <Radio className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-semibold tracking-wide text-foreground">IoT Control Center</p>
-          <p className="hidden truncate text-[10px] text-muted-foreground sm:block">Enterprise Monitoring Platform</p>
+          <p className="truncate text-sm font-semibold tracking-wide text-foreground">{t("title")}</p>
+          <p className="hidden truncate text-[10px] text-muted-foreground sm:block">{t("subtitle")}</p>
         </div>
       </div>
 
@@ -71,7 +74,7 @@ export function ControlCenterTopNav() {
           onClick={() => setCommandOpen(true)}
         >
           <Search className="h-3.5 w-3.5 shrink-0" />
-          <span className="hidden flex-1 text-left sm:inline">Search machines…</span>
+          <span className="hidden flex-1 text-left sm:inline">{t("searchPlaceholder")}</span>
           <kbd className="hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] lg:inline">Ctrl K</kbd>
         </Button>
 
@@ -79,12 +82,12 @@ export function ControlCenterTopNav() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1.5 px-2 sm:gap-2 sm:px-3">
               <StoreIcon className="h-3.5 w-3.5 shrink-0 sm:hidden" />
-              <span className="hidden max-w-[140px] truncate sm:inline">{activeStore?.name ?? "Select store"}</span>
+              <span className="hidden max-w-[140px] truncate sm:inline">{activeStore?.name ?? t("selectStore")}</span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Switch Store</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("switchStore")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {stores.map((store) => (
               <DropdownMenuItem key={store.id} onClick={() => setActiveStore(store.id)} className="justify-between">
@@ -108,13 +111,13 @@ export function ControlCenterTopNav() {
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-0">
             <div className="flex items-center justify-between border-b border-border px-3 py-2">
-              <p className="text-sm font-medium">Notifications</p>
-              <span className="text-xs text-muted-foreground">{activeAlerts.length} active</span>
+              <p className="text-sm font-medium">{t("notifications")}</p>
+              <span className="text-xs text-muted-foreground">{t("activeCount", { count: activeAlerts.length })}</span>
             </div>
             <ScrollArea className="h-72">
               <div className="flex flex-col divide-y divide-border">
                 {activeAlerts.length === 0 && (
-                  <p className="p-4 text-center text-sm text-muted-foreground">No active alerts 🎉</p>
+                  <p className="p-4 text-center text-sm text-muted-foreground">{t("noActiveAlerts")}</p>
                 )}
                 {activeAlerts.map((a) => (
                   <button
@@ -129,7 +132,7 @@ export function ControlCenterTopNav() {
                       <StatusDot status={a.severity === "critical" ? "alarm" : "warning"} />
                       {a.message}
                     </span>
-                    <span className="text-muted-foreground">{new Date(a.createdAt).toLocaleString("zh-TW")}</span>
+                    <span className="text-muted-foreground">{new Date(a.createdAt).toLocaleString(locale)}</span>
                   </button>
                 ))}
               </div>
@@ -142,7 +145,7 @@ export function ControlCenterTopNav() {
           size="icon"
           onClick={() => {
             setDarkMode((v) => !v);
-            toast.info("此原型固定為 Dark Theme（監控中心慣例），已記錄偏好設定。");
+            toast.info(t("themeToggleToast"));
           }}
         >
           {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
@@ -155,13 +158,13 @@ export function ControlCenterTopNav() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Ops Admin</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("userMenu.opsAdmin")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Team</DropdownMenuItem>
-            <DropdownMenuItem>API Keys</DropdownMenuItem>
+            <DropdownMenuItem>{t("userMenu.profile")}</DropdownMenuItem>
+            <DropdownMenuItem>{t("userMenu.team")}</DropdownMenuItem>
+            <DropdownMenuItem>{t("userMenu.apiKeys")}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-status-alarm">Sign out</DropdownMenuItem>
+            <DropdownMenuItem className="text-status-alarm">{t("userMenu.signOut")}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

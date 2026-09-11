@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { Cpu, MapPin, Radio, Tag } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -12,7 +14,13 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/control-center/shared/StatusBadge";
-import { MachineCurrentChart } from "./MachineCurrentChart";
+// This drawer is mounted on every Control Center route, so a static import
+// would pull the whole charting library into the shared shell chunk even on
+// pages that never open it.
+const MachineCurrentChart = dynamic(() => import("./MachineCurrentChart").then((m) => m.MachineCurrentChart), {
+  ssr: false,
+  loading: () => <div className="h-48 w-full animate-pulse rounded-lg bg-muted/40" />,
+});
 import { MachineLiveInfo } from "./MachineLiveInfo";
 import { MachineEventsList } from "./MachineEventsList";
 import { MachineAlertHistory } from "./MachineAlertHistory";
@@ -21,6 +29,7 @@ import { useMachinesStore } from "@/store/useMachinesStore";
 import { useUIStore } from "@/store/useUIStore";
 
 export function MachineDetailDrawer() {
+  const t = useTranslations("MachineDrawer");
   const machineId = useUIStore((s) => s.drawerMachineId);
   const closeMachineDrawer = useUIStore((s) => s.closeMachineDrawer);
   const machine = useMachinesStore((s) => (machineId ? s.getMachine(machineId) : undefined));
@@ -65,19 +74,19 @@ export function MachineDetailDrawer() {
               <Tabs defaultValue="live">
                 <TabsList className="w-full">
                   <TabsTrigger value="live" className="flex-1">
-                    Live
+                    {t("liveTab")}
                   </TabsTrigger>
                   <TabsTrigger value="overview" className="flex-1">
-                    Overview
+                    {t("overviewTab")}
                   </TabsTrigger>
                   <TabsTrigger value="history" className="flex-1">
-                    History
+                    {t("historyTab")}
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="live" className="space-y-4">
                   <div className="cc-card cc-glass p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Current (A)</p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{t("currentLabel")}</p>
                     <MachineCurrentChart data={machine.currentHistory} />
                   </div>
                   <MachineLiveInfo machine={machine} />
@@ -85,32 +94,32 @@ export function MachineDetailDrawer() {
 
                 <TabsContent value="overview" className="space-y-4">
                   <div className="cc-card cc-glass grid grid-cols-2 gap-y-3 p-4 text-sm">
-                    <span className="text-muted-foreground">Machine Name</span>
+                    <span className="text-muted-foreground">{t("machineName")}</span>
                     <span className="text-right text-foreground">{machine.name}</span>
-                    <span className="text-muted-foreground">Device ID</span>
+                    <span className="text-muted-foreground">{t("deviceId")}</span>
                     <span className="text-right text-foreground">{machine.deviceId}</span>
-                    <span className="text-muted-foreground">Store</span>
+                    <span className="text-muted-foreground">{t("store")}</span>
                     <span className="text-right text-foreground">{store?.name}</span>
-                    <span className="text-muted-foreground">Group</span>
+                    <span className="text-muted-foreground">{t("group")}</span>
                     <span className="text-right text-foreground">{group?.name}</span>
-                    <span className="text-muted-foreground">Firmware</span>
+                    <span className="text-muted-foreground">{t("firmware")}</span>
                     <span className="text-right text-foreground">{machine.firmware}</span>
-                    <span className="text-muted-foreground">Restart Count</span>
+                    <span className="text-muted-foreground">{t("restartCount")}</span>
                     <span className="text-right text-foreground">{machine.restartCount}</span>
                   </div>
                   <div>
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Recent Events</p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{t("recentEvents")}</p>
                     <MachineEventsList events={events} />
                   </div>
                 </TabsContent>
 
                 <TabsContent value="history" className="space-y-4">
                   <div>
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Alert History</p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{t("alertHistory")}</p>
                     <MachineAlertHistory machineId={machine.id} />
                   </div>
                   <div>
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Maintenance Records</p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{t("maintenanceRecords")}</p>
                     <MachineMaintenanceRecords records={maintenanceRecords} />
                   </div>
                 </TabsContent>

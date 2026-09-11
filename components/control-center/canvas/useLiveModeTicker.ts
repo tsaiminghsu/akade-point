@@ -17,9 +17,12 @@ export function useLiveModeTicker() {
   useEffect(() => {
     if (mode !== "live") return;
     const interval = setInterval(() => {
-      const { alerts } = useMachinesStore.getState().runLiveTick();
+      const { events, alerts } = useMachinesStore.getState().runLiveTick();
+      if (events.length > 0) {
+        useMachinesStore.getState().persistEvents(events);
+      }
       if (alerts.length > 0) {
-        useAlertStore.getState().pushAlerts(alerts);
+        void useAlertStore.getState().ingestAlerts(alerts);
       }
     }, LIVE_TICK_MS);
     return () => clearInterval(interval);

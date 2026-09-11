@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import { useMachinesStore } from "@/store/useMachinesStore";
 import type { Brand } from "@/lib/control-center/types";
 
 export function BrandTable() {
+  const t = useTranslations("BrandTable");
+  const tCommon = useTranslations("Common");
   const brands = useMachinesStore((s) => s.brands);
   const stores = useMachinesStore((s) => s.stores);
   const removeBrand = useMachinesStore((s) => s.removeBrand);
@@ -33,20 +36,20 @@ export function BrandTable() {
     <div className="space-y-3">
       <div className="flex justify-end">
         <Button size="sm" className="gap-1.5" onClick={openCreate}>
-          <Plus className="h-3.5 w-3.5" /> Add Brand
+          <Plus className="h-3.5 w-3.5" /> {t("addBrand")}
         </Button>
       </div>
 
       {brands.length === 0 ? (
-        <EmptyState title="No brands yet" description="Create a brand to start grouping stores under it." />
+        <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Brand</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Stores</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("brand")}</TableHead>
+              <TableHead>{t("description")}</TableHead>
+              <TableHead>{t("stores")}</TableHead>
+              <TableHead className="text-right">{tCommon("actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -86,9 +89,9 @@ export function BrandTable() {
       <ConfirmDialog
         open={Boolean(deletingBrand)}
         onOpenChange={(open) => !open && setDeletingBrand(undefined)}
-        title={`Delete '${deletingBrand?.name}'?`}
-        description="This cannot be undone. Stores must be reassigned or removed first."
-        confirmLabel="Delete"
+        title={t("deleteTitle", { name: deletingBrand?.name ?? "" })}
+        description={t("deleteDescription")}
+        confirmLabel={tCommon("delete")}
         onConfirm={() => deletingBrand && removeBrand(deletingBrand.id)}
       />
     </div>

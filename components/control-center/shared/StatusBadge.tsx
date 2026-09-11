@@ -1,6 +1,10 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+
 import { cn } from "@/lib/utils";
 import type { MachineStatus } from "@/lib/control-center/types";
-import { STATUS_BG_CLASS, STATUS_LABEL, STATUS_TEXT_CLASS } from "@/lib/control-center/constants";
+import { STATUS_BG_CLASS, STATUS_TEXT_CLASS } from "@/lib/control-center/constants";
 import { StatusDot } from "./StatusDot";
 
 interface StatusBadgeProps {
@@ -9,6 +13,7 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  const t = useTranslations("Status");
   return (
     <span
       className={cn(
@@ -19,19 +24,20 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
       )}
     >
       <StatusDot status={status} animate={status === "alarm"} />
-      {STATUS_LABEL[status]}
+      {t(status)}
     </span>
   );
 }
 
 export function StatusLegend() {
+  const t = useTranslations("Status");
   const items: MachineStatus[] = ["online", "warning", "alarm", "offline"];
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
       {items.map((s) => (
         <span key={s} className="inline-flex items-center gap-1.5">
           <span className={cn("h-2 w-2 rounded-full", STATUS_BG_CLASS[s])} />
-          {STATUS_LABEL[s]}
+          {t(s)}
         </span>
       ))}
     </div>

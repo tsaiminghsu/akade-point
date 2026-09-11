@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import { useMachinesStore } from "@/store/useMachinesStore";
 import type { Store } from "@/lib/control-center/types";
 
 export function StoreTable() {
+  const t = useTranslations("StoreTable");
+  const tCommon = useTranslations("Common");
   const stores = useMachinesStore((s) => s.stores);
   const brands = useMachinesStore((s) => s.brands);
   const machines = useMachinesStore((s) => s.machines);
@@ -36,21 +39,21 @@ export function StoreTable() {
     <div className="space-y-3">
       <div className="flex justify-end">
         <Button size="sm" className="gap-1.5" onClick={openCreate} disabled={brands.length === 0}>
-          <Plus className="h-3.5 w-3.5" /> Add Store
+          <Plus className="h-3.5 w-3.5" /> {t("addStore")}
         </Button>
       </div>
 
       {stores.length === 0 ? (
-        <EmptyState title="No stores yet" description="Create a store to start adding machines to it." />
+        <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Store</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Brand</TableHead>
-              <TableHead>Machines</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("store")}</TableHead>
+              <TableHead>{t("address")}</TableHead>
+              <TableHead>{t("brand")}</TableHead>
+              <TableHead>{t("machines")}</TableHead>
+              <TableHead className="text-right">{tCommon("actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -81,7 +84,7 @@ export function StoreTable() {
                   <TableCell className="text-right">
                     {store.id !== activeStoreId && (
                       <Button variant="ghost" size="sm" className="text-xs" onClick={() => setActiveStore(store.id)}>
-                        Switch to
+                        {t("switchTo")}
                       </Button>
                     )}
                     <Button variant="ghost" size="icon-sm" onClick={() => openEdit(store)}>
@@ -108,9 +111,9 @@ export function StoreTable() {
       <ConfirmDialog
         open={Boolean(deletingStore)}
         onOpenChange={(open) => !open && setDeletingStore(undefined)}
-        title={`Delete '${deletingStore?.name}'?`}
-        description="This cannot be undone. Machines must be reassigned or removed first."
-        confirmLabel="Delete"
+        title={t("deleteTitle", { name: deletingStore?.name ?? "" })}
+        description={t("deleteDescription")}
+        confirmLabel={tCommon("delete")}
         onConfirm={() => deletingStore && removeStore(deletingStore.id)}
       />
     </div>

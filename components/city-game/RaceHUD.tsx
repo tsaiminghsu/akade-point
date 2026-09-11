@@ -1,6 +1,6 @@
 'use client';
 import type { RaceCourse, RaceSession } from './types';
-import { formatRaceTime, formatDelta, getRaceStars } from './race';
+import { formatRaceTime, getRaceStars } from './race';
 
 interface Props {
   session: RaceSession | null;

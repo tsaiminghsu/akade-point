@@ -1,16 +1,23 @@
 'use client';
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef, useEffect, useState, useMemo } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Sky } from '@react-three/drei';
 import * as THREE from 'three';
 
 import { GameEngine3D } from './engine3d';
 import { HUDData } from './types';
-import { toX3D, toZ3D, VehicleType, TILE_3D, GRID_SIZE, TILE_SIZE, Vehicle } from './types';
+import { toX3D, toZ3D, VehicleType, TILE_3D, TILE_SIZE, Vehicle } from './types';
 import CityScene from './CityMesh';
-import { PlayerCar, PlayerCarHandle, NPCCars, NPCCarsHandle, HelicopterMesh } from './VehicleMeshes';
+import {
+  PlayerCar, PlayerCarHandle, HelicopterMesh,
+  InstancedCarFleet, CarFleetHandle,
+  ScooterPool, ScooterPoolHandle,
+} from './VehicleMeshes';
+import PedestrianMeshes, { PedestrianMeshesHandle } from './PedestrianMeshes';
+import MissionMarkers, { MissionMarkersHandle } from './MissionMarkers';
 import RaceGateMeshes from './RaceGateMeshes';
 import { getCourse } from './raceCourses';
+import { LOOK_TARGET_Y } from './orbitCamera';
 
 // Reusable temp objects (never recreate in hot loop)
 const tmpVec3  = new THREE.Vector3();
@@ -18,12 +25,10 @@ const tmpVec3b = new THREE.Vector3();
 const fpvEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 const fpvQuat  = new THREE.Quaternion();
 
-// Camera config
-const CAM_DIST_CAR  = 13;
-const CAM_HEIGHT_CAR = 5.5;
-const CAM_DIST_FOOT  = 8;
-const CAM_HEIGHT_FOOT = 4;
-const CAM_LERP = 4;
+// Smoothed camera focus. The orbit itself is not lerped — that would make
+// mouse look feel laggy — only the point being looked at.
+const focusSm = new THREE.Vector3();
+const FOCUS_LERP_RATE = 10;
 
 // ─── Weather system ───────────────────────────────────────────────────────────
 
@@ -137,11 +142,10 @@ const WEATHER: Record<WeatherType, WeatherConfig> = {
 const PARTICLE_COUNT = 10000;
 
 function PrecipitationSystem({
-  type, opacity, cameraRef,
+  type, opacity,
 }: {
   type: 'rain' | 'heavy_rain' | 'snow';
   opacity: number;
-  cameraRef: React.MutableRefObject<THREE.Camera | null>;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
   const posArr = useRef<Float32Array>(new Float32Array(PARTICLE_COUNT * 3));
@@ -233,19 +237,21 @@ export default function GameScene({
   onTownHallToggle, onWeatherCycle,
 }: Props) {
   const playerRef     = useRef<PlayerCarHandle>(null);
-  const npcRef        = useRef<NPCCarsHandle>(null);
+  const fleetRef      = useRef<CarFleetHandle>(null);
+  const scooterRef    = useRef<ScooterPoolHandle>(null);
+  const pedRef        = useRef<PedestrianMeshesHandle>(null);
+  const markerRef     = useRef<MissionMarkersHandle>(null);
   const droneRef      = useRef<THREE.Group>(null);
   const helicopterRef = useRef<THREE.Group>(null);
   const waypointRef   = useRef<THREE.Group>(null);
   const miniMapTick   = useRef(0);
-  const lastCarIdRef  = useRef<string | null>(null);
+  const focusInit     = useRef(false);
 
   // Light refs for dynamic weather
   const ambientRef  = useRef<THREE.AmbientLight>(null);
   const sunRef      = useRef<THREE.DirectionalLight>(null);
   const fillRef     = useRef<THREE.DirectionalLight>(null);
   const hemiRef     = useRef<THREE.HemisphereLight>(null);
-  const cameraRef   = useRef<THREE.Camera | null>(null);
 
   // Current interpolated weather values (live lerp in useFrame)
   const liveW = useRef({ ...WEATHER.clear_day });
@@ -257,28 +263,54 @@ export default function GameScene({
   const [playerGrid, setPlayerGrid] = useState({ x: 40, y: 40 });
   const playerGridRef = useRef({ x: 40, y: 40 });
 
-  // Fog object to mutate per-frame
-  const fogRef = useRef<THREE.Fog | null>(null);
+  // Which mesh represents the player, and in what colour. This is React state
+  // rather than a prop read during render because GameScene deliberately does
+  // not re-render every frame — it is updated from useFrame only when it
+  // actually changes (e.g. stepping out of a car, or stealing a red one).
+  const [playerVisual, setPlayerVisual] = useState({
+    onFoot: false,
+    type: VehicleType.CAR,
+    color: '#00bcd4',
+  });
+  const playerVisualRef = useRef(playerVisual);
 
+
+  // Keyboard capture is tied to the engine's lifetime only. It must NOT depend
+  // on the UI callbacks below: those change identity on every render, which
+  // would detach and re-attach input ~10 times a second and can leave the game
+  // with no keyboard at all if a cleanup lands without a matching attach.
   useEffect(() => {
     engine.input.attach();
+    return () => engine.input.detach();
+  }, [engine]);
 
+  // UI hotkeys go through a ref so the listener binds once.
+  const hotkeysRef = useRef({ onPhoneToggle, onMapToggle, onTownHallToggle, onWeatherCycle });
+  hotkeysRef.current = { onPhoneToggle, onMapToggle, onTownHallToggle, onWeatherCycle };
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyP') onPhoneToggle();
-      if (e.code === 'KeyM') onMapToggle();
-      if (e.code === 'KeyT') onTownHallToggle();
-      if (e.code === 'KeyG') onWeatherCycle();
+      const h = hotkeysRef.current;
+      if (e.code === 'KeyP') h.onPhoneToggle();
+      if (e.code === 'KeyM') h.onMapToggle();
+      if (e.code === 'KeyT') h.onTownHallToggle();
+      if (e.code === 'KeyG') h.onWeatherCycle();
     };
     window.addEventListener('keydown', onKey);
-    return () => {
-      engine.input.detach();
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [engine, onPhoneToggle, onMapToggle, onTownHallToggle, onWeatherCycle]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     engine.setHUDCallback(onHUDUpdate);
   }, [engine, onHUDUpdate]);
+
+  // Mouse look is driven off the WebGL canvas: click to lock, Esc to release.
+  const { gl } = useThree();
+  useEffect(() => {
+    const el = gl.domElement;
+    engine.input.attachPointer(el);
+    return () => engine.input.detachPointer();
+  }, [engine, gl]);
 
   // Snap target weather immediately on change (lerp handles smooth transition)
   const targetW = WEATHER[weatherType];
@@ -286,7 +318,6 @@ export default function GameScene({
   useFrame((state, delta) => {
     const dt  = Math.min(delta, 0.05);
     const now = performance.now();
-    cameraRef.current = state.camera;
 
     engine.update(dt, now);
 
@@ -303,6 +334,18 @@ export default function GameScene({
       Promise.resolve().then(() => setPlayerGrid({ x: gx, y: gy }));
     }
 
+    // ─ Player mesh identity (only when it changes) ───────────────────
+    const curVeh = player.currentVehicleId ? engine.vehicles.get(player.currentVehicleId) : null;
+    const onFoot = player.state === 'onFoot';
+    const visType = curVeh?.type ?? VehicleType.CAR;
+    const visColor = onFoot ? '#00bcd4' : (curVeh?.color ?? '#00bcd4');
+    const pv = playerVisualRef.current;
+    if (pv.onFoot !== onFoot || pv.type !== visType || pv.color !== visColor) {
+      const next = { onFoot, type: visType, color: visColor };
+      playerVisualRef.current = next;
+      Promise.resolve().then(() => setPlayerVisual(next));
+    }
+
     // ─ Player vehicle mesh ────────────────────────────────────────────
     const pGroup = playerRef.current?.group;
     if (pGroup) {
@@ -312,22 +355,24 @@ export default function GameScene({
       if (player.state === 'inHelicopter') {
         const heli = engine.vehicles.get(player.currentVehicleId ?? '');
         py = ((heli?.altitude ?? 0) * TILE_3D) / TILE_SIZE;
+      } else if (player.state === 'onFoot') {
+        // Jump arc — player.z is world px on the same axis as vehicle altitude.
+        py = (player.z * TILE_3D) / TILE_SIZE;
       }
       pGroup.position.y = py;
       pGroup.rotation.y = -player.angle;
     }
 
-    // ─ NPC cars ───────────────────────────────────────────────────────
-    const npcData: Array<{ x: number; z: number; angle: number; color: string; type: VehicleType }> = [];
-    if (player.currentVehicleId) lastCarIdRef.current = player.currentVehicleId;
-    engine.vehicles.forEach(v => {
-      if (v.id === player.currentVehicleId) return;
-      if (v.id === lastCarIdRef.current && player.state !== 'inCar') return;
-      if (v.type === VehicleType.RC_DRONE)  return;
-      if (v.type === VehicleType.HELICOPTER) return;
-      npcData.push({ x: toX3D(v.x), z: toZ3D(v.y), angle: -v.angle, color: v.color, type: v.type });
-    });
-    npcRef.current?.update(npcData);
+    // ─ Traffic + crowd (instanced, written imperatively) ──────────────
+    // Only the vehicle the player is *currently* driving is hidden; a car the
+    // player has left stays visible where it was abandoned.
+    const drivenId = player.state === 'inCar' || player.state === 'inHelicopter'
+      ? player.currentVehicleId
+      : null;
+    fleetRef.current?.sync(engine.vehicles, drivenId, now / 1000);
+    scooterRef.current?.sync(engine.vehicles, drivenId);
+    pedRef.current?.sync(engine.pedestrians);
+    markerRef.current?.sync(engine.missions, now / 1000);
 
     // ─ Drone mesh ─────────────────────────────────────────────────────
     const droneVehId = engine.drone.vehicleId;
@@ -373,7 +418,6 @@ export default function GameScene({
     }
 
     // ─ Camera ─────────────────────────────────────────────────────────
-    const isDriving = player.state === 'inCar' || player.state === 'inHelicopter' || player.state === 'inDrone';
     const droneVeh  = player.state === 'inDrone' && engine.drone.vehicleId
       ? engine.vehicles.get(engine.drone.vehicleId) : null;
 
@@ -437,16 +481,25 @@ export default function GameScene({
         focusY = (droneVeh.altitude ?? 0) * TILE_3D / TILE_SIZE;
       }
 
-      const camDist   = isDriving ? CAM_DIST_CAR  : CAM_DIST_FOOT;
-      const camHeight = isDriving ? CAM_HEIGHT_CAR : CAM_HEIGHT_FOOT;
-      const camAngle  = droneVeh ? -droneVeh.angle : -player.angle;
-      tmpVec3.set(
-        focusX + Math.sin(camAngle) * camDist,
-        focusY + camHeight,
-        focusZ + Math.cos(camAngle) * camDist,
+      // Smooth the focus point only; the orbit angles come straight from the
+      // engine so mouse look has no perceptible lag.
+      tmpVec3.set(focusX, focusY, focusZ);
+      if (!focusInit.current) {
+        focusSm.copy(tmpVec3);
+        focusInit.current = true;
+      } else {
+        focusSm.lerp(tmpVec3, 1 - Math.exp(-FOCUS_LERP_RATE * delta));
+      }
+
+      const oc = engine.orbitCam;
+      const hd = oc.dist * Math.cos(oc.pitch);
+      const vd = oc.dist * Math.sin(oc.pitch);
+      state.camera.position.set(
+        focusSm.x - Math.sin(oc.yaw) * hd,
+        Math.max(0.7, focusSm.y + LOOK_TARGET_Y + vd),
+        focusSm.z + Math.cos(oc.yaw) * hd,
       );
-      state.camera.position.lerp(tmpVec3, Math.min(1, delta * CAM_LERP));
-      tmpVec3b.set(focusX, focusY + 1.4, focusZ);
+      tmpVec3b.set(focusSm.x, focusSm.y + LOOK_TARGET_Y, focusSm.z);
       state.camera.lookAt(tmpVec3b);
     }
 
@@ -503,7 +556,7 @@ export default function GameScene({
 
     // ─ Mini-map update (every 6 frames) ──────────────────────────────
     miniMapTick.current++;
-    if (miniMapTick.current % 6 === 0) {
+    if (miniMapTick.current % 3 === 0) {
       const ev = new CustomEvent('city:minimap', { detail: engine.getStateSnapshot() });
       window.dispatchEvent(ev);
     }
@@ -563,7 +616,6 @@ export default function GameScene({
         <PrecipitationSystem
           type={cfg.particles as 'rain' | 'heavy_rain' | 'snow'}
           opacity={cfg.particleOpacity}
-          cameraRef={cameraRef}
         />
       )}
 
@@ -573,16 +625,23 @@ export default function GameScene({
       {/* ── Player vehicle or on-foot character ─────────────────── */}
       <PlayerCar
         ref={playerRef}
-        color="#00bcd4"
-        isOnFoot={engine.player.state === 'onFoot'}
-        vehicleType={engine.vehicles.get(engine.player.currentVehicleId ?? '')?.type ?? VehicleType.CAR}
+        color={playerVisual.color}
+        isOnFoot={playerVisual.onFoot}
+        vehicleType={playerVisual.type}
       />
 
       {/* ── Dispatched service helicopter ────────────────────────── */}
       <HelicopterMesh groupRef={helicopterRef} color="#78909c" />
 
-      {/* ── NPC traffic ──────────────────────────────────────────── */}
-      <NPCCars ref={npcRef} />
+      {/* ── NPC traffic (8 draw calls for the whole fleet) ───────── */}
+      <InstancedCarFleet ref={fleetRef} />
+      <ScooterPool ref={scooterRef} />
+
+      {/* ── Pedestrians (3 draw calls for the whole crowd) ───────── */}
+      <PedestrianMeshes ref={pedRef} castShadow={engine.perf.pedShadows} />
+
+      {/* ── Mission pickup markers ───────────────────────────────── */}
+      <MissionMarkers ref={markerRef} />
 
       {/* ── Drone in sky ─────────────────────────────────────────── */}
       <group ref={droneRef} visible={false}>

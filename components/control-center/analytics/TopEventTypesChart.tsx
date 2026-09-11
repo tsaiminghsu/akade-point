@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface TopEventTypesChartProps {
@@ -9,8 +10,9 @@ interface TopEventTypesChartProps {
 const BAR_COLOR = "hsl(var(--chart-1))";
 
 export function TopEventTypesChart({ data }: TopEventTypesChartProps) {
+  const t = useTranslations("Charts");
   if (data.length === 0) {
-    return <p className="flex h-56 items-center justify-center text-sm text-muted-foreground">No events to display</p>;
+    return <p className="flex h-56 items-center justify-center text-sm text-muted-foreground">{t("noEvents")}</p>;
   }
 
   return (
@@ -24,7 +26,7 @@ export function TopEventTypesChart({ data }: TopEventTypesChartProps) {
             contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
             labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           />
-          <Bar dataKey="count" name="Count" fill={BAR_COLOR} radius={[0, 4, 4, 0]} />
+          <Bar dataKey="count" name={t("count")} fill={BAR_COLOR} radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

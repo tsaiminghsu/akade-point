@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { Cpu, DoorOpen, HeartPulse, Wifi } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -8,17 +9,25 @@ import type { Machine, MachineWidgetData } from "@/lib/control-center/types";
 import { StatusBadge } from "@/components/control-center/shared/StatusBadge";
 import { StatusDot } from "@/components/control-center/shared/StatusDot";
 
+// Only the fields a given widget size actually renders are populated —
+// callers select a narrower slice for "small"/"medium" so re-renders aren't
+// triggered by telemetry fields (current/rssi/etc.) the widget never shows.
+export type MachineWidgetView = Pick<Machine, "status" | "name"> &
+  Partial<Pick<Machine, "current" | "door" | "heartbeatAt" | "rssi" | "firmware" | "lastUpdate">>;
+
 interface MachineWidgetProps {
   widget: MachineWidgetData;
-  machine: Machine | undefined;
+  machine: MachineWidgetView | undefined;
   animate: boolean;
 }
 
 export function MachineWidget({ widget, machine, animate }: MachineWidgetProps) {
+  const t = useTranslations("MachineWidget");
+  const locale = useLocale();
   if (!machine) {
     return (
       <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 text-[10px] text-muted-foreground">
-        Unbound
+        {t("unbound")}
       </div>
     );
   }
@@ -53,7 +62,7 @@ export function MachineWidget({ widget, machine, animate }: MachineWidgetProps) 
         </div>
         <div className="flex items-center justify-between">
           <StatusBadge status={machine.status} />
-          <span className="text-xs tabular-nums text-muted-foreground">{machine.current.toFixed(1)}A</span>
+          <span className="text-xs tabular-nums text-muted-foreground">{(machine.current ?? 0).toFixed(1)}A</span>
         </div>
       </div>
     );
@@ -67,28 +76,30 @@ export function MachineWidget({ widget, machine, animate }: MachineWidgetProps) 
         <StatusBadge status={machine.status} />
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-        <span className="text-muted-foreground">Current</span>
-        <span className="text-right tabular-nums text-foreground">{machine.current.toFixed(2)} A</span>
+        <span className="text-muted-foreground">{t("current")}</span>
+        <span className="text-right tabular-nums text-foreground">{(machine.current ?? 0).toFixed(2)} A</span>
         <span className="flex items-center gap-1 text-muted-foreground">
-          <DoorOpen className="h-3 w-3" /> Door
+          <DoorOpen className="h-3 w-3" /> {t("door")}
         </span>
         <span className={cn("text-right text-foreground", machine.door === "open" && "text-status-alarm")}>
-          {machine.door === "open" ? "Open" : "Closed"}
+          {machine.door === "open" ? t("open") : t("closed")}
         </span>
         <span className="flex items-center gap-1 text-muted-foreground">
-          <HeartPulse className="h-3 w-3" /> Heartbeat
+          <HeartPulse className="h-3 w-3" /> {t("heartbeat")}
         </span>
         <span className="text-right tabular-nums text-foreground">
-          {Math.max(0, Math.round((Date.now() - machine.heartbeatAt) / 1000))}s ago
+          {t("secondsAgo", { seconds: Math.max(0, Math.round((Date.now() - (machine.heartbeatAt ?? Date.now())) / 1000)) })}
         </span>
         <span className="flex items-center gap-1 text-muted-foreground">
-          <Wifi className="h-3 w-3" /> RSSI
+          <Wifi className="h-3 w-3" /> {t("rssi")}
         </span>
-        <span className="text-right tabular-nums text-foreground">{machine.rssi} dBm</span>
-        <span className="text-muted-foreground">Firmware</span>
-        <span className="truncate text-right text-foreground">{machine.firmware}</span>
-        <span className="text-muted-foreground">Last Update</span>
-        <span className="text-right text-foreground">{new Date(machine.lastUpdate).toLocaleTimeString("zh-TW")}</span>
+        <span className="text-right tabular-nums text-foreground">{machine.rssi ?? 0} dBm</span>
+        <span className="text-muted-foreground">{t("firmware")}</span>
+        <span className="truncate text-right text-foreground">{machine.firmware ?? ""}</span>
+        <span className="text-muted-foreground">{t("lastUpdate")}</span>
+        <span className="text-right text-foreground">
+          {new Date(machine.lastUpdate ?? Date.now()).toLocaleTimeString(locale)}
+        </span>
       </div>
     </div>
   );

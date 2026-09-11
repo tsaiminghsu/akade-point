@@ -13,7 +13,7 @@ Akade Point 是一個**三引擎全棧應用**：
 
 ### Akade Point（消費者應用）
 - 🎯 **掃卡集點**：QR-Code 實體卡→數位圖鑑
-- 🎮 **9款遊戲**：消除符石對抗賽、3D跳豆機、3D模擬城市（含FPV無人機賽道）、3D骰子大女神、3D投擲九宮格、刮刮樂、方塊世界、船隻追蹤、沙漠神殿拉霸機
+- 🎮 **9款遊戲**：消除符石對抗賽、3D跳豆機、3D模擬城市（含FPV無人機賽道）、3D骰子大女神、3D投擲九宮格、刮刮樂、方塊世界、船舶雷達監控台、沙漠神殿拉霸機
 - 📊 **即時排行榜**：社群積分實時排名
 - 🎁 **自動獎勵**：圖鑑進度 30%/60%/90%/100% 解鎖獎品
 
@@ -59,7 +59,7 @@ akade-point/
 │  │   ├── jiu-gong-ge/            # 九宮格 (投擲+風向)
 │  │   ├── scratch-card/           # 刮刮樂 (Canvas)
 │  │   ├── minecraft/              # 方塊世界 (體素沙盒)
-│  │   ├── ship-tracker/           # 船隻追蹤 (連接 Python 偵測後端)
+│  │   ├── ship-tracker/           # 船舶雷達監控台 (PPI 掃描 + ARPA + AIS)
 │  │   └── temple-of-desert-god/   # 沙漠神殿拉霸機 (PixiJS)
 │  │       └── README.md           # 拉霸機架構/狀態機文件
 │  │
@@ -71,11 +71,11 @@ akade-point/
 │  │   ├── knowledge-base/         # AI 推薦知識庫
 │  │   └── line-auth-settings/     # LINE 登入設定
 │  │
-│  ├── backend/                     # Python FastAPI（船隻偵測）
+│  ├── backend/                     # Python FastAPI（選用的光學辨識分頁）
 │  │   ├── core/detector.py        # YOLOv8 船隻偵測
-│  │   ├── core/tracker.py         # 船隻軌跡追蹤
-│  │   ├── core/matcher.py         # AIS 數據匹配
-│  │   └── backend.py              # Fastify + WebSocket
+│  │   ├── core/tracker.py         # 影像像素座標追蹤
+│  │   ├── core/matcher.py         # 影像方位 → AIS 數據匹配
+│  │   └── backend.py              # FastAPI + WebSocket + MJPEG
 │  │
 │  ├── components/                  # React 元件庫（依遊戲/功能分資料夾）
 │  │   ├── city-game/, ship-tracker/, minecraft/, dice-game/,
@@ -108,7 +108,9 @@ akade-point/
 │  │   └── settings/               # 店家設定 & 佈局版本
 │  │
 │  ├── app/api/control-center/      # Control Center API Routes
-│  │   └── storage/                # 開發用 JSON 檔案儲存（暫代真實資料庫）
+│  │   ├── events/, alerts/        # 皆含 batch/ 端點（即時模式批次寫入）
+│  │   └── machines/, stores/, brands/, groups/,
+│  │       maintenance-records/, store-settings/, layout-versions/
 │  │
 │  ├── components/control-center/
 │  │   ├── shell/                  # 側邊欄/頁面殼層
@@ -117,10 +119,11 @@ akade-point/
 │  │   │   stores/, settings/, drawer/, shared/
 │  │
 │  └── lib/
-│      ├── control-center/         # 常數、型別、fileStorage 轉接器
+│      ├── control-center/         # 常數、型別、幾何運算、模擬、API client
 │      └── dynamo/cc-*.ts          # machines / stores / brands / groups /
 │                                    # alerts / machine-events / maintenance /
 │                                    # store-settings / layout-versions
+│                                    # 事件與警報走 GSI 查詢 + TTL，不做全表掃描
 │
 ├─ 【操作端 - ARIP】
 │  │
@@ -169,8 +172,8 @@ akade-point/
 | **前端** | Next.js 14, React 18, TypeScript | Next.js 14 + TailwindCSS | Next.js 14 + TailwindCSS (暗色主題) |
 | **3D/遊戲** | Three.js, React Three Fiber, Rapier 3D, Pixi.js | — | — |
 | **後端** | Next.js API Routes, NextAuth.js (LINE) | Next.js API Routes | NestJS 10 + Fastify |
-| **資料庫** | AWS DynamoDB | AWS DynamoDB (`akade-cc-*`) + 開發期本地 JSON | PostgreSQL 16 + TypeORM |
-| **狀態管理** | Zustand | Zustand (自訂 fileStorage persist) | — |
+| **資料庫** | AWS DynamoDB | AWS DynamoDB (`akade-cc-*`)，開發期可用 DynamoDB Local | PostgreSQL 16 + TypeORM |
+| **狀態管理** | Zustand | Zustand (透過 API Routes 讀寫 DynamoDB) | — |
 | **快取/訊息** | — | — | Redis 7 (Pub/Sub + 快取) |
 | **IoT/裝置** | — | 機台遙測（電流/開門/心跳警報） | MQTT (Mosquitto) + 裝置遙測 |
 | **檔案存儲** | — | — | MinIO (S3 相容) |
@@ -218,7 +221,14 @@ cp .env.arip.example .env.arip
 
 ```bash
 # 初始化 DynamoDB 表格（首次，含 akade-cc-* Control Center 表格）
+# 這支腳本同時會開啟 machine-events / alerts 兩張表的 TTL（expiresAt），
+# 可重複執行：已存在的表格與已開啟的 TTL 都會跳過。
 node scripts/create-tables.mjs
+
+# （可選）改用本機 DynamoDB，不連 AWS：
+#   node scripts/start-dynamodb-local.mjs
+#   DYNAMODB_LOCAL_ENDPOINT=http://localhost:8500 node scripts/create-tables.mjs
+#   並在 .env.local 設定 DYNAMODB_LOCAL_ENDPOINT=http://localhost:8500
 
 # 啟動開發伺服器 (Next.js port 3000 + Python FastAPI port 8000，並行執行)
 npm run dev
@@ -307,10 +317,44 @@ docker compose -f docker-compose.arip.yml logs -f  # 查看日誌
 | 3D 投擲九宮格 | `/games/jiu-gong-ge` | R3F + Rapier | 網格投擲 × 風向 |
 | 刮刮樂幸運發財券 | `/games/scratch-card` | HTML5 Canvas | 真實刮感 × 盲盒 |
 | 方塊世界 | `/games/minecraft` | R3F 體素 | 建造/挖掘 × 飛行模式 |
-| 船隻追蹤 | `/games/ship-tracker` | MapLibre + WebSocket | 連接 Python YOLOv8 偵測後端 |
+| 船舶雷達監控台 | `/games/ship-tracker` | Canvas 2D PPI | 雷達回波模擬 × ARPA 追蹤 × CPA/TCPA 警報 |
 | 沙漠神殿拉霸機 | `/games/temple-of-desert-god` | PixiJS v7 | 40 派線 × 連環消除 × Free Spin |
 
 FPV 無人機賽道（3D 模擬城市內建功能）：3 條賽道、機首視角攝影機、重生點、加速衝刺、閘門穿越判定。
+
+### 船舶雷達監控台 (`/games/ship-tracker`)
+
+模擬一台真實的航海雷達，而不是把船的位置直接畫在地圖上。整條訊號鏈都在瀏覽器裡跑：
+
+```
+高雄港交通模擬 (船舶運動模型)
+      │
+      ▼
+雷達感測器模型  天線旋轉掃描 → 雷達方程式判定偵測機率 → 方位/距離雜訊 → 海浪與雨雪雜波
+      │            陸地遮蔽：旗津沙洲擋住港內，港內船舶只能靠 AIS 看到
+      ▼
+Alpha-Beta 追蹤器  每轉一圈做一次關聯與濾波 → 暫定/已確認/推算中 → 直線性檢驗剔除雜波
+      │
+      ▼
+AIS 融合          把 AIS 身分套到雷達航跡上；沒有 AIS 的船維持「不明目標」
+      │
+      ▼
+ARPA 解算         真/相對向量、CPA、TCPA、船首穿越距離、警戒區、碰撞警報
+```
+
+主要功能：
+
+- **PPI 掃描畫面**：旋轉掃描線、回波餘輝、距離環、方位刻度、陸地回波、航跡尾跡
+- **顯示模式**：北向上 / 船首向上 / 航向向上；相對運動 / 真運動向量
+- **接收機調校**：增益、海浪抑制 (STC)、雨雪抑制 (FTC)。調過頭會出現真實的副作用：增益太高浮現雜訊，STC 太強會連近距離小船一起吃掉
+- **ARPA**：目標清單、CPA/TCPA、方位不變判定、目標轉向偵測、可設定的警戒扇形區
+- **本船操縱**：改變航向與航速，所有目標的避碰解算即時重算
+- **資料來源**：預設為模擬；切換到「真實 AIS」時由 `app/api/ais/stream` 轉送 AISStream.io 的即時位置報告（需設定 `AISSTREAM_API_KEY`）
+- **光學辨識分頁**：原本的 Python YOLOv8 攝影機偵測介面保留為第二個分頁，需要時才連線
+
+船名與 MMSI 取自 2025-10-14 真實 AIS 快照（`backend/ais_data.json`）；該快照裡每艘船的航速都是 0，所以位置與航跡改由運動模型產生。
+
+核心程式碼在 `components/ship-tracker/radar/`，幾何、追蹤器、ARPA 解算與繪圖都有單元測試（`npm test`）。
 
 ### 後台管理
 - 卡牌 QR-Code 生成與印刷
@@ -425,8 +469,12 @@ AWS_REGION=ap-northeast-1
 AWS_ACCESS_KEY_ID=your_key
 AWS_SECRET_ACCESS_KEY=your_secret
 
-# Ship Tracker (Python FastAPI)
+# Ship Tracker：光學辨識分頁使用的 Python FastAPI 後端（選用）
 NEXT_PUBLIC_SHIP_TRACKER_BACKEND_URL=http://localhost:8000
+
+# Ship Tracker：真實 AIS 資料來源（選用，未設定時雷達仍以模擬資料運作）
+# 免費金鑰申請：https://aisstream.io
+AISSTREAM_API_KEY=your_aisstream_key
 ```
 
 ### ARIP (`.env.arip`)

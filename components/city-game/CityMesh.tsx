@@ -358,28 +358,36 @@ export function CityBuildings({ world }: { world: WorldData }) {
 
   return (
     <>
+      {/*
+        No `vertexColors` on these materials. It defines USE_COLOR in the
+        shader, which multiplies by a per-vertex `color` attribute that a
+        BoxGeometry does not have. Built-in materials carry no
+        defaultAttributeValues, so that attribute reads as (0,0,0) and the
+        whole building — facade texture included — renders black.
+        instanceColor is applied on its own via USE_INSTANCING_COLOR.
+      */}
       <instancedMesh ref={skyRef} args={[undefined, undefined, MAX_SKYSCRAPER]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.sky.map} emissiveMap={textures.sky.em}
-          emissive={WHITE} emissiveIntensity={1.0} roughness={0.20} metalness={0.35} vertexColors />
+          emissive={WHITE} emissiveIntensity={1.0} roughness={0.20} metalness={0.35} />
       </instancedMesh>
 
       <instancedMesh ref={offRef} args={[undefined, undefined, MAX_OFFICE]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.off.map} emissiveMap={textures.off.em}
-          emissive={WHITE} emissiveIntensity={0.85} roughness={0.55} metalness={0.15} vertexColors />
+          emissive={WHITE} emissiveIntensity={0.85} roughness={0.55} metalness={0.15} />
       </instancedMesh>
 
       <instancedMesh ref={comRef} args={[undefined, undefined, MAX_COMMERCIAL]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.com.map} emissiveMap={textures.com.em}
-          emissive={WHITE} emissiveIntensity={0.65} roughness={0.75} metalness={0.05} vertexColors />
+          emissive={WHITE} emissiveIntensity={0.65} roughness={0.75} metalness={0.05} />
       </instancedMesh>
 
       <instancedMesh ref={houRef} args={[undefined, undefined, MAX_HOUSE]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.hou.map} emissiveMap={textures.hou.em}
-          emissive={WHITE} emissiveIntensity={0.75} roughness={0.85} metalness={0.0} vertexColors />
+          emissive={WHITE} emissiveIntensity={0.75} roughness={0.85} metalness={0.0} />
       </instancedMesh>
     </>
   );
@@ -458,12 +466,13 @@ export function MinecraftRoofs({ world }: { world: WorldData }) {
     <>
       <instancedMesh ref={baseRef} args={[undefined, undefined, MAX_ROOF_BASE]} castShadow={false} receiveShadow={false}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial vertexColors roughness={0.9} metalness={0.05}
+        {/* See the note on CityBuildings: vertexColors would zero instanceColor. */}
+        <meshStandardMaterial roughness={0.9} metalness={0.05}
           emissive={new THREE.Color(0.05, 0.04, 0.04)} emissiveIntensity={1} />
       </instancedMesh>
       <instancedMesh ref={peakRef} args={[undefined, undefined, MAX_ROOF_PEAK]} castShadow={false} receiveShadow={false}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial vertexColors roughness={0.92} metalness={0.03}
+        <meshStandardMaterial roughness={0.92} metalness={0.03}
           emissive={new THREE.Color(0.04, 0.03, 0.03)} emissiveIntensity={1} />
       </instancedMesh>
     </>
@@ -474,7 +483,7 @@ export function MinecraftRoofs({ world }: { world: WorldData }) {
 // Window lighting is now baked into the facade emissive texture per building
 // category (skyscraper/office/commercial/house), removing the large per-face
 // emissive plane that caused the "glowing stripe" appearance.
-export function BuildingWindows(_props: { world: WorldData }) {
+export function BuildingWindows() {
   return null;
 }
 
@@ -1308,7 +1317,7 @@ export function PolicePatrol() {
     });
 
     // Flashing sirens (red and blue alternating)
-    sirenRefs.forEach((ref, idx) => {
+    sirenRefs.forEach((ref) => {
       const m = ref.current;
       if (!m) return;
       const mat = m.material as THREE.MeshStandardMaterial;
@@ -1402,7 +1411,7 @@ export default function CityScene({ world, playerGridX, playerGridY }: { world: 
       <CityGround world={world} />
       <CityBuildings world={world} />
       <MinecraftRoofs world={world} />
-      <BuildingWindows world={world} />
+      <BuildingWindows />
       <HouseDetails world={world} />
       <CityTrees world={world} playerGridX={playerGridX} playerGridY={playerGridY} />
       <StreetLights world={world} playerGridX={playerGridX} playerGridY={playerGridY} />

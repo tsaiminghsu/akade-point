@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { KeyRound, ServerCog } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,29 +13,31 @@ import { useMachinesStore } from "@/store/useMachinesStore";
 import { useStoreSettingsStore } from "@/store/useStoreSettingsStore";
 
 export function ApiConfigForm() {
+  const t = useTranslations("ApiConfig");
+  const tCommon = useTranslations("Common");
   const activeStoreId = useMachinesStore((s) => s.activeStoreId);
   const settings = useStoreSettingsStore((s) => s.getSettings(activeStoreId));
   const updateSettings = useStoreSettingsStore((s) => s.updateSettings);
 
   return (
     <SettingsSection
-      title="API Configuration"
-      description="Backend endpoint and credentials (placeholder)"
+      title={t("title")}
+      description={t("description")}
       icon={ServerCog}
       actions={
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="border-status-online/40 bg-status-online/10 text-status-online">
             200 OK
           </Badge>
-          <Button size="sm" variant="outline" onClick={() => toast.success("API configuration saved")}>
-            Save
+          <Button size="sm" variant="outline" onClick={() => toast.success(t("saveToast"))}>
+            {tCommon("save")}
           </Button>
         </div>
       }
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Endpoint</Label>
+          <Label className="text-xs text-muted-foreground">{t("endpoint")}</Label>
           <Input
             className="h-9"
             value={settings.apiEndpoint}
@@ -43,7 +46,7 @@ export function ApiConfigForm() {
         </div>
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-            <KeyRound className="h-3 w-3" /> API Key
+            <KeyRound className="h-3 w-3" /> {t("apiKey")}
           </Label>
           <Input
             className="h-9"

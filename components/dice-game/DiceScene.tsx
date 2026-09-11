@@ -4,6 +4,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import PhysicsDie, { computeTopFaceFromQuat, PhysicsDicePhase, DiePhysicsHandle, DicePhysicsConfig } from './PhysicsDie'
 import MachineBox, { BOX_W, BOX_D, BOX_H } from './MachineBox'
+import { resolveDiePairs } from './diePhysics'
 import * as THREE from 'three'
 
 const MM_TO_UNIT = 0.9 / 25
@@ -58,6 +59,7 @@ function DiceWorld({ dieSizes, restPositions, phase, rollId, windCount, onSettle
         wx: 0, wy: 0, wz: 0,
         half: 0,
         dvx: 0, dvy: 0, dvz: 0,
+        dpx: 0, dpy: 0, dpz: 0,
         groundContact: false,
         diceContact: false,
       }
@@ -91,35 +93,7 @@ function DiceWorld({ dieSizes, restPositions, phase, rollId, windCount, onSettle
     const p = phaseRef.current
     if (p !== 'shaking' && p !== 'freeroll') return
 
-    // ── Die-to-die sphere collision detection ──────────────────────────────────
-    handles.forEach(h => { h.current.diceContact = false })
-    for (let i = 0; i < count; i++) {
-      const hi = handles[i].current
-      for (let j = i + 1; j < count; j++) {
-        const hj = handles[j].current
-        const dx = hj.px - hi.px
-        const dy = hj.py - hi.py
-        const dz = hj.pz - hi.pz
-        const distSq = dx * dx + dy * dy + dz * dz
-        const minDist = hi.half + hj.half
-        if (distSq < minDist * minDist && distSq > 0.0001) {
-          const dist = Math.sqrt(distSq)
-          const nx = dx / dist, ny = dy / dist, nz = dz / dist
-          const rv = (hj.vx - hi.vx) * nx + (hj.vy - hi.vy) * ny + (hj.vz - hi.vz) * nz
-          if (rv < 0) {   // only if approaching
-            const impulse = -rv * 1.3  // restitution = 0.3
-            hi.dvx -= nx * impulse * 0.5
-            hi.dvy -= ny * impulse * 0.5
-            hi.dvz -= nz * impulse * 0.5
-            hj.dvx += nx * impulse * 0.5
-            hj.dvy += ny * impulse * 0.5
-            hj.dvz += nz * impulse * 0.5
-            hi.diceContact = true
-            hj.diceContact = true
-          }
-        }
-      }
-    }
+    resolveDiePairs(handles, count)
 
     // ── Settling detection (freeroll only) ────────────────────────────────────
     if (p === 'freeroll' && !notified.current) {

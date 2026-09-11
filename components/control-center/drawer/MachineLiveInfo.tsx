@@ -1,16 +1,17 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { DoorClosed, DoorOpen, HeartPulse, RefreshCcw, Signal, Wifi } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Machine } from "@/lib/control-center/types";
 
-function relativeTime(ts: number): string {
+function relativeTime(ts: number, t: ReturnType<typeof useTranslations>): string {
   const diff = Date.now() - ts;
-  if (diff < 5_000) return "just now";
-  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < 5_000) return t("justNow");
+  if (diff < 60_000) return t("secondsAgo", { seconds: Math.floor(diff / 1000) });
+  if (diff < 3_600_000) return t("minutesAgo", { minutes: Math.floor(diff / 60_000) });
+  return t("hoursAgo", { hours: Math.floor(diff / 3_600_000) });
 }
 
 function rssiBars(rssi: number): number {
@@ -43,28 +44,29 @@ function InfoTile({
 }
 
 export function MachineLiveInfo({ machine }: { machine: Machine }) {
+  const t = useTranslations("MachineLiveInfo");
   const bars = rssiBars(machine.rssi);
   return (
     <div className="grid grid-cols-2 gap-3">
       <InfoTile
         icon={HeartPulse}
-        label="Heartbeat"
+        label={t("heartbeat")}
         value={
           <span className="flex items-center gap-1.5">
             <span className={cn("h-2 w-2 rounded-full bg-status-online", Date.now() - machine.heartbeatAt < 5000 && "animate-pulse")} />
-            {relativeTime(machine.heartbeatAt)}
+            {relativeTime(machine.heartbeatAt, t)}
           </span>
         }
       />
       <InfoTile
         icon={machine.door === "open" ? DoorOpen : DoorClosed}
-        label="Door"
-        value={machine.door === "open" ? "Open" : "Closed"}
+        label={t("door")}
+        value={machine.door === "open" ? t("open") : t("closed")}
         valueClassName={machine.door === "open" ? "text-status-alarm" : undefined}
       />
       <InfoTile
         icon={Wifi}
-        label="WiFi RSSI"
+        label={t("wifiRssi")}
         value={
           <span className="flex items-center gap-2">
             {machine.rssi} dBm
@@ -80,9 +82,9 @@ export function MachineLiveInfo({ machine }: { machine: Machine }) {
           </span>
         }
       />
-      <InfoTile icon={RefreshCcw} label="Restart Count" value={machine.restartCount} />
-      <InfoTile icon={Signal} label="Firmware" value={machine.firmware} />
-      <InfoTile icon={HeartPulse} label="Last Update" value={relativeTime(machine.lastUpdate)} />
+      <InfoTile icon={RefreshCcw} label={t("restartCount")} value={machine.restartCount} />
+      <InfoTile icon={Signal} label={t("firmware")} value={machine.firmware} />
+      <InfoTile icon={HeartPulse} label={t("lastUpdate")} value={relativeTime(machine.lastUpdate, t)} />
     </div>
   );
 }

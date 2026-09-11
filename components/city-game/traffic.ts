@@ -1,8 +1,13 @@
 import { Vehicle, VehicleType, Point, WorldData, TILE_SIZE, GRID_SIZE } from './types';
 import { findRoadPath } from './worldGen';
+import type { PedestrianSystem } from './pedestrians';
 
 const LANE_OFFSET = 9;
 const TRAFFIC_DESPAWN_DISTANCE = 760;
+/** Parked cars appear within this radius and are recycled beyond PARKED_DESPAWN. */
+const PARKED_SPAWN_RADIUS = 700;
+const PARKED_DESPAWN = 900;
+const MAX_PARKED = 16;
 const TRAFFIC_RESPAWN_MIN = 380;
 const TRAFFIC_RESPAWN_MAX = 680;
 
@@ -39,7 +44,7 @@ function applyTrafficLane(point: Point, from: Point, to: Point): Point {
   return { x: point.x + offset.x, y: point.y + offset.y };
 }
 
-function applyTrafficLanes(path: Point[], start: Point): Point[] {
+export function applyTrafficLanes(path: Point[], start: Point): Point[] {
   return path.map((point, index) => {
     const from = index === 0 ? start : path[index - 1];
     const to = path[index + 1] ?? point;
@@ -77,7 +82,7 @@ function isClearOfVehicles(
   return true;
 }
 
-function pickSpawnAwayFromPlayer(
+export function pickSpawnAwayFromPlayer(
   world: WorldData,
   playerX?: number,
   playerY?: number,
@@ -141,6 +146,33 @@ export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
     waypointIndex: 0,
     npcState: 'driving',
     waitTimer: 0,
+    hp: 100,
+    driverColorIdx: colorIndex % NPC_COLORS.length,
+  };
+}
+
+/**
+ * Police cruiser. Slightly faster and heavier than traffic so it can catch
+ * and shove the player's car (maxSpeed is px/FRAME, like all AI vehicles).
+ */
+export function createPoliceCar(spawn: Point): Vehicle {
+  return {
+    id: nextVehicleId(),
+    type: VehicleType.POLICE,
+    x: spawn.x,
+    y: spawn.y,
+    angle: 0,
+    speed: 0,
+    maxSpeed: 2.55,
+    color: '#f4f6fa',
+    width: 16,
+    height: 26,
+    occupant: 'npc',
+    waypoints: [],
+    waypointIndex: 0,
+    npcState: 'driving',
+    hp: 100,
+    mass: 1.3,
   };
 }
 
@@ -167,6 +199,7 @@ export function createTaxi(world: WorldData, playerX?: number, playerY?: number,
     npcState: 'stopped',
     waitTimer: 0,
     isService: true,
+    hp: 100,
   };
 }
 
@@ -207,6 +240,7 @@ export function createDeliveryScooter(world: WorldData, shopPos?: Point, playerX
     waypointIndex: 0,
     npcState: 'stopped',
     isService: true,
+    hp: 100,
   };
 }
 
@@ -228,6 +262,7 @@ export function createHelicopter(world: WorldData): Vehicle {
     waypointIndex: 0,
     altitude: 0,
     isService: true,
+    hp: 100,
   };
 }
 
@@ -248,6 +283,7 @@ export function createDrone(playerX: number, playerY: number): Vehicle {
     waypointIndex: 0,
     altitude: 0,
     targetAltitude: 0,
+    hp: 100,
   };
 }
 
@@ -277,6 +313,24 @@ function getForwardBlockDistance(
   }
 
   return closest;
+}
+
+/**
+ * Distance to a single point if it lies in the vehicle's forward cone,
+ * otherwise `lookAhead`. Used so cars brake for the on-foot player.
+ */
+function forwardPointDistance(v: Vehicle, x: number, y: number, lookAhead: number): number {
+  const fx = Math.sin(v.angle);
+  const fy = -Math.cos(v.angle);
+  const dx = x - v.x;
+  const dy = y - v.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 1 || d > lookAhead) return lookAhead;
+  const dot = (dx / d) * fx + (dy / d) * fy;
+  if (dot < 0.55) return lookAhead;
+  const cross = Math.abs((dx / d) * fy - (dy / d) * fx);
+  if (cross > 0.5) return lookAhead;
+  return d;
 }
 
 // Move a vehicle toward its next waypoint.
@@ -325,11 +379,17 @@ export function updateTraffic(
   dt: number,
   playerX?: number,
   playerY?: number,
-  playerAngle?: number
+  playerAngle?: number,
+  peds?: PedestrianSystem,
+  playerOnFoot?: boolean,
 ): void {
   vehicles.forEach((v) => {
     if (v.occupant === 'player') return;
     if (v.isService) return; // Services managed separately
+    if (v.isParked) return;  // Parked / abandoned cars stay put
+    if (v.hp <= 0) return;   // Wrecks are static obstacles
+    if (v.npcState === 'hijacked') return;
+    if (v.type === VehicleType.POLICE) return; // Driven by PoliceSystem
     if (v.type === VehicleType.HELICOPTER || v.type === VehicleType.RC_DRONE) return;
 
     // Teleport NPC cars if they get too far from the player to keep streets populated
@@ -397,8 +457,16 @@ export function updateTraffic(
     }
 
     // ── Forward look-ahead braking ───────────────────────────────────────────
-    // Slow down proportionally when a vehicle is directly ahead
-    const fwdDist = getForwardBlockDistance(v, vehicles);
+    // Slow down proportionally when a vehicle, pedestrian, or the on-foot
+    // player is directly ahead. Braking for people is what makes it possible
+    // to step in front of a car and carjack it.
+    let fwdDist = getForwardBlockDistance(v, vehicles);
+    if (peds) {
+      fwdDist = Math.min(fwdDist, peds.forwardPedDistance(v, 90));
+    }
+    if (playerOnFoot && playerX !== undefined && playerY !== undefined) {
+      fwdDist = Math.min(fwdDist, forwardPointDistance(v, playerX, playerY, 90));
+    }
     const brakeCap = fwdDist < 26 ? 0 : fwdDist < 70 ? (fwdDist - 26) / 44 : 1;
     if (brakeCap === 0) {
       v.speed *= 0.82; // hard brake
@@ -423,6 +491,81 @@ export function updateTraffic(
       }
     });
   });
+}
+
+/**
+ * Populate nearby PARKING blocks with unattended cars, and recycle parked or
+ * abandoned cars once the player is far away.
+ *
+ * `spawnedBlocks` is owned by the caller so blocks repopulate when revisited.
+ */
+export function updateParkedCars(
+  vehicles: Map<string, Vehicle>,
+  world: WorldData,
+  player: { x: number; y: number },
+  currentVehicleId: string | null,
+  spawnedBlocks: Set<number>,
+): void {
+  let parkedCount = 0;
+  const toDelete: string[] = [];
+
+  vehicles.forEach(v => {
+    if (!v.isParked) return;
+    parkedCount++;
+    if (v.id === currentVehicleId) return;
+    if (Math.hypot(v.x - player.x, v.y - player.y) > PARKED_DESPAWN) toDelete.push(v.id);
+  });
+
+  for (const id of toDelete) {
+    vehicles.delete(id);
+    parkedCount--;
+  }
+
+  // Let distant blocks repopulate the next time the player comes back.
+  for (const block of world.parkingBlocks) {
+    if (!spawnedBlocks.has(block.id)) continue;
+    if (Math.hypot(block.center.x - player.x, block.center.y - player.y) > PARKED_DESPAWN) {
+      spawnedBlocks.delete(block.id);
+    }
+  }
+
+  if (parkedCount >= MAX_PARKED) return;
+
+  for (const block of world.parkingBlocks) {
+    if (parkedCount >= MAX_PARKED) break;
+    if (spawnedBlocks.has(block.id)) continue;
+    if (Math.hypot(block.center.x - player.x, block.center.y - player.y) > PARKED_SPAWN_RADIUS) continue;
+
+    spawnedBlocks.add(block.id);
+    const n = 2 + Math.floor(Math.random() * 2);
+    // Cars in a lot all face the same way, which reads as deliberate parking.
+    const angle = Math.random() < 0.5 ? 0 : Math.PI / 2;
+    for (let i = 0; i < n && parkedCount < MAX_PARKED; i++) {
+      const tile = block.tiles[Math.floor(Math.random() * block.tiles.length)];
+      if (!tile) continue;
+      if (!isClearOfVehicles(tile, vehicles, '', 24)) continue;
+      const v: Vehicle = {
+        id: nextVehicleId(),
+        type: VehicleType.CAR,
+        x: tile.x,
+        y: tile.y,
+        angle,
+        speed: 0,
+        maxSpeed: 2.0,
+        color: NPC_COLORS[Math.floor(Math.random() * NPC_COLORS.length)],
+        width: 16,
+        height: 26,
+        occupant: null,
+        waypoints: [],
+        waypointIndex: 0,
+        hp: 100,
+        mass: 0.6,
+        isParked: true,
+      };
+      vehicles.set(v.id, v);
+      parkedCount++;
+    }
+  }
 }
 
 // Update service vehicles (taxi, delivery, helicopter) toward player

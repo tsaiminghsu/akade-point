@@ -1,3 +1,6 @@
+"use client";
+
+import { useLocale, useTranslations } from "next-intl";
 import { AlertTriangle, Info, ShieldAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/control-center/shared/EmptyState";
@@ -12,8 +15,10 @@ const SEVERITY_CLASS = {
 } as const;
 
 export function MachineEventsList({ events }: { events: MachineEvent[] }) {
+  const t = useTranslations("MachineEventsList");
+  const locale = useLocale();
   if (events.length === 0) {
-    return <EmptyState title="No recent events" description="This machine has no recorded events yet." />;
+    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
   }
   return (
     <div className="space-y-1.5">
@@ -24,7 +29,7 @@ export function MachineEventsList({ events }: { events: MachineEvent[] }) {
             <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", SEVERITY_CLASS[e.severity])} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-foreground">{e.message}</p>
-              <p className="text-muted-foreground">{new Date(e.timestamp).toLocaleString("zh-TW")}</p>
+              <p className="text-muted-foreground">{new Date(e.timestamp).toLocaleString(locale)}</p>
             </div>
           </div>
         );

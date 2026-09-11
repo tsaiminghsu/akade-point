@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Bell } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,40 +11,42 @@ import { useMachinesStore } from "@/store/useMachinesStore";
 import { useStoreSettingsStore } from "@/store/useStoreSettingsStore";
 
 export function NotificationSettingsForm() {
+  const t = useTranslations("NotificationSettings");
+  const tCommon = useTranslations("Common");
   const activeStoreId = useMachinesStore((s) => s.activeStoreId);
   const settings = useStoreSettingsStore((s) => s.getSettings(activeStoreId));
   const updateSettings = useStoreSettingsStore((s) => s.updateSettings);
 
   return (
     <SettingsSection
-      title="Notifications"
-      description="Choose how you're notified about alerts and events"
+      title={t("title")}
+      description={t("description")}
       icon={Bell}
       actions={
-        <Button size="sm" variant="outline" onClick={() => toast.success("Notification preferences saved")}>
-          Save
+        <Button size="sm" variant="outline" onClick={() => toast.success(t("saveToast"))}>
+          {tCommon("save")}
         </Button>
       }
     >
-      <SettingsRow label="Toast alerts" description="Show a toast in the top-right when a new alert fires">
+      <SettingsRow label={t("toastAlerts")} description={t("toastAlertsDescription")}>
         <Switch
           checked={settings.toastAlerts}
           onCheckedChange={(v) => updateSettings(activeStoreId, { toastAlerts: v })}
         />
       </SettingsRow>
-      <SettingsRow label="Daily email digest" description="Summary of events and alerts sent every morning">
+      <SettingsRow label={t("emailDigest")} description={t("emailDigestDescription")}>
         <Switch
           checked={settings.emailDigest}
           onCheckedChange={(v) => updateSettings(activeStoreId, { emailDigest: v })}
         />
       </SettingsRow>
-      <SettingsRow label="Critical alerts only" description="Suppress warning-level notifications">
+      <SettingsRow label={t("criticalOnly")} description={t("criticalOnlyDescription")}>
         <Switch
           checked={settings.criticalOnly}
           onCheckedChange={(v) => updateSettings(activeStoreId, { criticalOnly: v })}
         />
       </SettingsRow>
-      <SettingsRow label="Sound" description="Play a sound when a critical alert fires">
+      <SettingsRow label={t("sound")} description={t("soundDescription")}>
         <Switch checked={settings.sound} onCheckedChange={(v) => updateSettings(activeStoreId, { sound: v })} />
       </SettingsRow>
     </SettingsSection>

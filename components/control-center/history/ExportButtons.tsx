@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,22 +25,24 @@ function escapeCsv(value: string): string {
 }
 
 export function ExportButtons({ events }: { events: MachineEvent[] }) {
+  const t = useTranslations("ExportButtons");
+
   function exportCsv() {
     const rows = toRows(events);
     if (rows.length === 0) {
-      toast.error("No rows to export");
+      toast.error(t("noRows"));
       return;
     }
     const headers = Object.keys(rows[0]);
     const lines = [headers.join(","), ...rows.map((r) => headers.map((h) => escapeCsv(String(r[h as keyof typeof r]))).join(","))];
     downloadTextFile(`history-${Date.now()}.csv`, lines.join("\n"), "text/csv");
-    toast.success(`Exported ${rows.length} rows to CSV`);
+    toast.success(t("exportedCsv", { count: rows.length }));
   }
 
   function exportExcel() {
     const rows = toRows(events);
     if (rows.length === 0) {
-      toast.error("No rows to export");
+      toast.error(t("noRows"));
       return;
     }
     const headers = Object.keys(rows[0]);
@@ -51,16 +54,16 @@ export function ExportButtons({ events }: { events: MachineEvent[] }) {
           .join("")}</tbody>
       </table>`;
     downloadTextFile(`history-${Date.now()}.xls`, table, "application/vnd.ms-excel");
-    toast.success(`Exported ${rows.length} rows to Excel`);
+    toast.success(t("exportedExcel", { count: rows.length }));
   }
 
   return (
     <div className="flex items-center gap-2">
       <Button variant="outline" size="sm" className="gap-1.5" onClick={exportCsv}>
-        <FileText className="h-3.5 w-3.5" /> Export CSV
+        <FileText className="h-3.5 w-3.5" /> {t("exportCsv")}
       </Button>
       <Button variant="outline" size="sm" className="gap-1.5" onClick={exportExcel}>
-        <FileSpreadsheet className="h-3.5 w-3.5" /> Export Excel
+        <FileSpreadsheet className="h-3.5 w-3.5" /> {t("exportExcel")}
       </Button>
     </div>
   );

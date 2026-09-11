@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,9 @@ interface MachineFormDialogProps {
 const STATUS_OPTIONS: MachineStatus[] = ["online", "warning", "alarm", "offline"];
 
 export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDialogProps) {
+  const t = useTranslations("MachineForm");
+  const tCommon = useTranslations("Common");
+  const tStatus = useTranslations("Status");
   const stores = useMachinesStore((s) => s.stores);
   const groups = useMachinesStore((s) => s.groups);
   const addMachine = useMachinesStore((s) => s.addMachine);
@@ -58,42 +62,40 @@ export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDi
     setGroupId(firstGroup?.id ?? "");
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!name.trim() || !deviceId.trim() || !storeId || !groupId) {
-      toast.error("Please fill in all fields");
+      toast.error(t("fillAllFields"));
       return;
     }
-    if (machine) {
-      updateMachine(machine.id, { name: name.trim(), deviceId: deviceId.trim(), storeId, groupId, status });
-    } else {
-      addMachine({ name: name.trim(), deviceId: deviceId.trim(), storeId, groupId, status });
-    }
-    onOpenChange(false);
+    const ok = machine
+      ? await updateMachine(machine.id, { name: name.trim(), deviceId: deviceId.trim(), storeId, groupId, status })
+      : (await addMachine({ name: name.trim(), deviceId: deviceId.trim(), storeId, groupId, status })) !== null;
+    if (ok) onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{machine ? "Edit Machine" : "Add Machine"}</DialogTitle>
-          <DialogDescription>Machines belong to a group within a store.</DialogDescription>
+          <DialogTitle>{machine ? t("editTitle") : t("addTitle")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Machine Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 夾娃娃機 #99" />
+            <Label className="text-xs text-muted-foreground">{t("nameLabel")}</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Device ID</Label>
-            <Input value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="e.g. DEV-1A9999" />
+            <Label className="text-xs text-muted-foreground">{t("deviceIdLabel")}</Label>
+            <Input value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder={t("deviceIdPlaceholder")} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Store</Label>
+              <Label className="text-xs text-muted-foreground">{t("storeLabel")}</Label>
               <Select value={storeId} onValueChange={handleStoreChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select store" />
+                  <SelectValue placeholder={t("selectStore")} />
                 </SelectTrigger>
                 <SelectContent>
                   {stores.map((s) => (
@@ -105,10 +107,10 @@ export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDi
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Group</Label>
+              <Label className="text-xs text-muted-foreground">{t("groupLabel")}</Label>
               <Select value={groupId} onValueChange={setGroupId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select group" />
+                  <SelectValue placeholder={t("selectGroup")} />
                 </SelectTrigger>
                 <SelectContent>
                   {groupsForStore.map((g) => (
@@ -121,7 +123,7 @@ export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDi
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Initial Status</Label>
+            <Label className="text-xs text-muted-foreground">{t("statusLabel")}</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as MachineStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -129,7 +131,7 @@ export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDi
               <SelectContent>
                 {STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {s[0].toUpperCase() + s.slice(1)}
+                    {tStatus(s)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -139,9 +141,9 @@ export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDi
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon("cancel")}
           </Button>
-          <Button onClick={handleSubmit}>{machine ? "Save Changes" : "Create Machine"}</Button>
+          <Button onClick={handleSubmit}>{machine ? t("saveChanges") : t("createMachine")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

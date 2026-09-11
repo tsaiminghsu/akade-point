@@ -20,7 +20,7 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[hsl(222,47%,11%)] border-t border-white/10 safe-area-pb">
       <div className="max-w-lg mx-auto flex">
         {NAV.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active = href === "/" ? pathname === "/" : pathname?.startsWith(href);
           return (
             <Link
               key={href}

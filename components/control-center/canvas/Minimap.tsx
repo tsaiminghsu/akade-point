@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -10,6 +10,7 @@ import {
   worldToMinimap,
 } from "@/lib/control-center/geometry";
 import { STATUS_BG_CLASS } from "@/lib/control-center/constants";
+import type { MachineStatus } from "@/lib/control-center/types";
 import { useControlCenterStore } from "@/store/useControlCenterStore";
 import { useMachinesStore } from "@/store/useMachinesStore";
 
@@ -24,16 +25,41 @@ export function Minimap({ containerRef }: MinimapProps) {
   const widgets = useControlCenterStore((s) => s.widgets);
   const viewport = useControlCenterStore(useShallow((s) => s.viewport));
   const setViewport = useControlCenterStore((s) => s.setViewport);
-  const getMachine = useMachinesStore((s) => s.getMachine);
+
+  // Subscribe to the statuses themselves. Selecting the `getMachine` function
+  // instead never re-rendered, so in Live Mode the dots kept their colour from
+  // first paint. useShallow means a tick that only jitters current/rssi is free.
+  const statusById = useMachinesStore(
+    useShallow((s) => {
+      const map: Record<string, MachineStatus> = {};
+      for (const m of s.machines) map[m.id] = m.status;
+      return map;
+    })
+  );
+
+  // Canvas size via ResizeObserver rather than a getBoundingClientRect() in the
+  // render body, which forced a synchronous layout on every pan frame.
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const read = () => {
+      const rect = el.getBoundingClientRect();
+      setCanvasSize((prev) =>
+        prev.width === rect.width && prev.height === rect.height ? prev : { width: rect.width, height: rect.height }
+      );
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [containerRef]);
 
   const bounds = computeContentBounds(widgets);
   const proj = computeMinimapProjection(bounds, MINIMAP_WIDTH, MINIMAP_HEIGHT);
 
-  const rect = containerRef.current?.getBoundingClientRect();
-  const containerW = rect?.width ?? 0;
-  const containerH = rect?.height ?? 0;
   const worldTopLeft = screenToCanvas({ x: 0, y: 0 }, viewport);
-  const worldBottomRight = screenToCanvas({ x: containerW, y: containerH }, viewport);
+  const worldBottomRight = screenToCanvas({ x: canvasSize.width, y: canvasSize.height }, viewport);
   const viewTopLeft = worldToMinimap(worldTopLeft, proj);
   const viewBottomRight = worldToMinimap(worldBottomRight, proj);
 
@@ -42,14 +68,13 @@ export function Minimap({ containerRef }: MinimapProps) {
       const mmRect = target.getBoundingClientRect();
       const local = { x: clientX - mmRect.left, y: clientY - mmRect.top };
       const world = { x: (local.x - proj.offsetX) / proj.scale, y: (local.y - proj.offsetY) / proj.scale };
-      if (!containerRef.current) return;
-      const size = containerRef.current.getBoundingClientRect();
+      if (canvasSize.width === 0) return;
       setViewport({
-        x: size.width / 2 - world.x * viewport.zoom,
-        y: size.height / 2 - world.y * viewport.zoom,
+        x: canvasSize.width / 2 - world.x * viewport.zoom,
+        y: canvasSize.height / 2 - world.y * viewport.zoom,
       });
     },
-    [proj, setViewport, viewport.zoom, containerRef]
+    [proj, setViewport, viewport.zoom, canvasSize]
   );
 
   return (
@@ -69,14 +94,13 @@ export function Minimap({ containerRef }: MinimapProps) {
           .filter((w) => !w.hidden)
           .map((w) => {
             const p = worldToMinimap({ x: w.x, y: w.y }, proj);
-            const isMachine = w.type === "machine";
-            const machine = isMachine ? getMachine(w.machineId) : undefined;
+            const status = w.type === "machine" ? statusById[w.machineId] : undefined;
             return (
               <span
                 key={w.id}
                 className={
                   "absolute h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full " +
-                  (machine ? STATUS_BG_CLASS[machine.status] : "bg-muted-foreground/50")
+                  (status ? STATUS_BG_CLASS[status] : "bg-muted-foreground/50")
                 }
                 style={{ left: p.x, top: p.y }}
               />

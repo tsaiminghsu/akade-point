@@ -1,3 +1,5 @@
+import createNextIntlPlugin from "next-intl/plugin";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
@@ -5,7 +7,7 @@ const nextConfig = {
     const gameRoutes = [
       'city-game', 'da-nu-shen', 'jiu-gong-ge', 'minecraft',
       'scratch-card', 'ship-tracker', 'temple-of-desert-god',
-      'test-game', 'tiao-dou-ji',
+      'combo-arena', 'tiao-dou-ji',
     ];
     return gameRoutes.map((slug) => ({
       source: `/${slug}`,
@@ -28,4 +30,6 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+
+export default withNextIntl(nextConfig);

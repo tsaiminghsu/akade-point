@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import type { DateRange } from "react-day-picker";
 import { CalendarIcon, X } from "lucide-react";
 
@@ -26,6 +27,9 @@ interface HistoryFiltersProps {
 }
 
 export function HistoryFilters({ filters, onChange, allEvents }: HistoryFiltersProps) {
+  const t = useTranslations("HistoryFilters");
+  const tMachines = useTranslations("Machines");
+  const locale = useLocale();
   const stores = useMachinesStore((s) => s.stores);
   const machines = useMachinesStore((s) => s.machines);
 
@@ -48,10 +52,10 @@ export function HistoryFilters({ filters, onChange, allEvents }: HistoryFiltersP
           <Button variant="outline" size="sm" className="gap-1.5">
             <CalendarIcon className="h-3.5 w-3.5" />
             {filters.dateRange?.from
-              ? `${filters.dateRange.from.toLocaleDateString("zh-TW")}${
-                  filters.dateRange.to ? " – " + filters.dateRange.to.toLocaleDateString("zh-TW") : ""
+              ? `${filters.dateRange.from.toLocaleDateString(locale)}${
+                  filters.dateRange.to ? " – " + filters.dateRange.to.toLocaleDateString(locale) : ""
                 }`
-              : "Date Range"}
+              : t("dateRange")}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -69,10 +73,10 @@ export function HistoryFilters({ filters, onChange, allEvents }: HistoryFiltersP
         onValueChange={(v) => onChange({ ...filters, storeId: v, machineId: "all" })}
       >
         <SelectTrigger className="h-8 w-40">
-          <SelectValue placeholder="All Stores" />
+          <SelectValue placeholder={tMachines("allStores")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Stores</SelectItem>
+          <SelectItem value="all">{tMachines("allStores")}</SelectItem>
           {stores.map((s) => (
             <SelectItem key={s.id} value={s.id}>
               {s.name}
@@ -83,10 +87,10 @@ export function HistoryFilters({ filters, onChange, allEvents }: HistoryFiltersP
 
       <Select value={filters.machineId} onValueChange={(v) => onChange({ ...filters, machineId: v })}>
         <SelectTrigger className="h-8 w-44">
-          <SelectValue placeholder="All Machines" />
+          <SelectValue placeholder={t("allMachines")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Machines</SelectItem>
+          <SelectItem value="all">{t("allMachines")}</SelectItem>
           {machinesForStore.map((m) => (
             <SelectItem key={m.id} value={m.id}>
               {m.name}
@@ -98,7 +102,7 @@ export function HistoryFilters({ filters, onChange, allEvents }: HistoryFiltersP
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="gap-1.5">
-            Event Type {filters.types.length > 0 && `(${filters.types.length})`}
+            {t("eventType")} {filters.types.length > 0 && `(${filters.types.length})`}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-56" align="start">
@@ -120,7 +124,7 @@ export function HistoryFilters({ filters, onChange, allEvents }: HistoryFiltersP
           className="gap-1 text-muted-foreground"
           onClick={() => onChange({ dateRange: undefined, storeId: "all", machineId: "all", types: [] })}
         >
-          <X className="h-3.5 w-3.5" /> Clear
+          <X className="h-3.5 w-3.5" /> {t("clear")}
         </Button>
       )}
     </div>

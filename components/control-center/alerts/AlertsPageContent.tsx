@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,21 +14,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/control-center/shared/EmptyState";
+import { PaginationBar, usePagination } from "@/components/control-center/shared/Pagination";
 import { AlertRow } from "@/components/control-center/alerts/AlertRow";
 import { useAlertStore } from "@/store/useAlertStore";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import { useUIStore } from "@/store/useUIStore";
 import type { AlertStatus } from "@/lib/control-center/types";
 
-const STATUS_TABS: { value: AlertStatus | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "acknowledged", label: "Acknowledged" },
-  { value: "resolved", label: "Resolved" },
-  { value: "ignored", label: "Ignored" },
-];
+const STATUS_TABS: (AlertStatus | "all")[] = ["all", "active", "acknowledged", "resolved", "ignored"];
 
 export default function AlertsPageContent() {
+  const t = useTranslations("Alerts");
+  const tCommon = useTranslations("Common");
+  const tStatus = useTranslations("AlertStatus");
+  const tMachines = useTranslations("Machines");
   const alerts = useAlertStore((s) => s.alerts);
   const stores = useMachinesStore((s) => s.stores);
   const openMachineDrawer = useUIStore((s) => s.openMachineDrawer);
@@ -45,6 +45,10 @@ export default function AlertsPageContent() {
     });
   }, [alerts, statusFilter, storeFilter, query]);
 
+  // Was rendering the whole filtered list — up to the store's 500-alert cap —
+  // each row carrying its own confirm dialog. Machines and History already page.
+  const pagination = usePagination(filtered);
+
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: alerts.length };
     for (const s of ["active", "acknowledged", "resolved", "ignored"]) {
@@ -58,23 +62,23 @@ export default function AlertsPageContent() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-            <ShieldAlert className="h-5 w-5 text-status-alarm" /> Alert Center
+            <ShieldAlert className="h-5 w-5 text-status-alarm" /> {t("title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Acknowledge, resolve, or ignore fleet alerts</p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            placeholder="Search alerts…"
+            placeholder={t("searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-8 w-48"
           />
           <Select value={storeFilter} onValueChange={setStoreFilter}>
             <SelectTrigger className="h-8 w-44">
-              <SelectValue placeholder="All Stores" />
+              <SelectValue placeholder={tMachines("allStores")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Stores</SelectItem>
+              <SelectItem value="all">{tMachines("allStores")}</SelectItem>
               {stores.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
@@ -88,29 +92,34 @@ export default function AlertsPageContent() {
       <div className="mb-4 flex flex-wrap gap-2">
         {STATUS_TABS.map((tab) => (
           <Button
-            key={tab.value}
+            key={tab}
             size="sm"
-            variant={statusFilter === tab.value ? "secondary" : "ghost"}
-            onClick={() => setStatusFilter(tab.value)}
+            variant={statusFilter === tab ? "secondary" : "ghost"}
+            onClick={() => setStatusFilter(tab)}
             className="gap-1.5"
           >
-            {tab.label}
-            <span className="rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">{counts[tab.value] ?? 0}</span>
+            {tab === "all" ? tCommon("all") : tStatus(tab)}
+            <span className="rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">{counts[tab] ?? 0}</span>
           </Button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-        {filtered.length === 0 ? (
-          <EmptyState title="No alerts match your filters" description="Try adjusting the status or store filter." />
-        ) : (
-          <div className="space-y-2 pb-4">
-            {filtered.map((a) => (
-              <AlertRow key={a.id} alert={a} onOpenMachine={openMachineDrawer} />
-            ))}
+      {filtered.length === 0 ? (
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+          <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+            <div className="space-y-2 pb-4">
+              {pagination.pageItems.map((a) => (
+                <AlertRow key={a.id} alert={a} onOpenMachine={openMachineDrawer} />
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+          <PaginationBar pagination={pagination} />
+        </>
+      )}
     </div>
   );
 }

@@ -53,10 +53,10 @@ export function generateBrands(): Brand[] {
 
 export function generateStores(brands: Brand[]): Store[] {
   return [
-    { id: "store-1", name: "台北信義旗艦店", address: "台北市信義區松高路 11 號", brandId: brands[0].id },
-    { id: "store-2", name: "台中大遠百店", address: "台中市西屯區台灣大道三段 251 號", brandId: brands[0].id },
-    { id: "store-3", name: "高雄夢時代店", address: "高雄市前鎮區中華五路 789 號", brandId: brands[1].id },
-    { id: "store-4", name: "新竹巨城店", address: "新竹市東區中央路 229 號", brandId: brands[1].id },
+    { id: "store-1", name: "台北信義旗艦店", address: "台北市信義區松高路 11 號", brandId: brands[0].id, activeLayoutVersionId: null },
+    { id: "store-2", name: "台中大遠百店", address: "台中市西屯區台灣大道三段 251 號", brandId: brands[0].id, activeLayoutVersionId: null },
+    { id: "store-3", name: "高雄夢時代店", address: "高雄市前鎮區中華五路 789 號", brandId: brands[1].id, activeLayoutVersionId: null },
+    { id: "store-4", name: "新竹巨城店", address: "新竹市東區中央路 229 號", brandId: brands[1].id, activeLayoutVersionId: null },
   ];
 }
 
@@ -162,6 +162,7 @@ const EVENT_TYPES: { type: string; severity: MachineEvent["severity"]; message: 
 ];
 
 export function generateEvents(machines: Machine[], count = 120): MachineEvent[] {
+  if (machines.length === 0) return [];
   const now = Date.now();
   const events: MachineEvent[] = [];
   for (let i = 0; i < count; i += 1) {
@@ -181,6 +182,7 @@ export function generateEvents(machines: Machine[], count = 120): MachineEvent[]
 }
 
 export function generateAlerts(machines: Machine[], count = 18): Alert[] {
+  if (machines.length === 0) return [];
   const now = Date.now();
   const statuses: Alert["status"][] = ["active", "active", "acknowledged", "resolved", "ignored"];
   const alerts: Alert[] = [];
@@ -204,6 +206,7 @@ export function generateAlerts(machines: Machine[], count = 18): Alert[] {
 }
 
 export function generateMaintenanceRecords(machines: Machine[], count = 25): MaintenanceRecord[] {
+  if (machines.length === 0) return [];
   const now = Date.now();
   const descriptions = [
     "更換零件並清潔內部機構",

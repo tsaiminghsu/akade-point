@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,8 @@ interface BrandFormDialogProps {
 }
 
 export function BrandFormDialog({ open, onOpenChange, brand }: BrandFormDialogProps) {
+  const t = useTranslations("BrandForm");
+  const tCommon = useTranslations("Common");
   const addBrand = useMachinesStore((s) => s.addBrand);
   const updateBrand = useMachinesStore((s) => s.updateBrand);
 
@@ -41,40 +44,38 @@ export function BrandFormDialog({ open, onOpenChange, brand }: BrandFormDialogPr
     }
   }, [open, brand]);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!name.trim()) return;
-    if (brand) {
-      updateBrand(brand.id, { name: name.trim(), description: description.trim(), color });
-    } else {
-      addBrand({ name: name.trim(), description: description.trim(), color });
-    }
-    onOpenChange(false);
+    const ok = brand
+      ? await updateBrand(brand.id, { name: name.trim(), description: description.trim(), color })
+      : (await addBrand({ name: name.trim(), description: description.trim(), color })) !== null;
+    if (ok) onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{brand ? "Edit Brand" : "Add Brand"}</DialogTitle>
-          <DialogDescription>Brands group one or more stores together.</DialogDescription>
+          <DialogTitle>{brand ? t("editTitle") : t("addTitle")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. AKADE 娛樂集團" />
+            <Label className="text-xs text-muted-foreground">{t("nameLabel")}</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Description</Label>
+            <Label className="text-xs text-muted-foreground">{t("descriptionLabel")}</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description"
+              placeholder={t("descriptionPlaceholder")}
               rows={2}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Color</Label>
+            <Label className="text-xs text-muted-foreground">{t("colorLabel")}</Label>
             <div className="flex gap-2">
               {SWATCHES.map((swatch) => (
                 <button
@@ -91,10 +92,10 @@ export function BrandFormDialog({ open, onOpenChange, brand }: BrandFormDialogPr
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon("cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={!name.trim()}>
-            {brand ? "Save Changes" : "Create Brand"}
+            {brand ? t("saveChanges") : t("createBrand")}
           </Button>
         </DialogFooter>
       </DialogContent>

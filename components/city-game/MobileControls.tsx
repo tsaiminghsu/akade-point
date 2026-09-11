@@ -7,12 +7,17 @@ interface Props {
   input: InputManager;
   hud: HUDData;
   onPhone: () => void;
+  onChallenge: () => void;
   onMapToggle: () => void;
   onTownHallToggle: () => void;
   onWeatherCycle: () => void;
 }
 
 const MAX_RADIUS = 50;
+/** Touch-drag look sensitivity, in mouse-pixel equivalents per CSS pixel. */
+const TOUCH_LOOK_SENS = 2.2;
+/** The look zone starts below the minimap so it never swallows map taps. */
+const LOOK_ZONE_TOP = 130;
 
 const BTN = {
   minWidth: 52,
@@ -47,7 +52,7 @@ const ICON_BTN = {
 };
 
 export default function MobileControls({
-  input, hud, onPhone, onMapToggle, onTownHallToggle, onWeatherCycle,
+  input, hud, onPhone, onChallenge, onMapToggle, onTownHallToggle, onWeatherCycle,
 }: Props) {
   const { playerState } = hud;
 
@@ -92,6 +97,31 @@ export default function MobileControls({
     setThumbPos({ x: 0, y: 0 });
     input.setVirtualMove(0, 0);
   }, [input]);
+
+  // ── Right-half look zone (camera drag) ─────────────────────────────────
+  // Pointer events are tracked per pointer id, so dragging here works at the
+  // same time as the left-hand joystick.
+  const lookPointerRef = useRef<number | null>(null);
+  const lookLastRef = useRef({ x: 0, y: 0 });
+
+  const onLookDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (lookPointerRef.current !== null) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    lookPointerRef.current = e.pointerId;
+    lookLastRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const onLookMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== lookPointerRef.current) return;
+    const last = lookLastRef.current;
+    input.addLook((e.clientX - last.x) * TOUCH_LOOK_SENS, (e.clientY - last.y) * TOUCH_LOOK_SENS);
+    lookLastRef.current = { x: e.clientX, y: e.clientY };
+  }, [input]);
+
+  const onLookUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== lookPointerRef.current) return;
+    lookPointerRef.current = null;
+  }, []);
 
   // ── Hold button factory ────────────────────────────────────────────────
   function holdBtn(
@@ -145,7 +175,17 @@ export default function MobileControls({
     const inDrone = playerState === 'inDrone';
     const inHeli  = playerState === 'inHelicopter';
     const inCar   = playerState === 'inCar';
+    const onFoot  = playerState === 'onFoot';
     const inRace  = inDrone && !!hud.raceSession && hud.raceSession.phase === 'racing';
+
+    // What F would do right now, so the button never lies about the action.
+    const enterLabel = inDrone || inHeli ? '降落'
+      : inCar ? '下車'
+      : hud.nearVehicle === 'occupied' || hud.nearVehicle === 'police' ? '搶車'
+      : '上車';
+    const enterEmoji = inDrone || inHeli ? '🛬'
+      : hud.nearVehicle === 'occupied' || hud.nearVehicle === 'police' ? '🔓'
+      : '🚗';
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
@@ -174,11 +214,19 @@ export default function MobileControls({
           </div>
         )}
 
+        {/* Run / jump (on foot) */}
+        {onFoot && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            {holdBtn('sprint', '跑', '🏃', { minWidth: 52 })}
+            {tapBtn('jump', '跳', '🦘', { minWidth: 52 })}
+          </div>
+        )}
+
         {/* Brake (car) */}
         {inCar && holdBtn('brake', '煞車', '🛑', { minWidth: 80 })}
 
         {/* Enter / Exit */}
-        {tapBtn('enter', inDrone || inHeli ? '降落' : '上/下車', inDrone || inHeli ? '🛬' : '🚗', { minWidth: 80 })}
+        {tapBtn('enter', enterLabel, enterEmoji, { minWidth: 80 })}
       </div>
     );
   }
@@ -211,6 +259,27 @@ export default function MobileControls({
         pointerEvents: 'none',
       }}
     >
+      {/* ── Right half: camera look zone ──
+          Rendered first so every button below paints on top of it. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          left: '50%',
+          right: 0,
+          top: `calc(${LOOK_ZONE_TOP}px + env(safe-area-inset-top, 0px))`,
+          bottom: 0,
+          zIndex: 0,
+          pointerEvents: 'auto',
+          touchAction: 'none',
+          userSelect: 'none',
+        }}
+        onPointerDown={onLookDown}
+        onPointerMove={onLookMove}
+        onPointerUp={onLookUp}
+        onPointerCancel={onLookUp}
+      />
+
       {/* ── Left bottom: virtual joystick ── */}
       <div
         role="img"
@@ -233,6 +302,7 @@ export default function MobileControls({
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'grab',
+          zIndex: 1,
         }}
         onPointerDown={onJoystickDown}
         onPointerMove={onJoystickMove}
@@ -264,6 +334,7 @@ export default function MobileControls({
           pointerEvents: 'auto',
           touchAction: 'none',
           userSelect: 'none',
+          zIndex: 1,
         }}
       >
         {renderActionCluster()}
@@ -282,9 +353,11 @@ export default function MobileControls({
           pointerEvents: 'auto',
           touchAction: 'none',
           userSelect: 'none',
+          zIndex: 1,
         }}
       >
         {quickBtn('📱', '手機服務', onPhone)}
+        {quickBtn('🏁', '挑戰關卡', onChallenge)}
         {quickBtn('🗺', '小地圖', onMapToggle)}
         {quickBtn('🌤', '切換天氣', onWeatherCycle)}
         {hud.nearTownHall && quickBtn('🏛', '城鎮辦事處', onTownHallToggle)}

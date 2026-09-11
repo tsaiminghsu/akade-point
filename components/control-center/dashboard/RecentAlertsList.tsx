@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { ShieldAlert } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { useUIStore } from "@/store/useUIStore";
 import Link from "next/link";
 
 export function RecentAlertsList() {
+  const t = useTranslations("RecentAlerts");
   const alerts = useAlertStore((s) => s.alerts);
   const openMachineDrawer = useUIStore((s) => s.openMachineDrawer);
 
@@ -18,15 +20,15 @@ export function RecentAlertsList() {
     <Card className="cc-glass">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <ShieldAlert className="h-4 w-4 text-status-alarm" /> Alerts
+          <ShieldAlert className="h-4 w-4 text-status-alarm" /> {t("title")}
         </CardTitle>
         <Button asChild variant="ghost" size="sm" className="text-xs">
-          <Link href="/iot-control-center/alerts">View all</Link>
+          <Link href="/iot-control-center/alerts">{t("viewAll")}</Link>
         </Button>
       </CardHeader>
       <CardContent>
         {alerts.length === 0 ? (
-          <EmptyState title="No alerts" description="Your fleet is healthy." />
+          <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
         ) : (
           <div className="max-h-80 space-y-2 overflow-y-auto custom-scrollbar pr-1">
             {alerts.slice(0, 10).map((a) => (

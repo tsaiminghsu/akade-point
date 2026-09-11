@@ -2,11 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { screenToCanvas, snapValue, angleFromCenter, resizeFromHandle, clamp } from "@/lib/control-center/geometry";
+import { createFrameCoalescer } from "@/lib/control-center/frameCoalescer";
+import { screenToCanvas, snapValue, angleFromCenter, resizeFromHandle } from "@/lib/control-center/geometry";
 import { getWidgetAABB, aabbIntersects, pointsToAABB } from "@/lib/control-center/geometry";
 import type { Point, ResizeHandle, Widget } from "@/lib/control-center/types";
 import { useControlCenterStore } from "@/store/useControlCenterStore";
-import { MIN_ZOOM, MAX_ZOOM } from "@/lib/control-center/constants";
+
+/**
+ * Pointer capture keeps a gesture attached to the element even if the cursor
+ * leaves it. setPointerCapture throws NotFoundError when the id no longer
+ * matches an active pointer (a pointer released between the event firing and
+ * this running), and losing capture must never abort the interaction itself.
+ */
+function capturePointer(e: React.PointerEvent) {
+  try {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  } catch {
+    // Not capturable — the window-level move/up listeners still drive the gesture.
+  }
+}
 
 type Interaction =
   | { type: "pan"; startScreen: Point; startViewport: { x: number; y: number } }
@@ -56,7 +70,8 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
 
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
-      e.preventDefault();
+      // No preventDefault here: React registers wheel passively, so it would be
+      // a no-op. CanvasViewport attaches a non-passive listener for that.
       const screenPoint = toScreenPoint(e);
       const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
       store.getState().zoomAt(screenPoint, factor);
@@ -72,7 +87,7 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
       const isMiddle = e.button === 1;
       const isPanGesture = spaceHeld || isMiddle;
 
-      (e.target as Element).setPointerCapture?.(e.pointerId);
+      capturePointer(e);
 
       if (isPanGesture) {
         interactionRef.current = { type: "pan", startScreen: screenPoint, startViewport: { x: s.viewport.x, y: s.viewport.y } };
@@ -91,7 +106,7 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
     (e: React.PointerEvent, widget: Widget) => {
       const s = store.getState();
       if (s.mode !== "edit") return;
-      (e.target as Element).setPointerCapture?.(e.pointerId);
+      capturePointer(e);
 
       const additive = e.shiftKey;
       let nextSelection: string[];
@@ -123,7 +138,7 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
       const s = store.getState();
       const widget = s.widgets.find((w) => w.id === widgetId);
       if (!widget) return;
-      (e.target as Element).setPointerCapture?.(e.pointerId);
+      capturePointer(e);
       interactionRef.current = { type: "resize", widgetId, handle, startWidget: widget };
     },
     [store]
@@ -135,7 +150,7 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
       const s = store.getState();
       const widget = s.widgets.find((w) => w.id === widgetId);
       if (!widget) return;
-      (e.target as Element).setPointerCapture?.(e.pointerId);
+      capturePointer(e);
       const screenPoint = toScreenPoint(e);
       const canvasPoint = screenToCanvas(screenPoint, s.viewport);
       const startPointerAngle = angleFromCenter({ x: widget.x, y: widget.y }, canvasPoint);
@@ -145,7 +160,7 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
   );
 
   useEffect(() => {
-    function onPointerMove(e: PointerEvent) {
+    function applyPointerMove(e: PointerEvent) {
       const interaction = interactionRef.current;
       if (!interaction) return;
       const s = store.getState();
@@ -174,8 +189,11 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
         }
         const marqueeBounds = pointsToAABB([interaction.startCanvas, canvasPoint]);
         const hitIds = s.widgets.filter((w) => !w.hidden && aabbIntersects(getWidgetAABB(w), marqueeBounds)).map((w) => w.id);
-        const base = interaction.additive ? s.selection.filter((id) => !hitIds.includes(id)) : [];
-        s.setSelection(Array.from(new Set([...base, ...hitIds])));
+        const hitSet = new Set(hitIds);
+        const base = interaction.additive ? s.selection.filter((id) => !hitSet.has(id)) : [];
+        // setSelection ignores an unchanged id list, so holding still inside a
+        // marquee doesn't re-render every widget's context-menu wrapper.
+        s.setSelection([...base, ...hitIds]);
         return;
       }
 
@@ -219,9 +237,20 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
       }
     }
 
+    // One store write per painted frame instead of one per pointer event.
+    const coalescer = createFrameCoalescer<PointerEvent>(applyPointerMove);
+
+    function onPointerMove(e: PointerEvent) {
+      if (!interactionRef.current) return;
+      coalescer.push(e);
+    }
+
     function onPointerUp() {
       const interaction = interactionRef.current;
       if (!interaction) return;
+      // Apply the last move before committing, so the gesture ends exactly
+      // where the pointer did rather than at the previous frame.
+      coalescer.flush();
       const s = store.getState();
       if (interaction.type === "drag" || interaction.type === "resize" || interaction.type === "rotate") {
         s.commit();
@@ -233,9 +262,14 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
 
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
+    // Without this, a cancelled gesture (touch interruption, browser gesture)
+    // left the interaction live and widgets kept following the cursor.
+    window.addEventListener("pointercancel", onPointerUp);
     return () => {
+      coalescer.cancel();
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
     };
   }, [store, toScreenPoint, containerRef]);
 
@@ -253,6 +287,3 @@ export function useCanvasInteractions(containerRef: React.MutableRefObject<HTMLD
   };
 }
 
-export function clampZoom(zoom: number): number {
-  return clamp(zoom, MIN_ZOOM, MAX_ZOOM);
-}

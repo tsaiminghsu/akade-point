@@ -3,6 +3,10 @@ import React, { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
+import { FACE_ORDER as DIE_FACE_ORDER } from './diePhysics'
+import type { DicePhysicsConfig } from './diePhysics'
+import { makeDieBox, createDieState, startShake, stepDie } from './diePhysics'
+import { FLOOR_TOP, WALL_T } from './MachineBox'
 
 // ── Canvas helpers ────────────────────────────────────────────────────────────
 function canvasRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -54,51 +58,14 @@ function makeWindTexture(face: number): THREE.CanvasTexture {
   return new THREE.CanvasTexture(cv)
 }
 
-// ── Face constants ────────────────────────────────────────────────────────────
-const FACE_ORDER        = [4, 3, 1, 6, 2, 5]  // geometry faces: +X -X +Y -Y +Z -Z
-const FACE_NORMALS_LOCAL = [
-  new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
-  new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
-  new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1),
-]
-const WORLD_UP   = new THREE.Vector3(0, 1, 0)
+// ── Face constants ───────────────────────────────────────────────────────────
 const IDENTITY_Q = new THREE.Quaternion()
 const MM_TO_UNIT = 0.9 / 25
 
-// ── Physics config ─────────────────────────────────────────────────────────────
-export interface DicePhysicsConfig {
-  shakeDuration:  number   // ms — how long shaking phase lasts
-  kickInterval:   number   // s between floor kicks during shaking
-  kickUp:         number   // upward impulse per kick
-  kickHoriz:      number   // horizontal kick strength
-  kickRot:        number   // angular kick strength rad/s
-  gravity:        number   // scene units / s²
-  bounceWall:     number   // energy retention on wall bounce
-  bounceFloor:    number   // energy retention on floor bounce
-  linDampH:       number   // horizontal air resistance per second
-  rotDamp:        number   // angular damping per second
-  floorFriction:  number   // friction when resting on floor per second
-  settleLinVel:   number   // linear speed threshold for settling
-  settleAngVel:   number   // angular speed threshold for settling
-  settleDuration: number   // ms sustained below thresholds before settled
-}
-
-export const DEFAULT_DICE_CONFIG: DicePhysicsConfig = {
-  shakeDuration:  2500,
-  kickInterval:   0.20,
-  kickUp:         13,
-  kickHoriz:      2.8,
-  kickRot:        10,
-  gravity:        20,
-  bounceWall:     0.55,
-  bounceFloor:    0.35,
-  linDampH:       0.35,
-  rotDamp:        4.5,
-  floorFriction:  10.0,
-  settleLinVel:   0.025,
-  settleAngVel:   0.025,
-  settleDuration: 500,
-}
+// Physics lives in ./diePhysics (pure, unit-tested). Re-exported so existing
+// importers (DiceScene, DiceGame, GameHUD, DiceDebug) keep their import paths.
+export type { DicePhysicsConfig } from './diePhysics'
+export { DEFAULT_DICE_CONFIG, computeTopFaceFromQuat, FACE_ORDER } from './diePhysics'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type PhysicsDicePhase = 'idle' | 'shaking' | 'freeroll' | 'result'
@@ -113,6 +80,7 @@ export interface DiePhysicsHandle {
   wx: number; wy: number; wz: number
   half: number
   dvx: number; dvy: number; dvz: number
+  dpx: number; dpy: number; dpz: number
   groundContact: boolean
   diceContact: boolean
 }
@@ -131,20 +99,6 @@ export interface PhysicsDieProps {
   config: DicePhysicsConfig
 }
 
-// ── Utility ───────────────────────────────────────────────────────────────────
-function rng(seed: number, n: number): number {
-  return Math.abs(Math.sin(seed * 9301 + n * 49297 + 233) % 1)
-}
-
-export function computeTopFaceFromQuat(q: THREE.Quaternion): number {
-  let maxDot = -Infinity, bestIdx = 2
-  FACE_NORMALS_LOCAL.forEach((n, i) => {
-    const dot = n.clone().applyQuaternion(q).dot(WORLD_UP)
-    if (dot > maxDot) { maxDot = dot; bestIdx = i }
-  })
-  return FACE_ORDER[bestIdx]
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PhysicsDie({
   dieSize, isWind, restPosition, phase, rollId, index, boxHw, boxHd, boxH, physicsHandle, config,
@@ -153,67 +107,42 @@ export default function PhysicsDie({
   const configRef = useRef(config)
   useEffect(() => { configRef.current = config }, [config])
 
-  const s3d    = dieSize * MM_TO_UNIT
-  const half   = s3d / 2
-  const floorY = half + 0.005
-  const bx     = boxHw - half - 0.04
-  const bz     = boxHd - half - 0.04
-  const ceilY  = boxH - half - 0.02
+  const s3d  = dieSize * MM_TO_UNIT
+  const half = s3d / 2
 
   const cornerRadius = s3d * 0.12
   const faceInset    = cornerRadius * 0.55
   const faceSize     = s3d - faceInset * 2
   const faceOffset   = half + 0.003
 
-  const phys = useRef({
-    px: restPosition[0], py: floorY, pz: restPosition[2],
-    vx: 0, vy: 0, vz: 0,
-    wx: 0, wy: 0, wz: 0,
-    quat: new THREE.Quaternion(),
-    elapsed: 0, prevKick: -1,
-    idleStartX: restPosition[0], idleStartY: floorY, idleStartZ: restPosition[2],
-    idleElapsed: 0,
-  })
+  const box = useMemo(
+    () => makeDieBox(boxHw, boxHd, boxH, FLOOR_TOP, WALL_T),
+    [boxHw, boxHd, boxH],
+  )
+  const floorY = box.yBot + half
 
+  const state = useRef(createDieState(restPosition[0], restPosition[2], half, box))
+  useEffect(() => { state.current.half = half }, [half])
+
+  const idle = useRef({ x: restPosition[0], y: floorY, z: restPosition[2], elapsed: 0 })
   const prevPhaseRef = useRef<PhysicsDicePhase>('idle')
 
   useEffect(() => {
     if (phase === prevPhaseRef.current) return
-    const p = phys.current
-    const s = rollId * 100 + index
-
+    const s = state.current
     if (phase === 'shaking') {
-      p.px = restPosition[0] + (rng(s, 20) - 0.5) * 0.3
-      p.py = floorY
-      p.pz = restPosition[2] + (rng(s, 21) - 0.5) * 0.3
-      p.vx = (rng(s, 1) - 0.5) * 1.0
-      p.vy = rng(s, 2) * 4 + 3
-      p.vz = (rng(s, 3) - 0.5) * 1.0
-      p.wx = (rng(s, 4) - 0.5) * 24
-      p.wy = (rng(s, 5) - 0.5) * 24
-      p.wz = (rng(s, 6) - 0.5) * 24
-      const qx = rng(s, 7) - 0.5
-      const qy = rng(s, 8) - 0.5
-      const qz = rng(s, 9) - 0.5
-      const qw = rng(s, 10) + 0.1
-      p.quat.set(qx, qy, qz, qw).normalize()
-      p.elapsed = 0
-      p.prevKick = -1
-
+      startShake(s, index)
     } else if (phase === 'idle') {
-      p.idleStartX = p.px
-      p.idleStartY = p.py
-      p.idleStartZ = p.pz
-      p.idleElapsed = 0
-      p.vx = p.vy = p.vz = p.wx = p.wy = p.wz = 0
+      idle.current = { x: s.px, y: s.py, z: s.pz, elapsed: 0 }
+      s.vx = s.vy = s.vz = 0
+      s.wx = s.wy = s.wz = 0
     }
-
     prevPhaseRef.current = phase
   }, [phase, rollId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const materials = useMemo(() => {
     const factory = isWind ? makeWindTexture : makeNumberTexture
-    return FACE_ORDER.map(f => new THREE.MeshBasicMaterial({
+    return DIE_FACE_ORDER.map(f => new THREE.MeshBasicMaterial({
       map: factory(f), transparent: true, polygonOffset: true, polygonOffsetFactor: -1,
     }))
   }, [isWind, dieSize]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -234,163 +163,45 @@ export default function PhysicsDie({
   useFrame((_, delta) => {
     const mesh = meshRef.current
     if (!mesh) return
-    const p   = phys.current
+    const s = state.current
     const cfg = configRef.current
+    const h = physicsHandle.current
 
     if (phase === 'shaking' || phase === 'freeroll') {
-      p.elapsed += delta
+      stepDie(s, cfg, box, phase, delta, rollId * 1000 + index, h)
 
-      // Consume die-to-die collision impulses from parent
-      p.vx += physicsHandle.current.dvx
-      p.vy += physicsHandle.current.dvy
-      p.vz += physicsHandle.current.dvz
-      physicsHandle.current.dvx = physicsHandle.current.dvy = physicsHandle.current.dvz = 0
+      h.speed    = Math.hypot(s.vx, s.vy, s.vz)
+      h.angSpeed = Math.hypot(s.wx, s.wy, s.wz)
+      h.quat.set(s.q.x, s.q.y, s.q.z, s.q.w)
+      h.px = s.px; h.py = s.py; h.pz = s.pz
+      h.vx = s.vx; h.vy = s.vy; h.vz = s.vz
+      h.wx = s.wx; h.wy = s.wy; h.wz = s.wz
+      h.half = s.half
+      h.groundContact = s.grounded
 
-      // Periodic floor kicks during shaking (floor-gated)
-      if (phase === 'shaking') {
-        const currKick = Math.floor(p.elapsed / cfg.kickInterval)
-        if (currKick > p.prevKick) {
-          p.prevKick = currKick
-          const isOnFloor = p.py <= floorY + 0.05
-          if (isOnFloor) {
-            const s = rollId * 100 + index * 10 + currKick
-            p.vy += cfg.kickUp
-            p.vx += (rng(s, 1) - 0.5) * cfg.kickHoriz * 2
-            p.vz += (rng(s, 2) - 0.5) * cfg.kickHoriz * 2
-            p.wx += (rng(s, 3) - 0.5) * cfg.kickRot
-            p.wy += (rng(s, 4) - 0.5) * cfg.kickRot
-            p.wz += (rng(s, 5) - 0.5) * cfg.kickRot
-          }
-        }
-      }
-
-      // Freeroll tilt correction — nudge toward nearest flat face when grounded + slow
-      if (phase === 'freeroll') {
-        const onFloor = p.py <= floorY + 0.02
-        const linSlow = Math.sqrt(p.vx * p.vx + p.vz * p.vz) < 0.8
-        if (onFloor && linSlow) {
-          let maxDot = -Infinity
-          let bestWorldN = FACE_NORMALS_LOCAL[2].clone()
-          FACE_NORMALS_LOCAL.forEach(n => {
-            const wn = n.clone().applyQuaternion(p.quat)
-            const dot = wn.dot(WORLD_UP)
-            if (dot > maxDot) { maxDot = dot; bestWorldN = wn.clone() }
-          })
-          if (maxDot < 0.95) {
-            const cross = bestWorldN.clone().cross(WORLD_UP)
-            const strength = (0.95 - maxDot) * 8
-            p.wx += cross.x * strength * delta
-            p.wy += cross.y * strength * delta
-            p.wz += cross.z * strength * delta
-          }
-        }
-      }
-
-      // Gravity
-      p.vy -= cfg.gravity * delta
-
-      // Horizontal air resistance
-      const hd = Math.max(0, 1 - cfg.linDampH * delta)
-      p.vx *= hd; p.vz *= hd
-
-      // Angular damping
-      const rd = Math.max(0, 1 - cfg.rotDamp * delta)
-      p.wx *= rd; p.wy *= rd; p.wz *= rd
-
-      // Integrate position
-      p.px += p.vx * delta
-      p.py += p.vy * delta
-      p.pz += p.vz * delta
-
-      // Integrate quaternion (axis-angle)
-      const wMag = Math.sqrt(p.wx * p.wx + p.wy * p.wy + p.wz * p.wz)
-      if (wMag > 0.001) {
-        const angle = wMag * delta
-        const sinH  = Math.sin(angle / 2) / wMag
-        const dq = new THREE.Quaternion(p.wx * sinH, p.wy * sinH, p.wz * sinH, Math.cos(angle / 2))
-        p.quat.premultiply(dq).normalize()
-      }
-
-      // Wall collisions
-      if (p.px > bx)  { p.px =  bx; p.vx = -Math.abs(p.vx) * cfg.bounceWall; p.wx += (Math.random() - 0.5) * 4 }
-      if (p.px < -bx) { p.px = -bx; p.vx =  Math.abs(p.vx) * cfg.bounceWall; p.wx += (Math.random() - 0.5) * 4 }
-      if (p.pz > bz)  { p.pz =  bz; p.vz = -Math.abs(p.vz) * cfg.bounceWall; p.wz += (Math.random() - 0.5) * 4 }
-      if (p.pz < -bz) { p.pz = -bz; p.vz =  Math.abs(p.vz) * cfg.bounceWall; p.wz += (Math.random() - 0.5) * 4 }
-      if (p.py > ceilY) { p.py = ceilY; p.vy = -Math.abs(p.vy) * cfg.bounceWall }
-
-      // Floor collision
-      if (p.py < floorY) {
-        p.py = floorY
-        if (Math.abs(p.vy) > 0.3) {
-          p.vy = Math.abs(p.vy) * cfg.bounceFloor
-          p.vx *= 0.80; p.vz *= 0.80
-          p.wx *= 0.85; p.wy *= 0.85; p.wz *= 0.85
-          if (phase === 'shaking') {
-            const floorSeed = rollId * 1000 + index * 100 + Math.floor(p.elapsed * 20)
-            p.vy += rng(floorSeed, 7) * 4 + 2
-            p.vx += (rng(floorSeed, 8) - 0.5) * 2.0
-            p.vz += (rng(floorSeed, 9) - 0.5) * 2.0
-          }
-        } else {
-          // Nearly stopped — tilt correction toward nearest flat face
-          p.vy = 0
-          const vSpd2D = Math.sqrt(p.vx * p.vx + p.vz * p.vz)
-          if (vSpd2D < 0.8) {
-            let maxDot = -Infinity
-            let bestWorldN = FACE_NORMALS_LOCAL[2].clone().applyQuaternion(p.quat)
-            FACE_NORMALS_LOCAL.forEach(n => {
-              const wn = n.clone().applyQuaternion(p.quat)
-              const dot = wn.dot(WORLD_UP)
-              if (dot > maxDot) { maxDot = dot; bestWorldN = wn.clone() }
-            })
-            if (maxDot < 0.97) {
-              const cross = bestWorldN.cross(WORLD_UP)
-              p.wx += cross.x * 2.5
-              p.wy += cross.y * 2.5
-              p.wz += cross.z * 2.5
-            }
-          }
-        }
-      }
-
-      // Floor friction — strong resistance when resting on floor
-      const restingOnFloor = p.py <= floorY + 0.008 && Math.abs(p.vy) < 0.5
-      if (restingOnFloor) {
-        const ff = Math.max(0, 1 - cfg.floorFriction * delta)
-        p.vx *= ff
-        p.vz *= ff
-      }
-
-      // Write to handle for parent settling detection + collision
-      physicsHandle.current.speed    = Math.sqrt(p.vx * p.vx + p.vy * p.vy + p.vz * p.vz)
-      physicsHandle.current.angSpeed = Math.sqrt(p.wx * p.wx + p.wy * p.wy + p.wz * p.wz)
-      physicsHandle.current.quat.copy(p.quat)
-      physicsHandle.current.px = p.px; physicsHandle.current.py = p.py; physicsHandle.current.pz = p.pz
-      physicsHandle.current.vx = p.vx; physicsHandle.current.vy = p.vy; physicsHandle.current.vz = p.vz
-      physicsHandle.current.wx = p.wx; physicsHandle.current.wy = p.wy; physicsHandle.current.wz = p.wz
-      physicsHandle.current.half = half
-      physicsHandle.current.groundContact = p.py <= floorY + 0.01
-
-      mesh.position.set(p.px, p.py, p.pz)
-      mesh.quaternion.copy(p.quat)
+      mesh.position.set(s.px, s.py, s.pz)
+      mesh.quaternion.set(s.q.x, s.q.y, s.q.z, s.q.w)
 
     } else if (phase === 'idle') {
       // Smooth lerp back to rest position over 0.6 s
-      p.idleElapsed += delta
-      const progress = Math.min(p.idleElapsed * 1.67, 1)
+      const i = idle.current
+      i.elapsed += Math.min(delta, 0.033)
+      const progress = Math.min(i.elapsed * 1.67, 1)
       const ease     = 1 - Math.pow(1 - progress, 3)
-      const rollSeed = rollId * 100 + index
-      const bob      = Math.sin(p.idleElapsed * 1.4 + rollSeed * 0.01) * 0.025 * progress
+      const bob      = Math.sin(i.elapsed * 1.4 + index * 0.7) * 0.025 * progress
 
-      const cx = p.idleStartX + (restPosition[0] - p.idleStartX) * ease
-      const cy = p.idleStartY + (floorY - p.idleStartY) * ease + bob
-      const cz = p.idleStartZ + (restPosition[2] - p.idleStartZ) * ease
+      const cx = i.x + (restPosition[0] - i.x) * ease
+      const cy = i.y + (floorY - i.y) * ease + bob
+      const cz = i.z + (restPosition[2] - i.z) * ease
 
-      p.quat.slerp(IDENTITY_Q, Math.min(delta * 2.5 * ease + 0.001, 0.12))
+      mesh.quaternion.slerp(IDENTITY_Q, Math.min(delta * 2.5 * ease + 0.001, 0.12))
+      s.q.x = mesh.quaternion.x; s.q.y = mesh.quaternion.y
+      s.q.z = mesh.quaternion.z; s.q.w = mesh.quaternion.w
 
-      p.px = cx; p.py = cy; p.pz = cz
+      s.px = cx; s.py = cy; s.pz = cz
+      s.vx = s.vy = s.vz = 0
+      s.wx = s.wy = s.wz = 0
       mesh.position.set(cx, cy, cz)
-      mesh.quaternion.copy(p.quat)
     }
     // phase === 'result': hold last position
   })

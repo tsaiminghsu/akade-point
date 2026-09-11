@@ -1,0 +1,145 @@
+/* Shell that hosts the radar console and the optical detection view as tabs. */
+
+.shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #060b09;
+  color: #d6e8de;
+  font-family: ui-sans-serif, system-ui, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  overflow: hidden;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  height: 44px;
+  flex: none;
+  background: #0d1512;
+  border-bottom: 1px solid #1e2f27;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-right: 4px;
+}
+
+.brandName {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #d6e8de;
+}
+
+.brandSub {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #4ade9a;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab,
+.tabActive {
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #7d9a8d;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.tab:hover {
+  color: #d6e8de;
+  background: rgba(74, 222, 154, 0.07);
+}
+
+.tabActive {
+  background: rgba(74, 222, 154, 0.16);
+  border-color: rgba(74, 222, 154, 0.45);
+  color: #4ade9a;
+  font-weight: 600;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.backLink {
+  font-size: 12px;
+  color: #7d9a8d;
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+.backLink:hover {
+  color: #4ade9a;
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.pane {
+  position: absolute;
+  inset: 0;
+}
+
+/* Stated explicitly so a reset that gives div a display value cannot beat the
+   user-agent rule for [hidden]. */
+.pane[hidden] {
+  display: none;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #7d9a8d;
+  font-size: 13px;
+}
+
+.loadingMark {
+  font-size: 34px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingMark {
+    animation: none;
+  }
+}
+
+@media (max-width: 1040px) {
+  .shell {
+    position: relative;
+    inset: auto;
+    min-height: 100dvh;
+  }
+
+  .body {
+    min-height: 100dvh;
+  }
+}

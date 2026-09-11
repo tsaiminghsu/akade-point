@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { GameEngine3D } from './engine3d';
-import { HUDData, GameState } from './types';
+import { HUDData } from './types';
 import HUD from './HUD';
 import MiniMap from './MiniMap';
 import PhoneUI from './PhoneUI';
@@ -13,6 +13,9 @@ import LoadingScreen from './LoadingScreen';
 import TownHallUI from './TownHallUI';
 import MobileControls from './MobileControls';
 import RaceHUD from './RaceHUD';
+import ChallengesPanel from './ChallengesPanel';
+import CashCounter from './CashCounter';
+import { MissionPanel, MissionBriefModal, CenterBanner } from './MissionHUD';
 import { getCourse } from './raceCourses';
 
 // ─── Weather cycle ────────────────────────────────────────────────────────────
@@ -77,6 +80,20 @@ const DEFAULT_HUD: HUDData = {
   waypoint: { x: 0, y: 0, active: false },
   zone: '城市區', playerX: 0, playerY: 0, notifications: [],
   callLog: [],
+  health: 100,
+  wantedStars: 0,
+  wantedEvading: false,
+  arrestProgress: 0,
+  screenFade: 0,
+  screenLabel: null,
+  nearVehicle: 'none',
+  cash: 0,
+  cashTicker: [],
+  mission: null,
+  nearMarker: null,
+  canStartTaxi: false,
+  banner: null,
+  jobs: [],
 };
 
 // Singleton engine
@@ -92,10 +109,11 @@ export default function CityGame() {
   const [hud,          setHud]         = useState<HUDData>(DEFAULT_HUD);
   const [showPhone,    setShowPhone]   = useState(false);
   const [mapExpanded,  setMapExpanded] = useState(false);
-  const [showTownHall, setShowTownHall] = useState(false);
+  const [showTownHall,    setShowTownHall]    = useState(false);
+  const [showChallenges,  setShowChallenges]  = useState(false);
   const [weatherIdx,   setWeatherIdx]  = useState(0);
-  const [miniState,    setMiniState]   = useState<GameState | null>(null);
   const [isMobile,     setIsMobile]    = useState(false);
+  const [pointerLocked, setPointerLocked] = useState(false);
 
   // ── Loading state ──────────────────────────────────────────────────────────
   const [loadProgress, setLoadProgress] = useState(0);
@@ -112,6 +130,44 @@ export default function CityGame() {
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
+
+  // Dev-only handle so the running simulation can be inspected from the console.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    (window as unknown as { cityEngine?: unknown }).cityEngine = engine.current;
+  }, []);
+
+  // Smaller crowd and no pedestrian shadows on touch devices.
+  useEffect(() => {
+    engine.current.setPerfProfile(isMobile ? 'low' : 'high');
+  }, [isMobile]);
+
+  // The engine debounces writes, so force one when the page goes away.
+  useEffect(() => {
+    const flush = () => engine.current.flushSave();
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('beforeunload', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+      flush();
+    };
+  }, []);
+
+  // Track pointer lock so the "click to look" hint can be shown/hidden.
+  // Event-driven rather than polled, so it costs nothing per frame.
+  useEffect(() => {
+    const onChange = () => setPointerLocked(!!document.pointerLockElement);
+    document.addEventListener('pointerlockchange', onChange);
+    return () => document.removeEventListener('pointerlockchange', onChange);
+  }, []);
+
+  // Any overlay needs the cursor back.
+  const anyOverlayOpen = showPhone || mapExpanded || showTownHall || showChallenges;
+  useEffect(() => {
+    if (anyOverlayOpen) engine.current.input.releasePointerLock();
+  }, [anyOverlayOpen]);
 
   // Advance progress to the next phase above current value
   const advanceTo = useCallback((target: number, text: string) => {
@@ -169,6 +225,23 @@ export default function CityGame() {
   const onPhoneToggle   = useCallback(() => setShowPhone(p => !p), []);
   const onMapToggle     = useCallback(() => setMapExpanded(m => !m), []);
   const onWeatherCycle  = useCallback(() => setWeatherIdx(i => (i + 1) % WEATHER_CYCLE.length), []);
+  // Memoised so GameScene's effects do not see a new identity every render.
+  const onTownHallToggle  = useCallback(() => setShowTownHall(t => !t), []);
+  const onAcceptMission   = useCallback(() => engine.current.acceptMission(), []);
+  const onDeclineMission  = useCallback(() => engine.current.declineMission(), []);
+  const onCancelMission   = useCallback(() => engine.current.missions.requestCancel(performance.now()), []);
+  const onSetJobRoute     = useCallback((defId: string) => {
+    engine.current.setWaypointToMission(defId);
+    setShowPhone(false);
+  }, []);
+  const onRestart = useCallback(() => {
+    engine.current.reset({ clearSave: true });
+    setShowPhone(false);
+    setMapExpanded(false);
+    setShowChallenges(false);
+    setShowTownHall(false);
+  }, []);
+  const onChallengeToggle = useCallback(() => setShowChallenges(c => !c), []);
 
   // ── Race callbacks ─────────────────────────────────────────────────────────
   const onStartRace = useCallback((courseId: string) => {
@@ -177,26 +250,7 @@ export default function CityGame() {
   const onExitRace  = useCallback(() => { engine.current.exitRace(); }, []);
   const onRetryRace = useCallback(() => { engine.current.retryRace(); }, []);
 
-  // Save best lap to localStorage when race finishes
-  useEffect(() => {
-    const rs = hud.raceSession;
-    if (!rs || rs.phase !== 'finished') return;
-    const course = getCourse(rs.courseId);
-    if (rs.bestLap <= 0) return;
-    const key = `race_best_${rs.courseId}`;
-    const prev = parseFloat(localStorage.getItem(key) ?? '0');
-    if (prev === 0 || rs.bestLap < prev) {
-      localStorage.setItem(key, String(rs.bestLap));
-    }
-  }, [hud.raceSession]);
-
   const weatherType = WEATHER_CYCLE[weatherIdx];
-
-  useEffect(() => {
-    const handler = (e: Event) => setMiniState((e as CustomEvent<GameState>).detail);
-    window.addEventListener('city:minimap', handler as EventListener);
-    return () => window.removeEventListener('city:minimap', handler as EventListener);
-  }, []);
 
   function handleWaypointSet(wx: number, wy: number) {
     engine.current.setWaypoint(wx, wy);
@@ -235,13 +289,13 @@ export default function CityGame() {
           onHUDUpdate={onHUDUpdate}
           onPhoneToggle={onPhoneToggle}
           onMapToggle={onMapToggle}
-          onTownHallToggle={() => setShowTownHall(t => !t)}
+          onTownHallToggle={onTownHallToggle}
           onWeatherCycle={onWeatherCycle}
         />
       </Canvas>
 
       {/* ── HUD overlay ── */}
-      {!loadVisible && <HUD data={hud} onPhone={onPhoneToggle} isMobile={isMobile} />}
+      {!loadVisible && <HUD data={hud} onPhone={onPhoneToggle} onChallenge={onChallengeToggle} isMobile={isMobile} />}
 
       {/* ── Weather indicator ── */}
       {!loadVisible && (
@@ -267,10 +321,84 @@ export default function CityGame() {
         </div>
       )}
 
+      {/* ── Cash counter (top-right, above the health bar) ── */}
+      {!loadVisible && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: isMobile ? 'calc(30px + env(safe-area-inset-top, 0px))' : '32px',
+            right: isMobile ? '12px' : '12px',
+          }}
+        >
+          <CashCounter cash={hud.cash} ticker={hud.cashTicker} isMobile={isMobile} />
+        </div>
+      )}
+
+      {/* ── Active mission objective ── */}
+      {!loadVisible && hud.mission && (
+        <MissionPanel mission={hud.mission} isMobile={isMobile} onCancel={onCancelMission} />
+      )}
+
+      {/* ── Mission announcements ── */}
+      {!loadVisible && hud.banner && (
+        <CenterBanner banner={hud.banner} isMobile={isMobile} />
+      )}
+
+      {/* ── Mission brief ── */}
+      {!loadVisible && hud.mission && hud.mission.phase === 'briefing' && (
+        <MissionBriefModal
+          mission={hud.mission}
+          isMobile={isMobile}
+          onAccept={onAcceptMission}
+          onDecline={onDeclineMission}
+        />
+      )}
+
+      {/* ── Contextual interact prompt ── */}
+      {!loadVisible && !hud.mission && (hud.nearMarker || hud.canStartTaxi) && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none"
+          style={{
+            bottom: isMobile ? 'calc(190px + env(safe-area-inset-bottom, 0px))' : '92px',
+            background: 'rgba(0,0,0,0.6)',
+            border: '1px solid rgba(255,210,63,0.45)',
+            borderRadius: 20,
+            padding: '5px 16px',
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: '#ffd23f',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {hud.nearMarker
+            ? `按 E 接受任務：${hud.nearMarker.icon} ${hud.nearMarker.title}`
+            : '按 E 開始接客'}
+        </div>
+      )}
+
+      {/* ── Mouse-look hint (desktop, only while unlocked) ── */}
+      {!loadVisible && !isMobile && !pointerLocked && !anyOverlayOpen && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none"
+          style={{
+            bottom: '58px',
+            background: 'rgba(0,0,0,0.45)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '20px',
+            padding: '4px 14px',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            color: 'rgba(255,255,255,0.6)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          點擊畫面以滑鼠環視 · Esc 釋放
+        </div>
+      )}
+
       {/* ── Mini-map ── */}
       {!loadVisible && (
         <MiniMap
-          state={miniState}
           world={engine.current.world}
           expanded={mapExpanded}
           onWaypointSet={handleWaypointSet}
@@ -290,13 +418,15 @@ export default function CityGame() {
           onLandDrone={() => { engine.current.landDrone(); setShowPhone(false); }}
           onRTLDrone={() => { engine.current.landDrone(); }}
           onCancelOrder={(id) => { engine.current.cancelOrder(id); }}
-          onStartRace={onStartRace}
-          onExitRace={onExitRace}
           orders={hud.orders}
           drone={hud.drone}
           callLog={hud.callLog ?? []}
-          raceSession={hud.raceSession}
           isMobile={isMobile}
+          cash={hud.cash}
+          jobs={hud.jobs}
+          stats={engine.current.save.stats}
+          onSetJobRoute={onSetJobRoute}
+          onRestart={onRestart}
         />
       )}
 
@@ -309,6 +439,15 @@ export default function CityGame() {
           onExit={onExitRace}
         />
       )}
+
+      {/* ── Challenges Panel ── */}
+      <ChallengesPanel
+        open={showChallenges}
+        onClose={() => setShowChallenges(false)}
+        onStartRace={onStartRace}
+        raceSession={hud.raceSession}
+        isMobile={isMobile}
+      />
 
       {/* ── Town Hall UI ── */}
       {showTownHall && (
@@ -346,8 +485,9 @@ export default function CityGame() {
           input={engine.current.input}
           hud={hud}
           onPhone={onPhoneToggle}
+          onChallenge={onChallengeToggle}
           onMapToggle={onMapToggle}
-          onTownHallToggle={() => setShowTownHall(t => !t)}
+          onTownHallToggle={onTownHallToggle}
           onWeatherCycle={onWeatherCycle}
         />
       )}

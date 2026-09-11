@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface StoreComparisonChartProps {
@@ -7,6 +8,7 @@ interface StoreComparisonChartProps {
 }
 
 export function StoreComparisonChart({ data }: StoreComparisonChartProps) {
+  const t = useTranslations("Status");
   return (
     <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -19,10 +21,10 @@ export function StoreComparisonChart({ data }: StoreComparisonChartProps) {
             labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           />
           <Legend formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>} />
-          <Bar dataKey="online" name="Online" stackId="s" fill="hsl(var(--status-online))" />
-          <Bar dataKey="warning" name="Warning" stackId="s" fill="hsl(var(--status-warning))" />
-          <Bar dataKey="alarm" name="Alarm" stackId="s" fill="hsl(var(--status-alarm))" />
-          <Bar dataKey="offline" name="Offline" stackId="s" fill="hsl(var(--status-offline))" />
+          <Bar dataKey="online" name={t("online")} stackId="s" fill="hsl(var(--status-online))" />
+          <Bar dataKey="warning" name={t("warning")} stackId="s" fill="hsl(var(--status-warning))" />
+          <Bar dataKey="alarm" name={t("alarm")} stackId="s" fill="hsl(var(--status-alarm))" />
+          <Bar dataKey="offline" name={t("offline")} stackId="s" fill="hsl(var(--status-offline))" />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -330,7 +330,7 @@ export default function GameHUD({
                 <span className="text-[10px] text-white/30 text-center tracking-widest uppercase">物理設定</span>
 
                 <SliderRow
-                  label="搖骰強度" value={physicsConfig.kickUp} min={5} max={20} step={1}
+                  label="搖骰強度" value={physicsConfig.kickUp} min={4} max={16} step={1}
                   onChange={v => onPhysicsConfigChange({ kickUp: v })} disabled={disabled}
                 />
                 <SliderRow
@@ -351,7 +351,7 @@ export default function GameHUD({
                   onChange={v => onPhysicsConfigChange({ rotDamp: v })} disabled={disabled}
                 />
                 <SliderRow
-                  label="重力" value={physicsConfig.gravity} min={10} max={40} step={1}
+                  label="重力" value={physicsConfig.gravity} min={20} max={90} step={2}
                   onChange={v => onPhysicsConfigChange({ gravity: v })} disabled={disabled}
                 />
                 <SliderRow

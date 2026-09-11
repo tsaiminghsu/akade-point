@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { History } from "lucide-react";
 
 import { useMachinesStore } from "@/store/useMachinesStore";
@@ -16,6 +17,7 @@ const DEFAULT_FILTERS: HistoryFilterState = {
 };
 
 export default function HistoryPageContent() {
+  const t = useTranslations("History");
   const events = useMachinesStore((s) => s.events);
   const [filters, setFilters] = useState<HistoryFilterState>(DEFAULT_FILTERS);
 
@@ -38,9 +40,9 @@ export default function HistoryPageContent() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-            <History className="h-5 w-5 text-primary" /> History
+            <History className="h-5 w-5 text-primary" /> {t("title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Full event timeline across all machines and stores</p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <ExportButtons events={filtered} />
       </div>

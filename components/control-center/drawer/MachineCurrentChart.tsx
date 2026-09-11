@@ -1,13 +1,21 @@
 "use client";
 
+import { memo, useMemo } from "react";
+import { useLocale } from "next-intl";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface MachineCurrentChartProps {
   data: { t: number; value: number }[];
 }
 
-export function MachineCurrentChart({ data }: MachineCurrentChartProps) {
-  const chartData = data.map((d) => ({ time: new Date(d.t).toLocaleTimeString("zh-TW", { hour12: false }), value: d.value }));
+/** Memoised: Live Mode re-renders the drawer once a second, and formatting 60
+ *  timestamps per render is the most expensive thing on that path. */
+export const MachineCurrentChart = memo(function MachineCurrentChart({ data }: MachineCurrentChartProps) {
+  const locale = useLocale();
+  const chartData = useMemo(
+    () => data.map((d) => ({ time: new Date(d.t).toLocaleTimeString(locale, { hour12: false }), value: d.value })),
+    [data, locale]
+  );
 
   return (
     <div className="h-48 w-full">
@@ -36,4 +44,4 @@ export function MachineCurrentChart({ data }: MachineCurrentChartProps) {
       </ResponsiveContainer>
     </div>
   );
-}
+});

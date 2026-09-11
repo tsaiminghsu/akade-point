@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   Camera,
@@ -41,14 +42,16 @@ interface WidgetPaletteProps {
 }
 
 export function WidgetPalette({ onAddWidget }: WidgetPaletteProps) {
+  const t = useTranslations("WidgetPalette");
+  const tType = useTranslations("WidgetType");
   return (
     <div className="flex w-48 shrink-0 flex-col border-r border-border bg-card/40">
       <div className="border-b border-border px-3 py-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Widget Library</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("title")}</p>
       </div>
       <ScrollArea className="flex-1">
         <div className="grid grid-cols-2 gap-2 p-2">
-          {WIDGET_LIBRARY.map(({ type, label }) => {
+          {WIDGET_LIBRARY.map(({ type }) => {
             const Icon = ICONS[type];
             return (
               <button
@@ -64,14 +67,14 @@ export function WidgetPalette({ onAddWidget }: WidgetPaletteProps) {
                 )}
               >
                 <Icon className="h-5 w-5 text-primary" />
-                <span className="text-[11px] text-foreground">{label}</span>
+                <span className="text-[11px] text-foreground">{tType(type)}</span>
               </button>
             );
           })}
         </div>
       </ScrollArea>
       <p className="border-t border-border p-2 text-center text-[10px] text-muted-foreground">
-        Drag onto canvas, or click to add
+        {t("hint")}
       </p>
     </div>
   );

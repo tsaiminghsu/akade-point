@@ -1,3 +1,5 @@
+export type ControlCenterLocale = "zh-TW" | "en-US" | "ja-JP";
+
 export type MachineStatus = "online" | "warning" | "alarm" | "offline";
 
 export type DoorState = "closed" | "open";
@@ -14,6 +16,7 @@ export interface Store {
   name: string;
   address: string;
   brandId: string;
+  activeLayoutVersionId: string | null;
 }
 
 export interface MachineGroup {

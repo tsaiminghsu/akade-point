@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Coins, Ticket, Users, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import type { User } from "@/lib/dynamo/users";
 
 export const metadata: Metadata = { title: "Users" };
 
-async function getUsersData(): Promise<{ users: User[]; error: string | null }> {
+async function getUsersData(loadError: string): Promise<{ users: User[]; error: string | null }> {
   try {
     const { listUsers } = await import("@/lib/dynamo/users");
     const users = await listUsers();
@@ -19,14 +20,14 @@ async function getUsersData(): Promise<{ users: User[]; error: string | null }> 
     console.error("Failed to load control center users:", error);
     return {
       users: [],
-      error: "無法載入使用者資料，請稍後再試。",
+      error: loadError,
     };
   }
 }
 
-function formatDate(value?: string | number | Date) {
+function formatDate(value: string | number | Date | undefined, locale: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("zh-TW", {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -35,8 +36,8 @@ function formatDate(value?: string | number | Date) {
   }).format(new Date(value));
 }
 
-function getDisplayName(user: User) {
-  return user.displayName?.trim() || "匿名使用者";
+function getDisplayName(user: User, anonymousUser: string) {
+  return user.displayName?.trim() || anonymousUser;
 }
 
 function getSubtitle(user: User) {
@@ -51,7 +52,9 @@ function getInitials(name: string) {
 }
 
 export default async function UsersPage() {
-  const { users, error } = await getUsersData();
+  const t = await getTranslations("UsersPage");
+  const locale = await getLocale();
+  const { users, error } = await getUsersData(t("loadError"));
   const sortedUsers = [...users].sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0));
   const adminCount = sortedUsers.filter((user) => user.isAdmin).length;
   const totalPoints = sortedUsers.reduce((sum, user) => sum + (user.totalPoints ?? 0), 0);
@@ -70,76 +73,76 @@ export default async function UsersPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <Users className="h-5 w-5 text-primary" /> Users & Permissions
+              <Users className="h-5 w-5 text-primary" /> {t("title")}
             </h1>
-            <p className="text-sm text-muted-foreground">View all account records and current permission state</p>
+            <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
           </div>
           <div className="rounded-full border border-border/70 bg-muted/30 px-3 py-1 text-xs text-muted-foreground">
-            {sortedUsers.length} accounts
+            {sortedUsers.length} {t("accountsSuffix")}
           </div>
         </div>
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KPICard
-          label="Total Users"
+          label={t("totalUsers")}
           value={sortedUsers.length}
           icon={Users}
-          sub="All registered accounts"
+          sub={t("totalUsersSub")}
           accent="primary"
         />
         <KPICard
-          label="Administrators"
+          label={t("administrators")}
           value={adminCount}
           icon={ShieldCheck}
-          sub="Users with elevated access"
+          sub={t("administratorsSub")}
           accent="online"
         />
         <KPICard
-          label="Total Points"
-          value={totalPoints.toLocaleString("zh-TW")}
+          label={t("totalPoints")}
+          value={totalPoints.toLocaleString(locale)}
           icon={Coins}
-          sub="Combined reward balance"
+          sub={t("totalPointsSub")}
           accent="warning"
         />
         <KPICard
-          label="Total Tickets"
-          value={totalTickets.toLocaleString("zh-TW")}
+          label={t("totalTickets")}
+          value={totalTickets.toLocaleString(locale)}
           icon={Ticket}
-          sub={latestUpdate ? `Updated ${formatDate(latestUpdate)}` : "No activity yet"}
+          sub={latestUpdate ? t("updatedAt", { date: formatDate(latestUpdate, locale) }) : t("noActivityYet")}
           accent="muted"
         />
       </div>
 
       {error ? (
-        <ErrorState title="Users page unavailable" description={error} className="min-h-[360px]" />
+        <ErrorState title={t("unavailableTitle")} description={error} className="min-h-[360px]" />
       ) : sortedUsers.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No users yet"
-          description="Users will appear here once accounts are created or synced from the backend."
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
           className="min-h-[360px]"
         />
       ) : (
         <div className="rounded-2xl border border-border/70 bg-card/70 backdrop-blur-sm">
           <div className="border-b border-border/70 px-4 py-3">
-            <p className="text-sm font-medium text-foreground">User Directory</p>
-            <p className="text-xs text-muted-foreground">Sorted by total points in descending order</p>
+            <p className="text-sm font-medium text-foreground">{t("directoryTitle")}</p>
+            <p className="text-xs text-muted-foreground">{t("directorySubtitle")}</p>
           </div>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead className="text-right">Points</TableHead>
-                <TableHead className="text-right">Tickets</TableHead>
-                <TableHead className="text-right">Role</TableHead>
-                <TableHead className="text-right">Joined</TableHead>
-                <TableHead className="text-right">Updated</TableHead>
+                <TableHead>{t("user")}</TableHead>
+                <TableHead className="text-right">{t("points")}</TableHead>
+                <TableHead className="text-right">{t("tickets")}</TableHead>
+                <TableHead className="text-right">{t("role")}</TableHead>
+                <TableHead className="text-right">{t("joined")}</TableHead>
+                <TableHead className="text-right">{t("updated")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedUsers.map((user) => {
-                const displayName = getDisplayName(user);
+                const displayName = getDisplayName(user, t("anonymousUser"));
                 return (
                   <TableRow key={user.userId}>
                     <TableCell>
@@ -154,22 +157,22 @@ export default async function UsersPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums text-foreground">
-                      {(user.totalPoints ?? 0).toLocaleString("zh-TW")}
+                      {(user.totalPoints ?? 0).toLocaleString(locale)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {(user.ticketCount ?? 0).toLocaleString("zh-TW")}
+                      {(user.ticketCount ?? 0).toLocaleString(locale)}
                     </TableCell>
                     <TableCell className="text-right">
                       {user.isAdmin ? (
                         <Badge variant="default" className="bg-status-online text-white hover:bg-status-online/90">
-                          Admin
+                          {t("admin")}
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">User</Badge>
+                        <Badge variant="secondary">{t("regularUser")}</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right text-muted-foreground">{formatDate(user.createdAt)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{formatDate(user.updatedAt)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatDate(user.createdAt, locale)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatDate(user.updatedAt, locale)}</TableCell>
                   </TableRow>
                 );
               })}

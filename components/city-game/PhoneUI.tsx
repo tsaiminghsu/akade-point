@@ -1,14 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { DroneState, Order, CallRecord, RaceSession } from './types';
-import { ALL_COURSES } from './raceCourses';
-import { formatRaceTime } from './race';
-
-const FOOD_MENU = [
-  { name: '牛肉漢堡套餐', price: 150, emoji: '🍔' },
-  { name: '披薩大份', price: 280, emoji: '🍕' },
-  { name: '壽司拼盤', price: 350, emoji: '🍱' },
-];
+import { DroneState, Order, CallRecord, JobListLike } from './types';
+// The menu lives in economy.ts so the engine can charge for an order.
+import { FOOD_MENU } from './economy';
+import type { SaveStats } from './save';
 
 interface Props {
   onClose: () => void;
@@ -19,16 +14,18 @@ interface Props {
   onLandDrone: () => void;
   onRTLDrone: () => void;
   onCancelOrder: (id: string) => void;
-  onStartRace: (courseId: string) => void;
-  onExitRace: () => void;
   orders: Order[];
   drone: DroneState;
   callLog: CallRecord[];
-  raceSession?: RaceSession | null;
   isMobile?: boolean;
+  cash: number;
+  jobs: JobListLike[];
+  stats: SaveStats;
+  onSetJobRoute: (defId: string) => void;
+  onRestart: () => void;
 }
 
-type Screen = 'home' | 'food' | 'drone' | 'calls';
+type Screen = 'home' | 'food' | 'drone' | 'calls' | 'jobs' | 'settings';
 
 export default function PhoneUI({
   onClose,
@@ -39,16 +36,20 @@ export default function PhoneUI({
   onLandDrone,
   onRTLDrone,
   onCancelOrder,
-  onStartRace,
-  onExitRace,
   orders,
   drone,
   callLog,
-  raceSession = null,
   isMobile = false,
+  cash,
+  jobs,
+  stats,
+  onSetJobRoute,
+  onRestart,
 }: Props) {
   const [screen, setScreen] = useState<Screen>('home');
   const [orderedFood, setOrderedFood] = useState<number | null>(null);
+  // Restarting wipes the save, so it takes a deliberate second tap.
+  const [confirmRestart, setConfirmRestart] = useState(false);
 
   const activeOrders = orders.filter(o => o.status !== 'completed');
 
@@ -89,6 +90,14 @@ export default function PhoneUI({
               </div>
             )}
 
+            {/* Wallet */}
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[10px] font-mono text-white/40">錢包</span>
+              <span className="text-sm font-mono font-bold text-green-400">
+                ${cash.toLocaleString('en-US')}
+              </span>
+            </div>
+
             {/* App icons 2x2 */}
             <div className="grid grid-cols-2 gap-2">
               <AppButton
@@ -125,6 +134,24 @@ export default function PhoneUI({
               />
             </div>
 
+            {/* Jobs */}
+            <div className="mt-2">
+              <button
+                onClick={() => setScreen('jobs')}
+                className="w-full bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 border border-emerald-600/30 rounded-2xl px-3 py-2 flex items-center gap-2 hover:brightness-125 transition-all active:scale-95"
+                style={{ minHeight: isMobile ? 52 : undefined }}
+              >
+                <span className="text-lg">💼</span>
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-white font-mono text-xs leading-tight">工作機會</div>
+                  <div className="text-white/40 text-[9px] leading-tight truncate">
+                    {jobs.filter(j => j.status === 'available').length} 個可接任務
+                  </div>
+                </div>
+                <span className="text-white/30 text-xs">›</span>
+              </button>
+            </div>
+
             {/* Call log shortcut — full width below grid */}
             <div className="mt-2">
               <button
@@ -141,6 +168,121 @@ export default function PhoneUI({
                 </div>
                 <span className="text-white/30 text-xs">›</span>
               </button>
+            </div>
+
+            {/* Settings */}
+            <div className="mt-2">
+              <button
+                onClick={() => { setConfirmRestart(false); setScreen('settings'); }}
+                className="w-full bg-gradient-to-br from-slate-900/60 to-slate-800/40 border border-slate-600/30 rounded-2xl px-3 py-2 flex items-center gap-2 hover:brightness-125 transition-all active:scale-95"
+                style={{ minHeight: isMobile ? 52 : undefined }}
+              >
+                <span className="text-lg">⚙️</span>
+                <div className="text-left flex-1 min-w-0">
+                  <div className="text-white font-mono text-xs leading-tight">設定與統計</div>
+                  <div className="text-white/40 text-[9px] leading-tight truncate">
+                    完成 {stats.missionsCompleted} 個任務
+                  </div>
+                </div>
+                <span className="text-white/30 text-xs">›</span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {screen === 'jobs' && (
+          <>
+            <BackBar label="工作機會" onBack={() => setScreen('home')} isMobile={isMobile} />
+            <div className="space-y-2 mt-2">
+              {jobs.map(job => (
+                <div
+                  key={job.defId}
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{job.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-mono" style={{ color: job.color }}>{job.title}</div>
+                      <div className="text-[9px] text-white/40 leading-tight">{job.description}</div>
+                    </div>
+                    <span className="text-[10px] font-mono text-green-400 whitespace-nowrap">${job.reward}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-[9px] font-mono text-white/45">
+                      {job.status === 'active' && '進行中'}
+                      {job.status === 'cooldown' && `冷卻 ${Math.ceil(job.cooldownLeft)}s`}
+                      {job.status === 'available' && (job.progressText ?? '可接')}
+                      {job.best !== null && ` · 最佳 ${job.best}`}
+                    </span>
+                    {job.progressText === null && (
+                      <button
+                        onClick={() => onSetJobRoute(job.defId)}
+                        className="text-[10px] font-mono text-cyan-300 border border-cyan-500/30 rounded px-2 py-1 hover:bg-cyan-500/10"
+                        style={{ minHeight: isMobile ? 34 : undefined }}
+                      >
+                        設定路徑
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {screen === 'settings' && (
+          <>
+            <BackBar label="設定與統計" onBack={() => setScreen('home')} isMobile={isMobile} />
+            <div className="mt-2 space-y-1.5">
+              {([
+                ['現金', `$${cash.toLocaleString('en-US')}`],
+                ['完成任務', String(stats.missionsCompleted)],
+                ['載客趟數', String(stats.taxiFares)],
+                ['外送件數', String(stats.deliveries)],
+                ['快遞完成', String(stats.couriers)],
+                ['被捕次數', String(stats.timesBusted)],
+                ['已發現地標', String(stats.discovered.length)],
+              ] as [string, string][]).map(([label, value]) => (
+                <div key={label} className="flex justify-between text-[11px] font-mono px-1">
+                  <span className="text-white/45">{label}</span>
+                  <span className="text-white/85">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4">
+              {confirmRestart ? (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-mono text-red-300 text-center leading-relaxed">
+                    確定？會清除現金、統計與所有紀錄
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { onRestart(); setConfirmRestart(false); }}
+                      className="flex-1 bg-red-600/80 hover:bg-red-600 text-white font-mono text-xs rounded-lg py-2"
+                      style={{ minHeight: isMobile ? 44 : undefined }}
+                    >
+                      確定重新開始
+                    </button>
+                    <button
+                      onClick={() => setConfirmRestart(false)}
+                      className="flex-1 bg-white/10 hover:bg-white/15 text-white/70 font-mono text-xs rounded-lg py-2"
+                      style={{ minHeight: isMobile ? 44 : undefined }}
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmRestart(true)}
+                  className="w-full border border-red-500/40 text-red-300 hover:bg-red-500/10 font-mono text-xs rounded-lg py-2"
+                  style={{ minHeight: isMobile ? 44 : undefined }}
+                >
+                  🔄 重新開始
+                </button>
+              )}
             </div>
           </>
         )}
@@ -165,6 +307,8 @@ export default function PhoneUI({
                   </div>
                   {orderedFood === i ? (
                     <span className="text-green-400 text-[10px]">✓ 已點</span>
+                  ) : cash < item.price ? (
+                    <span className="text-red-400 text-[10px]">現金不足</span>
                   ) : (
                     <span className="text-amber-400 text-[10px]">點餐</span>
                   )}
@@ -229,69 +373,6 @@ export default function PhoneUI({
                 </div>
               )}
 
-              {/* Race Mode section */}
-              <div className="border-t border-white/10 pt-3">
-                <div className="text-[10px] font-mono text-white/50 uppercase tracking-wider mb-2">🏁 穿越機賽道</div>
-
-                {raceSession && raceSession.phase !== 'idle' ? (
-                  // Active race — show exit button
-                  <div className="space-y-2">
-                    <div className="bg-black/30 border border-purple-900/40 rounded-xl p-2 text-[10px] font-mono space-y-1">
-                      <div className="text-purple-300">賽道進行中...</div>
-                      <div className="text-white/50">Phase: {raceSession.phase}</div>
-                      <div className="text-white/50">圈數: {raceSession.currentLap}/{raceSession.totalLaps}</div>
-                    </div>
-                    <button
-                      onClick={() => { onExitRace(); onClose(); }}
-                      className="w-full bg-red-900/40 hover:bg-red-800/50 border border-red-600/40 rounded-xl py-2 text-red-300 font-mono text-xs transition-colors"
-                      style={{ minHeight: isMobile ? 48 : undefined }}
-                    >
-                      ⏹ 退出賽道
-                    </button>
-                  </div>
-                ) : (
-                  // Course selection
-                  <div className="space-y-1.5">
-                    {ALL_COURSES.map(course => {
-                      const bestKey = `race_best_${course.id}`;
-                      const best = typeof window !== 'undefined' ? localStorage.getItem(bestKey) : null;
-                      return (
-                        <button
-                          key={course.id}
-                          onClick={() => { onStartRace(course.id); onClose(); }}
-                          className="w-full text-left bg-black/20 hover:bg-black/40 border border-white/10 rounded-xl px-3 py-2 transition-colors"
-                          style={{
-                            minHeight: isMobile ? 56 : undefined,
-                            borderColor: course.color + '40',
-                          }}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-mono" style={{ color: course.color }}>
-                                {course.name}
-                              </div>
-                              <div className="text-[9px] text-white/40 truncate mt-0.5">
-                                {course.description}
-                              </div>
-                              <div className="text-[9px] text-white/30 mt-0.5">
-                                {course.gates.length} gates · {course.totalLaps} lap{course.totalLaps > 1 ? 's' : ''} · {course.difficulty}
-                              </div>
-                            </div>
-                            <div className="ml-2 text-right shrink-0">
-                              {best ? (
-                                <div className="text-[9px] font-mono text-green-400">{formatRaceTime(parseFloat(best))}</div>
-                              ) : (
-                                <div className="text-[9px] text-white/20 font-mono">--:--.---</div>
-                              )}
-                              <div className="text-[9px] text-white/30 mt-0.5">›</div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
           </>
         )}

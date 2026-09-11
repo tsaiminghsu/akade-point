@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { HardDrive, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,15 +12,12 @@ import { MachineFormDialog } from "./MachineFormDialog";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import type { MachineStatus } from "@/lib/control-center/types";
 
-const STATUS_TABS: { value: MachineStatus | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "online", label: "Online" },
-  { value: "warning", label: "Warning" },
-  { value: "alarm", label: "Alarm" },
-  { value: "offline", label: "Offline" },
-];
+const STATUS_TABS: (MachineStatus | "all")[] = ["all", "online", "warning", "alarm", "offline"];
 
 export default function MachinesPageContent() {
+  const t = useTranslations("Machines");
+  const tCommon = useTranslations("Common");
+  const tStatus = useTranslations("Status");
   const machines = useMachinesStore((s) => s.machines);
   const stores = useMachinesStore((s) => s.stores);
   const groups = useMachinesStore((s) => s.groups);
@@ -55,12 +53,12 @@ export default function MachinesPageContent() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-            <HardDrive className="h-5 w-5 text-primary" /> Machines Directory
+            <HardDrive className="h-5 w-5 text-primary" /> {t("title")}
           </h1>
-          <p className="text-sm text-muted-foreground">All machines across every store</p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Input placeholder="Search name / device ID…" value={query} onChange={(e) => setQuery(e.target.value)} className="h-8 w-56" />
+          <Input placeholder={t("searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} className="h-8 w-56" />
           <Select
             value={storeFilter}
             onValueChange={(v) => {
@@ -69,10 +67,10 @@ export default function MachinesPageContent() {
             }}
           >
             <SelectTrigger className="h-8 w-40">
-              <SelectValue placeholder="All Stores" />
+              <SelectValue placeholder={t("allStores")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Stores</SelectItem>
+              <SelectItem value="all">{t("allStores")}</SelectItem>
               {stores.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
@@ -82,10 +80,10 @@ export default function MachinesPageContent() {
           </Select>
           <Select value={groupFilter} onValueChange={setGroupFilter}>
             <SelectTrigger className="h-8 w-40">
-              <SelectValue placeholder="All Groups" />
+              <SelectValue placeholder={t("allGroups")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Groups</SelectItem>
+              <SelectItem value="all">{t("allGroups")}</SelectItem>
               {groupsForStore.map((g) => (
                 <SelectItem key={g.id} value={g.id}>
                   {g.name}
@@ -94,7 +92,7 @@ export default function MachinesPageContent() {
             </SelectContent>
           </Select>
           <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> Add Machine
+            <Plus className="h-3.5 w-3.5" /> {t("addMachine")}
           </Button>
         </div>
       </div>
@@ -102,14 +100,14 @@ export default function MachinesPageContent() {
       <div className="mb-4 flex flex-wrap gap-2">
         {STATUS_TABS.map((tab) => (
           <Button
-            key={tab.value}
+            key={tab}
             size="sm"
-            variant={statusFilter === tab.value ? "secondary" : "ghost"}
-            onClick={() => setStatusFilter(tab.value)}
+            variant={statusFilter === tab ? "secondary" : "ghost"}
+            onClick={() => setStatusFilter(tab)}
             className="gap-1.5"
           >
-            {tab.label}
-            <span className="rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">{counts[tab.value] ?? 0}</span>
+            {tab === "all" ? tCommon("all") : tStatus(tab)}
+            <span className="rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">{counts[tab] ?? 0}</span>
           </Button>
         ))}
       </div>

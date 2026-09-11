@@ -1,0 +1,431 @@
+/* CSS variables scoped to .root so they don't pollute global Tailwind vars */
+.root {
+  /* Absolute rather than fixed: this view is now one tab inside the ship
+     tracker shell, and a fixed root would sit on top of the tab bar. */
+  position: absolute;
+  inset: 0;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --accent: #00d4ff;
+  --green: #3fb950;
+  --orange: #f0883e;
+  --yellow: #e3b341;
+  --red: #f85149;
+  --text: #c9d1d9;
+  --subtext: #8b949e;
+  --radius: 8px;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.header h1 {
+  font-size: 18px;
+  color: var(--accent);
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+.wsStatus {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--subtext);
+}
+
+/* ── Main layout ─────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  grid-row: 1 / 4;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.panel {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+}
+
+.panel h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--subtext);
+  margin: 0 0 10px 0;
+}
+
+/* GPS */
+.gpsValues {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.gpsValue {
+  font-size: 13px;
+}
+
+.gpsLabel {
+  color: var(--subtext);
+}
+
+.gpsVal {
+  font-weight: 600;
+  color: var(--green);
+}
+
+.gpsValManual {
+  color: var(--yellow);
+}
+
+/* Inputs */
+.inputRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+  min-width: 0;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.inputSmall {
+  width: 70px;
+  flex: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.inputSmall:focus {
+  border-color: var(--accent);
+}
+
+/* Buttons */
+.btnRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+  font-weight: 600;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.btn:hover {
+  filter: brightness(1.15);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btnGreen {
+  background: var(--green);
+  color: #000;
+}
+
+.btnYellow {
+  background: var(--yellow);
+  color: #000;
+}
+
+.btnBlue {
+  background: #388bfd;
+  color: #000;
+}
+
+.btnAccent {
+  background: var(--accent);
+  color: #000;
+}
+
+.btnGray {
+  background: var(--border);
+  color: var(--text);
+}
+
+.btnFull {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+/* Camera params row */
+.hfRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.hfLabel {
+  color: var(--subtext);
+  font-size: 11px;
+}
+
+.hfUnit {
+  font-size: 11px;
+  color: var(--subtext);
+}
+
+.dispRow {
+  font-size: 11px;
+  color: var(--subtext);
+}
+
+/* Source panel */
+.sourceBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fileRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.fileLabel {
+  flex: 1;
+  background: #388bfd;
+  color: #000;
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  text-align: center;
+  transition: filter 0.15s;
+  user-select: none;
+}
+
+.fileLabel:hover {
+  filter: brightness(1.15);
+}
+
+.uploadProgress {
+  font-size: 11px;
+  color: var(--subtext);
+  margin-top: 4px;
+}
+
+/* Screenshot result */
+.screenshotResult {
+  font-size: 11px;
+  color: var(--subtext);
+  margin-top: 4px;
+  line-height: 1.6;
+}
+
+.screenshotLink {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.screenshotLink:hover {
+  text-decoration: underline;
+}
+
+.aisResult {
+  font-size: 11px;
+  color: var(--subtext);
+  margin-top: 6px;
+}
+
+/* ── Video area ──────────────────────────────────────────────── */
+.videoArea {
+  grid-column: 2;
+  grid-row: 1;
+  background: #000;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  overflow: hidden;
+}
+
+.videoImg {
+  max-width: 100%;
+  max-height: 70vh;
+  display: block;
+  object-fit: contain;
+}
+
+.videoPlaceholder {
+  color: var(--subtext);
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+.modeBadge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--accent);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ── Ships table ─────────────────────────────────────────────── */
+.shipsSection {
+  grid-column: 2;
+  grid-row: 2;
+  padding: 12px 16px;
+  overflow-y: auto;
+  max-height: 260px;
+}
+
+.shipsSection h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--subtext);
+  margin: 0 0 8px 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table th {
+  text-align: left;
+  color: var(--subtext);
+  font-weight: 600;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #21262d;
+}
+
+.table tr:hover td {
+  background: #1c2128;
+}
+
+.noShips {
+  color: var(--subtext);
+  padding: 8px 0;
+  font-style: italic;
+}
+
+/* ── Footer / status bar ─────────────────────────────────────── */
+.footer {
+  grid-column: 2;
+  grid-row: 3;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 6px 16px;
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: var(--subtext);
+  flex-shrink: 0;
+}
+
+.stat strong {
+  color: var(--text);
+}
+
+/* ── Toast ───────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: #1f6feb;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  z-index: 9999;
+  max-width: 320px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.3s;
+}
+
+.toastError {
+  background: var(--red);
+}
+
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

@@ -1,4 +1,4 @@
-import type { RaceGate, RaceCourse, RaceSession, RacePhase } from './types';
+import type { RaceGate, RaceCourse, RaceSession } from './types';
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 

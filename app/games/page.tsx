@@ -65,11 +65,11 @@ const GAMES = [
   },
   {
     slug: 'ship-tracker',
-    name: '船隻追蹤',
-    description: '即時船隻位置追蹤可視化',
-    tag: '追蹤',
-    tagColor: 'text-sky-400 bg-sky-400/10',
-    icon: '🚢',
+    name: '船舶雷達監控台',
+    description: '航海雷達 PPI 掃描、ARPA 目標追蹤與 CPA 避碰警報',
+    tag: '雷達',
+    tagColor: 'text-emerald-400 bg-emerald-400/10',
+    icon: '📡',
   },
   {
     slug: 'temple-of-desert-god',

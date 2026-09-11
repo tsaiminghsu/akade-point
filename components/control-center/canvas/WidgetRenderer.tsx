@@ -1,11 +1,12 @@
 "use client";
 
 import { memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import { cn } from "@/lib/utils";
-import type { Widget } from "@/lib/control-center/types";
+import type { Machine, MachineWidgetData, Widget } from "@/lib/control-center/types";
 import { useMachinesStore } from "@/store/useMachinesStore";
-import { MachineWidget } from "./widgets/MachineWidget";
+import { MachineWidget, type MachineWidgetView } from "./widgets/MachineWidget";
 import { WidgetContextMenu } from "./WidgetContextMenu";
 import {
   ArrowWidget,
@@ -30,8 +31,33 @@ interface WidgetRendererProps {
   onOpenDrawer: (machineId: string) => void;
 }
 
+// Widgets only re-render on ticks where a field they actually display
+// changed — e.g. "small" widgets show only a status dot, so per-tick
+// current/rssi jitter (which every online machine gets, see simulation.ts)
+// would otherwise re-render them every second for no visible change.
+function selectMachineView(
+  machine: Machine | undefined,
+  size: MachineWidgetData["size"]
+): MachineWidgetView | undefined {
+  if (!machine) return undefined;
+  const view: MachineWidgetView = { status: machine.status, name: machine.name };
+  if (size === "small") return view;
+  view.current = machine.current;
+  if (size === "medium") return view;
+  view.door = machine.door;
+  view.heartbeatAt = machine.heartbeatAt;
+  view.rssi = machine.rssi;
+  view.firmware = machine.firmware;
+  view.lastUpdate = machine.lastUpdate;
+  return view;
+}
+
 function WidgetContent({ widget, animate }: { widget: Widget; animate: boolean }) {
-  const machine = useMachinesStore((s) => (widget.type === "machine" ? s.getMachine(widget.machineId) : undefined));
+  const machine = useMachinesStore(
+    useShallow((s) =>
+      widget.type === "machine" ? selectMachineView(s.getMachine(widget.machineId), widget.size) : undefined
+    )
+  );
 
   switch (widget.type) {
     case "machine":

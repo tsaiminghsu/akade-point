@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Activity, BarChart3, Gauge, ShieldCheck, Zap } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,11 +18,14 @@ import type { MachineStatus } from "@/lib/control-center/types";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WINDOW_DAYS = 14;
 
-function dayKey(ts: number) {
-  return new Date(ts).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" });
+function dayKey(ts: number, locale: string) {
+  return new Date(ts).toLocaleDateString(locale, { month: "2-digit", day: "2-digit" });
 }
 
 export default function AnalyticsPageContent() {
+  const t = useTranslations("Analytics");
+  const tMachines = useTranslations("Machines");
+  const locale = useLocale();
   const machines = useMachinesStore((s) => s.machines);
   const stores = useMachinesStore((s) => s.stores);
   const events = useMachinesStore((s) => s.events);
@@ -81,7 +85,7 @@ export default function AnalyticsPageContent() {
     const now = Date.now();
     const buckets: { date: string; info: number; warning: number; critical: number }[] = [];
     for (let i = WINDOW_DAYS - 1; i >= 0; i--) {
-      buckets.push({ date: dayKey(now - i * DAY_MS), info: 0, warning: 0, critical: 0 });
+      buckets.push({ date: dayKey(now - i * DAY_MS, locale), info: 0, warning: 0, critical: 0 });
     }
     for (const a of scopedAlerts) {
       const diffDays = Math.floor((now - a.createdAt) / DAY_MS);
@@ -89,7 +93,7 @@ export default function AnalyticsPageContent() {
       buckets[WINDOW_DAYS - 1 - diffDays][a.severity]++;
     }
     return buckets;
-  }, [scopedAlerts]);
+  }, [scopedAlerts, locale]);
 
   const topEventTypesData = useMemo(() => {
     const counts = new Map<string, number>();
@@ -105,16 +109,16 @@ export default function AnalyticsPageContent() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-            <BarChart3 className="h-5 w-5 text-primary" /> Analytics
+            <BarChart3 className="h-5 w-5 text-primary" /> {t("title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Fleet-wide uptime, current draw, and alert-frequency reports</p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Select value={storeFilter} onValueChange={setStoreFilter}>
           <SelectTrigger className="h-8 w-44">
-            <SelectValue placeholder="All Stores" />
+            <SelectValue placeholder={tMachines("allStores")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Stores</SelectItem>
+            <SelectItem value="all">{tMachines("allStores")}</SelectItem>
             {stores.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}
@@ -126,35 +130,35 @@ export default function AnalyticsPageContent() {
 
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KPICard
-          label="Fleet Uptime"
+          label={t("fleetUptime")}
           value={`${uptimePct}%`}
           icon={ShieldCheck}
           accent="online"
-          sub={`${statusCounts.online}/${total} online`}
+          sub={t("uptimeSub", { online: statusCounts.online, total })}
         />
-        <KPICard label="Avg Current Draw" value={`${avgCurrent.toFixed(1)}A`} icon={Zap} accent="primary" sub="Across active machines" />
-        <KPICard label="Alerts (7d)" value={last7dAlerts.length} icon={Activity} accent="alarm" sub="Last 7 days" />
-        <KPICard label="Resolution Rate" value={`${resolutionRate}%`} icon={Gauge} accent="muted" sub="Resolved + ignored" />
+        <KPICard label={t("avgCurrentDraw")} value={`${avgCurrent.toFixed(1)}A`} icon={Zap} accent="primary" sub={t("avgCurrentSub")} />
+        <KPICard label={t("alerts7d")} value={last7dAlerts.length} icon={Activity} accent="alarm" sub={t("alerts7dSub")} />
+        <KPICard label={t("resolutionRate")} value={`${resolutionRate}%`} icon={Gauge} accent="muted" sub={t("resolutionSub")} />
       </div>
 
       {total === 0 ? (
-        <EmptyState title="No machines in this store" description="Switch stores or add machines to see analytics." />
+        <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="cc-card cc-glass p-4">
-            <h2 className="mb-2 text-sm font-medium text-foreground">Status Breakdown</h2>
+            <h2 className="mb-2 text-sm font-medium text-foreground">{t("statusBreakdown")}</h2>
             <StatusBreakdownChart counts={statusCounts} />
           </div>
           <div className="cc-card cc-glass p-4">
-            <h2 className="mb-2 text-sm font-medium text-foreground">Machines by Store</h2>
+            <h2 className="mb-2 text-sm font-medium text-foreground">{t("machinesByStore")}</h2>
             <StoreComparisonChart data={storeComparisonData} />
           </div>
           <div className="cc-card cc-glass p-4">
-            <h2 className="mb-2 text-sm font-medium text-foreground">Alert Activity (14 days)</h2>
+            <h2 className="mb-2 text-sm font-medium text-foreground">{t("alertActivity")}</h2>
             <AlertActivityChart data={alertActivityData} />
           </div>
           <div className="cc-card cc-glass p-4">
-            <h2 className="mb-2 text-sm font-medium text-foreground">Top Event Types</h2>
+            <h2 className="mb-2 text-sm font-medium text-foreground">{t("topEventTypes")}</h2>
             <TopEventTypesChart data={topEventTypesData} />
           </div>
         </div>

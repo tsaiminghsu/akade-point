@@ -7,6 +7,7 @@ import {
   BuildingType,
   Point,
   WorldData,
+  ParkingBlock,
 } from './types';
 
 // Seeded pseudo-random number generator (mulberry32)
@@ -69,6 +70,9 @@ export function generateWorld(seed = 42): WorldData {
   const shopPositions: Point[] = [];
   const roadTiles: Point[] = [];
   const spawnPoints: Point[] = [];
+  const sidewalkTiles: Point[] = [];
+  // PARKING tiles accumulated per block id, converted to ParkingBlock[] at the end.
+  const parkingTilesByBlock = new Map<number, Point[]>();
 
   // Block type assignments (keyed by blockId)
   const blockTypes = new Map<number, string>();
@@ -140,6 +144,7 @@ export function generateWorld(seed = 42): WorldData {
         const sidewalk = isSidewalkTile(gx, gy);
         if (sidewalk) {
           grid[gy][gx] = { type: TileType.SIDEWALK };
+          sidewalkTiles.push({ x: gx * TILE_SIZE + TILE_SIZE / 2, y: gy * TILE_SIZE + TILE_SIZE / 2 });
           continue;
         }
 
@@ -150,6 +155,9 @@ export function generateWorld(seed = 42): WorldData {
           grid[gy][gx] = { type: TileType.PARK };
         } else if (blockType === 'parking') {
           grid[gy][gx] = { type: TileType.PARKING };
+          const list = parkingTilesByBlock.get(blockId);
+          const pt = { x: gx * TILE_SIZE + TILE_SIZE / 2, y: gy * TILE_SIZE + TILE_SIZE / 2 };
+          if (list) list.push(pt); else parkingTilesByBlock.set(blockId, [pt]);
         } else if (blockType === 'residential') {
           // Residential: small houses 1-3 floors, random spacing
           const internalX = gx % BLOCK_INTERVAL;
@@ -166,6 +174,7 @@ export function generateWorld(seed = 42): WorldData {
             };
           } else {
             grid[gy][gx] = { type: TileType.SIDEWALK };
+            sidewalkTiles.push({ x: gx * TILE_SIZE + TILE_SIZE / 2, y: gy * TILE_SIZE + TILE_SIZE / 2 });
           }
         } else {
           // Commercial / office
@@ -292,7 +301,23 @@ export function generateWorld(seed = 42): WorldData {
     y: (thCenterGy + 4) * TILE_SIZE + TILE_SIZE / 2, // tile 44 → 1780
   };
 
-  return { grid, helipads, shopPositions, roadTiles, spawnPoints, townHallPos };
+  // Busted respawn: townHallPos itself is a solid TOWN_HALL tile, so use the
+  // walkable lobby (TOWN_HALL_INTERIOR spans tx 43-45, ty 42-44).
+  const respawnPos: Point = gridToWorld(thCenterGx + 4, thCenterGy + 3);
+
+  const parkingBlocks: ParkingBlock[] = [];
+  parkingTilesByBlock.forEach((tiles, id) => {
+    if (tiles.length === 0) return;
+    let sx = 0;
+    let sy = 0;
+    for (const t of tiles) { sx += t.x; sy += t.y; }
+    parkingBlocks.push({ id, center: { x: sx / tiles.length, y: sy / tiles.length }, tiles });
+  });
+
+  return {
+    grid, helipads, shopPositions, roadTiles, spawnPoints, townHallPos,
+    sidewalkTiles, parkingBlocks, respawnPos,
+  };
 }
 
 export function getZoneName(grid: Tile[][], wx: number, wy: number): string {
@@ -367,8 +392,11 @@ export function findRoadPath(
   ];
 
   let found = false;
-  while (queue.length > 0) {
-    const cur = queue.shift()!;
+  // Head index instead of Array.shift(): shift() is O(n) per pop, which shows
+  // up once police units re-plan every second.
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head++];
     if (cur.x === ex && cur.y === ey) { found = true; break; }
 
     for (const { dx, dy } of dirs) {

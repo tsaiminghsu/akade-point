@@ -2,14 +2,16 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 
-// Shared box dimensions — must match bounds in Die.tsx
+// Shared box dimensions — must match bounds in diePhysics.ts (makeDieBox)
 export const BOX_W = 5.0   // width  (X)
 export const BOX_D = 3.5   // depth  (Z)
 export const BOX_H = 3.5   // height (Y)
+export const WALL_T    = 0.07 // wall / lid thickness (centred on the box faces)
+export const FLOOR_TOP = 0.03 // top surface of the felt (box of thickness 0.06 centred at y=0)
 
 export default function MachineBox() {
   const W = BOX_W, D = BOX_D, H = BOX_H
-  const T = 0.07 // wall thickness
+  const T = WALL_T
 
   // Front wall (camera-facing, Z+): ultra-transparent so dice are never blocked
   const glassFront = useMemo(() => new THREE.MeshPhysicalMaterial({

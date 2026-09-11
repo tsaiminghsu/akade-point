@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Download,
@@ -25,7 +26,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog";
 import { SearchLocate } from "./SearchLocate";
+import { LayoutVersionsMenu } from "./LayoutVersionsMenu";
 import { useControlCenterStore } from "@/store/useControlCenterStore";
+import { useMachinesStore } from "@/store/useMachinesStore";
+import { useLayoutVersionsStore } from "@/store/useLayoutVersionsStore";
 import { deserializeLayout, downloadTextFile, serializeLayout } from "@/lib/control-center/export";
 import type { Widget } from "@/lib/control-center/types";
 
@@ -59,6 +63,7 @@ function ToolbarIconButton({
 }
 
 export function Toolbar({ containerRef }: ToolbarProps) {
+  const t = useTranslations("Toolbar");
   const canUndo = useControlCenterStore((s) => s.canUndo());
   const canRedo = useControlCenterStore((s) => s.canRedo());
   const undo = useControlCenterStore((s) => s.undo);
@@ -76,12 +81,22 @@ export function Toolbar({ containerRef }: ToolbarProps) {
   const fitToScreen = useControlCenterStore((s) => s.fitToScreen);
   const mode = useControlCenterStore((s) => s.mode);
   const setMode = useControlCenterStore((s) => s.setMode);
-  const widgets = useControlCenterStore((s) => s.widgets);
   const loadWidgets = useControlCenterStore((s) => s.loadWidgets);
   const zoom = useControlCenterStore((s) => s.viewport.zoom);
+  const activeStoreId = useMachinesStore((s) => s.activeStoreId);
+  const updateActiveVersion = useLayoutVersionsStore((s) => s.updateActiveVersion);
 
   const [discardOpen, setDiscardOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleSave() {
+    if (!activeStoreId) return;
+    // Only clear the dirty flag once the server actually has the layout —
+    // otherwise a failed write left an error toast next to a disabled Save
+    // button, with the work unrecoverable.
+    const ok = await updateActiveVersion(activeStoreId, useControlCenterStore.getState().widgets);
+    if (ok) save();
+  }
 
   function centerPoint() {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -94,8 +109,10 @@ export function Toolbar({ containerRef }: ToolbarProps) {
   }
 
   function handleExport() {
-    downloadTextFile(`layout-${Date.now()}.json`, serializeLayout(widgets));
-    toast.success("Layout exported");
+    // Read at click time: subscribing to `widgets` would re-render the whole
+    // toolbar on every frame of every drag.
+    downloadTextFile(`layout-${Date.now()}.json`, serializeLayout(useControlCenterStore.getState().widgets));
+    toast.success(t("exported"));
   }
 
   function handleImportFile(file: File) {
@@ -104,9 +121,9 @@ export function Toolbar({ containerRef }: ToolbarProps) {
       try {
         const imported: Widget[] = deserializeLayout(String(reader.result));
         loadWidgets(imported);
-        toast.success(`Imported ${imported.length} widgets`);
+        toast.success(t("imported", { count: imported.length }));
       } catch {
-        toast.error("Invalid layout file");
+        toast.error(t("invalidFile"));
       }
     };
     reader.readAsText(file);
@@ -114,53 +131,57 @@ export function Toolbar({ containerRef }: ToolbarProps) {
 
   return (
     <div className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-border bg-card/60 px-2 custom-scrollbar">
-      <ToolbarIconButton label="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
+      <ToolbarIconButton label={t("undo")} onClick={undo} disabled={!canUndo}>
         <Undo2 className="h-4 w-4" />
       </ToolbarIconButton>
-      <ToolbarIconButton label="Redo (Ctrl+Y)" onClick={redo} disabled={!canRedo}>
+      <ToolbarIconButton label={t("redo")} onClick={redo} disabled={!canRedo}>
         <Redo2 className="h-4 w-4" />
       </ToolbarIconButton>
 
       <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
 
-      <Button size="sm" variant="ghost" className="shrink-0 gap-1.5" onClick={save} disabled={!isDirty}>
-        <Save className="h-4 w-4" /> <span className="hidden lg:inline">Save</span>
+      <Button size="sm" variant="ghost" className="shrink-0 gap-1.5" onClick={handleSave} disabled={!isDirty}>
+        <Save className="h-4 w-4" /> <span className="hidden lg:inline">{t("save")}</span>
       </Button>
       <Button size="sm" variant="ghost" className="shrink-0 gap-1.5 text-muted-foreground" onClick={() => setDiscardOpen(true)}>
-        <RotateCcw className="h-4 w-4" /> <span className="hidden lg:inline">Discard</span>
+        <RotateCcw className="h-4 w-4" /> <span className="hidden lg:inline">{t("discard")}</span>
       </Button>
       <Button size="sm" variant="ghost" className="shrink-0 gap-1.5" onClick={autoArrange}>
-        <LayoutGrid className="h-4 w-4" /> <span className="hidden lg:inline">Auto Arrange</span>
+        <LayoutGrid className="h-4 w-4" /> <span className="hidden lg:inline">{t("autoArrange")}</span>
       </Button>
 
       <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
 
-      <ToolbarIconButton label="Snap to Grid" onClick={toggleSnap} active={snapEnabled}>
+      <LayoutVersionsMenu />
+
+      <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
+
+      <ToolbarIconButton label={t("snapToGrid")} onClick={toggleSnap} active={snapEnabled}>
         <Magnet className="h-4 w-4" />
       </ToolbarIconButton>
-      <ToolbarIconButton label="Show Grid" onClick={toggleGrid} active={gridVisible}>
+      <ToolbarIconButton label={t("showGrid")} onClick={toggleGrid} active={gridVisible}>
         <Grid3x3 className="h-4 w-4" />
       </ToolbarIconButton>
 
       <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
 
-      <ToolbarIconButton label="Zoom Out" onClick={() => zoomOut(centerPoint())}>
+      <ToolbarIconButton label={t("zoomOut")} onClick={() => zoomOut(centerPoint())}>
         <ZoomOut className="h-4 w-4" />
       </ToolbarIconButton>
       <span className="w-10 shrink-0 text-center text-xs tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
-      <ToolbarIconButton label="Zoom In" onClick={() => zoomIn(centerPoint())}>
+      <ToolbarIconButton label={t("zoomIn")} onClick={() => zoomIn(centerPoint())}>
         <ZoomIn className="h-4 w-4" />
       </ToolbarIconButton>
-      <ToolbarIconButton label="Fit Screen" onClick={handleFit}>
+      <ToolbarIconButton label={t("fitScreen")} onClick={handleFit}>
         <Maximize className="h-4 w-4" />
       </ToolbarIconButton>
 
       <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
 
-      <ToolbarIconButton label="Export Layout" onClick={handleExport}>
+      <ToolbarIconButton label={t("exportLayout")} onClick={handleExport}>
         <Download className="h-4 w-4" />
       </ToolbarIconButton>
-      <ToolbarIconButton label="Import Layout" onClick={() => fileInputRef.current?.click()}>
+      <ToolbarIconButton label={t("importLayout")} onClick={() => fileInputRef.current?.click()}>
         <Upload className="h-4 w-4" />
       </ToolbarIconButton>
       <input
@@ -191,19 +212,19 @@ export function Toolbar({ containerRef }: ToolbarProps) {
         className="shrink-0"
       >
         <ToggleGroupItem value="edit" className="gap-1.5 px-3 text-xs">
-          <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Edit Mode</span>
+          <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("editMode")}</span>
         </ToggleGroupItem>
         <ToggleGroupItem value="live" className="gap-1.5 px-3 text-xs">
-          <Radio className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Live Mode</span>
+          <Radio className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("liveMode")}</span>
         </ToggleGroupItem>
       </ToggleGroup>
 
       <ConfirmDialog
         open={discardOpen}
         onOpenChange={setDiscardOpen}
-        title="Discard unsaved changes?"
-        description="This reverts the layout back to the last saved version."
-        confirmLabel="Discard"
+        title={t("discardTitle")}
+        description={t("discardDescription")}
+        confirmLabel={t("discard")}
         onConfirm={discard}
       />
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ interface StoreFormDialogProps {
 }
 
 export function StoreFormDialog({ open, onOpenChange, store }: StoreFormDialogProps) {
+  const t = useTranslations("StoreForm");
+  const tCommon = useTranslations("Common");
   const brands = useMachinesStore((s) => s.brands);
   const addStore = useMachinesStore((s) => s.addStore);
   const updateStore = useMachinesStore((s) => s.updateStore);
@@ -42,42 +45,40 @@ export function StoreFormDialog({ open, onOpenChange, store }: StoreFormDialogPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, store]);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!name.trim() || !brandId) return;
     if (!brands.some((b) => b.id === brandId)) {
-      toast.error("Please select a brand");
+      toast.error(t("selectBrandError"));
       return;
     }
-    if (store) {
-      updateStore(store.id, { name: name.trim(), address: address.trim(), brandId });
-    } else {
-      addStore({ name: name.trim(), address: address.trim(), brandId });
-    }
-    onOpenChange(false);
+    const ok = store
+      ? await updateStore(store.id, { name: name.trim(), address: address.trim(), brandId })
+      : (await addStore({ name: name.trim(), address: address.trim(), brandId })) !== null;
+    if (ok) onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{store ? "Edit Store" : "Add Store"}</DialogTitle>
-          <DialogDescription>Stores belong to a brand and contain machines.</DialogDescription>
+          <DialogTitle>{store ? t("editTitle") : t("addTitle")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 台北信義旗艦店" />
+            <Label className="text-xs text-muted-foreground">{t("nameLabel")}</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Address</Label>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Store address" />
+            <Label className="text-xs text-muted-foreground">{t("addressLabel")}</Label>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t("addressPlaceholder")} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Brand</Label>
+            <Label className="text-xs text-muted-foreground">{t("brandLabel")}</Label>
             <Select value={brandId} onValueChange={setBrandId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a brand" />
+                <SelectValue placeholder={t("selectBrand")} />
               </SelectTrigger>
               <SelectContent>
                 {brands.map((b) => (
@@ -92,10 +93,10 @@ export function StoreFormDialog({ open, onOpenChange, store }: StoreFormDialogPr
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon("cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={!name.trim() || !brandId}>
-            {store ? "Save Changes" : "Create Store"}
+            {store ? t("saveChanges") : t("createStore")}
           </Button>
         </DialogFooter>
       </DialogContent>

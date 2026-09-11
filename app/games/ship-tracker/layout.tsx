@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Catch the Boat — 智慧船舶監測系統',
-  description: '海事船舶即時監測系統',
+  title: '船舶雷達監控台 — ARPA 避碰追蹤',
+  description: '模擬航海雷達的 PPI 掃描、目標追蹤與 ARPA 避碰解算，並融合 AIS 船舶識別',
 };
 
 export const viewport: Viewport = {

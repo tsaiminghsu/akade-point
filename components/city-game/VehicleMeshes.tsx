@@ -1,7 +1,11 @@
 'use client';
-import { useRef, forwardRef, useImperativeHandle, useState } from 'react';
+import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
-import { VehicleType } from './types';
+import { VehicleType, Vehicle, toX3D, toZ3D } from './types';
+import {
+  L_BODY, L_CABIN, L_GLASS, L_HEAD, L_TAIL, L_WHEELS, L_TAXI_SIGN, L_LIGHTBAR,
+  composeVehicleRoot,
+} from './renderLayout';
 
 // ─── Player Car ────────────────────────────────────────────────────────────────
 // Exposed handle: position (THREE.Vector3) and angle (number)
@@ -255,29 +259,233 @@ export function HelicopterMesh({ groupRef, color }: { groupRef: React.Ref<THREE.
   );
 }
 
-// ─── NPC Cars ──────────────────────────────────────────────────────────────────
+// ─── Instanced NPC car fleet ──────────────────────────────────────────────────
+//
+// The previous implementation rebuilt ~22 React <group> subtrees from useFrame
+// every single frame (~240 draw calls). This replaces it with 8 InstancedMeshes
+// written imperatively, which keeps the cost flat as police cars and parked
+// cars are added later.
 
-export interface NPCCarsHandle {
-  update(positions: Array<{ x: number; z: number; angle: number; color: string; type: VehicleType }>): void;
+const FLEET_CAPACITY = 64;
+
+// Scratch objects — never allocate inside sync().
+const fmMat = new THREE.Matrix4();
+const fmPart = new THREE.Matrix4();
+const fmColor = new THREE.Color();
+const fmWreck = new THREE.Color('#141414');
+
+export interface CarFleetHandle {
+  /** Write every visible ground vehicle into the instance buffers. */
+  sync(vehicles: Map<string, Vehicle>, excludeId: string | null, nowSec: number): void;
 }
 
-export const NPCCars = forwardRef<NPCCarsHandle>((_, ref) => {
-  const [carList, setCarList] = useState<Array<{ id: string; x: number; z: number; angle: number; color: string; type: VehicleType }>>([]);
+export const InstancedCarFleet = forwardRef<CarFleetHandle>((_, ref) => {
+  const bodyRef  = useRef<THREE.InstancedMesh>(null);
+  const cabinRef = useRef<THREE.InstancedMesh>(null);
+  const wheelRef = useRef<THREE.InstancedMesh>(null);
+  const glassRef = useRef<THREE.InstancedMesh>(null);
+  const headRef  = useRef<THREE.InstancedMesh>(null);
+  const tailRef  = useRef<THREE.InstancedMesh>(null);
+  const signRef  = useRef<THREE.InstancedMesh>(null);
+  const barRef   = useRef<THREE.InstancedMesh>(null);
+
+  // Moving instance clouds must not be frustum-culled against their (stale)
+  // bounding sphere, and instanceColor only exists after the first setColorAt.
+  useEffect(() => {
+    const all = [bodyRef, cabinRef, wheelRef, glassRef, headRef, tailRef, signRef, barRef];
+    for (const r of all) {
+      const m = r.current;
+      if (!m) continue;
+      m.frustumCulled = false;
+    }
+    for (const r of [bodyRef, cabinRef, barRef]) {
+      const m = r.current;
+      if (!m) continue;
+      for (let i = 0; i < m.count; i++) m.setColorAt(i, fmColor.setRGB(1, 1, 1));
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    }
+  }, []);
 
   useImperativeHandle(ref, () => ({
-    update(cars) {
-      setCarList(cars.map((c, i) => ({ id: `npc_${i}`, ...c })));
+    sync(vehicles, excludeId, nowSec) {
+      const body = bodyRef.current, cabin = cabinRef.current, wheel = wheelRef.current;
+      const glass = glassRef.current, head = headRef.current, tail = tailRef.current;
+      const sign = signRef.current, bar = barRef.current;
+      if (!body || !cabin || !wheel || !glass || !head || !tail || !sign || !bar) return;
+
+      let n = 0;      // cars
+      let nSign = 0;
+      let nBar = 0;
+      // Police light bars alternate red/blue at 8 Hz.
+      const barBlue = Math.floor(nowSec * 8) % 2 === 0;
+
+      vehicles.forEach(v => {
+        if (n >= FLEET_CAPACITY) return;
+        if (v.id === excludeId) return;
+        if (v.type === VehicleType.RC_DRONE) return;
+        if (v.type === VehicleType.HELICOPTER) return;
+        if (v.type === VehicleType.DELIVERY_SCOOTER) return;   // handled by the pool below
+
+        const wrecked = v.hp <= 0;
+        composeVehicleRoot(toX3D(v.x), toZ3D(v.y), v.angle, wrecked, fmMat);
+
+        fmPart.multiplyMatrices(fmMat, L_BODY);
+        body.setMatrixAt(n, fmPart);
+        fmPart.multiplyMatrices(fmMat, L_CABIN);
+        cabin.setMatrixAt(n, fmPart);
+
+        // Darken towards charcoal as durability drops.
+        if (wrecked) {
+          fmColor.copy(fmWreck);
+        } else {
+          fmColor.set(v.color).lerp(fmWreck, 1 - Math.max(0, Math.min(1, v.hp / 100)));
+        }
+        body.setColorAt(n, fmColor);
+        cabin.setColorAt(n, fmColor);
+
+        for (let k = 0; k < 4; k++) {
+          fmPart.multiplyMatrices(fmMat, L_WHEELS[k]);
+          wheel.setMatrixAt(n * 4 + k, fmPart);
+        }
+        for (let k = 0; k < 2; k++) {
+          fmPart.multiplyMatrices(fmMat, L_GLASS[k]);
+          glass.setMatrixAt(n * 2 + k, fmPart);
+          fmPart.multiplyMatrices(fmMat, L_HEAD[k]);
+          head.setMatrixAt(n * 2 + k, fmPart);
+          fmPart.multiplyMatrices(fmMat, L_TAIL[k]);
+          tail.setMatrixAt(n * 2 + k, fmPart);
+        }
+
+        if (v.type === VehicleType.TAXI && nSign < FLEET_CAPACITY) {
+          fmPart.multiplyMatrices(fmMat, L_TAXI_SIGN);
+          sign.setMatrixAt(nSign++, fmPart);
+        }
+        if (v.type === VehicleType.POLICE && nBar < FLEET_CAPACITY) {
+          fmPart.multiplyMatrices(fmMat, L_LIGHTBAR);
+          bar.setMatrixAt(nBar, fmPart);
+          bar.setColorAt(nBar, fmColor.set(barBlue ? '#2b6cff' : '#ff2b2b'));
+          nBar++;
+        }
+
+        n++;
+      });
+
+      body.count = n;
+      cabin.count = n;
+      wheel.count = n * 4;
+      glass.count = n * 2;
+      head.count = n * 2;
+      tail.count = n * 2;
+      sign.count = nSign;
+      bar.count = nBar;
+
+      body.instanceMatrix.needsUpdate = true;
+      cabin.instanceMatrix.needsUpdate = true;
+      wheel.instanceMatrix.needsUpdate = true;
+      glass.instanceMatrix.needsUpdate = true;
+      head.instanceMatrix.needsUpdate = true;
+      tail.instanceMatrix.needsUpdate = true;
+      sign.instanceMatrix.needsUpdate = true;
+      bar.instanceMatrix.needsUpdate = true;
+      if (body.instanceColor) body.instanceColor.needsUpdate = true;
+      if (cabin.instanceColor) cabin.instanceColor.needsUpdate = true;
+      if (bar.instanceColor) bar.instanceColor.needsUpdate = true;
     },
   }));
 
   return (
-    <group>
-      {carList.map(car => (
-        <group key={car.id} position={[car.x, 0, car.z]} rotation={[0, car.angle, 0]}>
-          <CarMesh color={car.color} vehicleType={car.type} />
-        </group>
-      ))}
-    </group>
+    <>
+        {/* No `vertexColors` here: it defines USE_COLOR, which multiplies by a
+            per-vertex `color` attribute the geometry does not have (built-in
+            materials have no defaultAttributeValues, so it reads as black).
+            USE_INSTANCING_COLOR alone applies instanceColor correctly. */}
+      <instancedMesh ref={bodyRef} args={[undefined, undefined, FLEET_CAPACITY]} castShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial roughness={0.5} metalness={0.2} />
+      </instancedMesh>
+
+      <instancedMesh ref={cabinRef} args={[undefined, undefined, FLEET_CAPACITY]} castShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial roughness={0.5} metalness={0.2} />
+      </instancedMesh>
+
+      <instancedMesh ref={wheelRef} args={[undefined, undefined, FLEET_CAPACITY * 4]}>
+        <cylinderGeometry args={[1, 1, 1, 12]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+      </instancedMesh>
+
+      <instancedMesh ref={glassRef} args={[undefined, undefined, FLEET_CAPACITY * 2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#88ccff" transparent opacity={0.5} roughness={0.1} metalness={0.1} />
+      </instancedMesh>
+
+      <instancedMesh ref={headRef} args={[undefined, undefined, FLEET_CAPACITY * 2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#ffffcc" emissive="#ffff88" emissiveIntensity={1.5} />
+      </instancedMesh>
+
+      <instancedMesh ref={tailRef} args={[undefined, undefined, FLEET_CAPACITY * 2]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#ff2200" emissive="#ff2200" emissiveIntensity={1.2} />
+      </instancedMesh>
+
+      <instancedMesh ref={signRef} args={[undefined, undefined, FLEET_CAPACITY]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#ffee00" emissive="#ffcc00" emissiveIntensity={0.8} />
+      </instancedMesh>
+
+      <instancedMesh ref={barRef} args={[undefined, undefined, FLEET_CAPACITY]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial toneMapped={false} />
+      </instancedMesh>
+    </>
   );
 });
-NPCCars.displayName = 'NPCCars';
+InstancedCarFleet.displayName = 'InstancedCarFleet';
+
+// ─── Delivery scooter pool ────────────────────────────────────────────────────
+// At most a couple exist at once (service vehicles), so a tiny ref pool of real
+// meshes is simpler than a second set of instance tables.
+
+const SCOOTER_SLOTS = 3;
+
+export interface ScooterPoolHandle {
+  sync(vehicles: Map<string, Vehicle>, excludeId: string | null): void;
+}
+
+export const ScooterPool = forwardRef<ScooterPoolHandle>((_, ref) => {
+  const slots = useRef<Array<THREE.Group | null>>(Array(SCOOTER_SLOTS).fill(null));
+
+  useImperativeHandle(ref, () => ({
+    sync(vehicles, excludeId) {
+      let n = 0;
+      vehicles.forEach(v => {
+        if (v.type !== VehicleType.DELIVERY_SCOOTER) return;
+        if (v.id === excludeId) return;
+        if (n >= SCOOTER_SLOTS) return;
+        const g = slots.current[n];
+        if (g) {
+          g.visible = true;
+          g.position.set(toX3D(v.x), 0, toZ3D(v.y));
+          g.rotation.y = -v.angle;
+        }
+        n++;
+      });
+      for (let i = n; i < SCOOTER_SLOTS; i++) {
+        const g = slots.current[i];
+        if (g) g.visible = false;
+      }
+    },
+  }));
+
+  return (
+    <>
+      {Array.from({ length: SCOOTER_SLOTS }, (_, i) => (
+        <group key={i} ref={(el) => { slots.current[i] = el; }} visible={false}>
+          <CarMesh color="#e67e22" vehicleType={VehicleType.DELIVERY_SCOOTER} />
+        </group>
+      ))}
+    </>
+  );
+});
+ScooterPool.displayName = 'ScooterPool';

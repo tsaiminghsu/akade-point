@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catch the Boat — ShipTracker</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --accent:   #00d4ff;
+    --green:    #3fb950;
+    --orange:   #f0883e;
+    --yellow:   #e3b341;
+    --red:      #f85149;
+    --text:     #c9d1d9;
+    --subtext:  #8b949e;
+    --radius:   8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---- header ---- */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; color: var(--accent); letter-spacing: 1px; }
+  header .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+  header .ws-status { margin-left: auto; font-size: 12px; color: var(--subtext); }
+  header .ws-status span { color: var(--green); font-weight: 600; }
+
+  /* ---- main layout ---- */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 0;
+  }
+
+  /* ---- sidebar ---- */
+  aside {
+    grid-row: 1 / 4;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .panel {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+  }
+  .panel h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--subtext);
+    margin-bottom: 10px;
+  }
+
+  /* GPS */
+  .gps-values { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .gps-value { font-size: 13px; }
+  .gps-value .label { color: var(--subtext); }
+  .gps-value .val { font-weight: 600; color: var(--green); }
+  .gps-value .val.manual { color: var(--yellow); }
+
+  .input-row { display: flex; gap: 6px; margin-bottom: 6px; }
+  input[type="text"], input[type="number"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent); }
+  input[type="number"] { width: 80px; }
+
+  .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button {
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 6px 12px;
+    font-weight: 600;
+    transition: filter .15s, transform .1s;
+  }
+  button:hover { filter: brightness(1.15); }
+  button:active { transform: scale(.97); }
+  .btn-green  { background: var(--green);  color: #000; }
+  .btn-yellow { background: var(--yellow); color: #000; }
+  .btn-blue   { background: #388bfd;       color: #000; }
+  .btn-accent { background: var(--accent); color: #000; }
+  .btn-gray   { background: var(--border); color: var(--text); }
+
+  /* heading/fov row */
+  .hf-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .hf-row label { color: var(--subtext); font-size: 11px; }
+
+  /* source */
+  .source-btns { display: flex; flex-direction: column; gap: 6px; }
+  .file-row { display: flex; gap: 6px; align-items: center; }
+  input[type="file"] { display: none; }
+  .file-label {
+    flex: 1;
+    background: #388bfd;
+    color: #000;
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    text-align: center;
+    transition: filter .15s;
+  }
+  .file-label:hover { filter: brightness(1.15); }
+
+  /* ---- video ---- */
+  .video-area {
+    grid-column: 2;
+    grid-row: 1;
+    background: #000;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    overflow: hidden;
+  }
+  .video-area img { max-width: 100%; max-height: 70vh; display: block; object-fit: contain; }
+  .video-placeholder { color: var(--subtext); font-size: 14px; text-align: center; }
+  .mode-badge {
+    position: absolute;
+    top: 10px; right: 12px;
+    background: rgba(0,0,0,.7);
+    color: var(--accent);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ---- ships table ---- */
+  .ships-section {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 12px 16px;
+    overflow-y: auto;
+    max-height: 260px;
+  }
+  .ships-section h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--subtext);
+    margin-bottom: 8px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; color: var(--subtext); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 5px 8px; border-bottom: 1px solid #21262d; }
+  tr:hover td { background: #1c2128; }
+  .no-ships { color: var(--subtext); padding: 8px 0; font-style: italic; }
+
+  /* ---- status bar ---- */
+  footer {
+    grid-column: 2;
+    grid-row: 3;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 6px 16px;
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--subtext);
+  }
+  footer .stat strong { color: var(--text); }
+
+  /* ---- toast ---- */
+  #toast {
+    position: fixed;
+    bottom: 30px; right: 30px;
+    background: #1f6feb;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    display: none;
+    z-index: 9999;
+    max-width: 320px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  }
+  #toast.show { display: block; animation: fadeIn .3s; }
+  #toast.error { background: var(--red); }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot"></div>
+  <h1>Catch the Boat — 智慧船舶監測系統</h1>
+  <div class="ws-status">WebSocket: <span id="wsStatusText">連線中...</span></div>
+</header>
+
+<main>
+  <!-- ===== SIDEBAR ===== -->
+  <aside>
+
+    <!-- GPS -->
+    <div class="panel">
+      <h2>GPS 位置</h2>
+      <div class="gps-values">
+        <div class="gps-value"><span class="label">緯度&nbsp;</span><span class="val" id="dispLat">--</span></div>
+        <div class="gps-value"><span class="label">經度&nbsp;</span><span class="val" id="dispLng">--</span></div>
+        <div class="gps-value"><span class="label">模式&nbsp;</span><span class="val" id="dispGpsMode">--</span></div>
+      </div>
+      <div class="input-row">
+        <input type="text" id="latInput" placeholder="緯度 (e.g. 22.62)">
+        <input type="text" id="lngInput" placeholder="經度 (e.g. 120.30)">
+      </div>
+      <div class="btn-row">
+        <button class="btn-green" onclick="setLocation()">設定位置</button>
+        <button class="btn-yellow" onclick="resetLocation()">自動定位</button>
+      </div>
+    </div>
+
+    <!-- 攝影機參數 -->
+    <div class="panel">
+      <h2>攝影機參數</h2>
+      <div class="hf-row">
+        <label>航向</label>
+        <input type="number" id="headingInput" min="0" max="359" step="1" placeholder="270" style="width:70px">
+        <span style="font-size:11px;color:var(--subtext)">° (0=北)</span>
+        <button class="btn-blue" onclick="setHeading()">設定</button>
+      </div>
+      <div class="hf-row">
+        <label>FOV</label>
+        <input type="number" id="fovInput" min="10" max="180" step="1" placeholder="60" style="width:70px">
+        <span style="font-size:11px;color:var(--subtext)">°</span>
+        <button class="btn-blue" onclick="setFov()">設定</button>
+      </div>
+      <div style="font-size:11px;color:var(--subtext)">
+        目前: 航向 <span id="dispHeading" style="color:var(--accent)">--</span>°
+        ｜ FOV <span id="dispFov" style="color:var(--accent)">--</span>°
+      </div>
+    </div>
+
+    <!-- 輸入來源 -->
+    <div class="panel">
+      <h2>輸入來源</h2>
+      <div class="source-btns">
+        <div class="file-row">
+          <label class="file-label" for="imageFileInput">圖片</label>
+          <input type="file" id="imageFileInput" accept="image/*" onchange="uploadImage(this)">
+          <label class="file-label" for="videoFileInput">影片</label>
+          <input type="file" id="videoFileInput" accept="video/*" onchange="uploadVideo(this)">
+        </div>
+        <button class="btn-green" onclick="switchToCamera()">攝影機</button>
+        <div id="uploadProgress" style="display:none;font-size:11px;color:var(--subtext);margin-top:4px">上傳中...</div>
+      </div>
+    </div>
+
+    <!-- 截圖 / 匯出 -->
+    <div class="panel">
+      <h2>截圖 / 匯出</h2>
+      <button class="btn-accent" onclick="takeScreenshot()" style="width:100%;margin-bottom:6px">擷取畫面</button>
+      <button class="btn-gray" onclick="exportData()" style="width:100%;margin-bottom:6px">匯出偵測資料</button>
+      <div id="screenshotResult" style="font-size:11px;color:var(--subtext);margin-top:4px"></div>
+    </div>
+
+    <!-- AIS -->
+    <div class="panel">
+      <h2>AIS 數據</h2>
+      <button class="btn-gray" onclick="refreshAis()" style="width:100%">刷新 AIS 數據</button>
+      <div id="aisRefreshResult" style="font-size:11px;color:var(--subtext);margin-top:6px"></div>
+    </div>
+
+  </aside>
+
+  <!-- ===== VIDEO ===== -->
+  <div class="video-area">
+    <img id="videoFeed" src="/video_feed" alt="video feed"
+         onerror="this.style.display='none';document.getElementById('videoPlaceholder').style.display='block'">
+    <div id="videoPlaceholder" class="video-placeholder" style="display:none">
+      無法連接影像串流<br>
+      <small style="color:var(--subtext)">請確認後端服務已啟動</small>
+    </div>
+    <div class="mode-badge" id="modeBadge">--</div>
+  </div>
+
+  <!-- ===== 船隻表格 ===== -->
+  <div class="ships-section">
+    <h2>偵測船隻 (<span id="shipCount">0</span> 艘 | AIS: <span id="aisCount">0</span> 筆)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>船名</th>
+          <th>MMSI</th>
+          <th>距離 (km)</th>
+          <th>航速 (節)</th>
+          <th>方位角</th>
+          <th>方位</th>
+          <th>座標</th>
+        </tr>
+      </thead>
+      <tbody id="shipsTableBody">
+        <tr><td colspan="7" class="no-ships">尚未偵測到船隻</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== 狀態列 ===== -->
+  <footer>
+    <div class="stat">模式: <strong id="statMode">--</strong></div>
+    <div class="stat">船隻: <strong id="statShips">0</strong></div>
+    <div class="stat">AIS: <strong id="statAis">0</strong></div>
+    <div class="stat">GPS: <strong id="statGps">--</strong></div>
+    <div class="stat">航向: <strong id="statHeading">--</strong>°</div>
+  </footer>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ==================== WebSocket ====================
+let ws, wsRetryTimer;
+
+function connectWS() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => {
+    document.getElementById('wsStatusText').textContent = '已連線';
+    document.getElementById('wsStatusText').style.color = 'var(--green)';
+    clearTimeout(wsRetryTimer);
+  };
+  ws.onclose = () => {
+    document.getElementById('wsStatusText').textContent = '已斷線';
+    document.getElementById('wsStatusText').style.color = 'var(--red)';
+    wsRetryTimer = setTimeout(connectWS, 3000);
+  };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      updateGPS(d.gps);
+      updateShipsTable(d.ships);
+      updateStatusBar(d);
+    } catch (_) {}
+  };
+}
+connectWS();
+
+// ==================== GPS ====================
+function updateGPS(gps) {
+  if (!gps) return;
+  const latEl = document.getElementById('dispLat');
+  const lngEl = document.getElementById('dispLng');
+  const modeEl = document.getElementById('dispGpsMode');
+  latEl.textContent = gps.lat.toFixed(6) + '°';
+  lngEl.textContent = gps.lng.toFixed(6) + '°';
+  const isManual = gps.mode === 'manual';
+  latEl.className = 'val' + (isManual ? ' manual' : '');
+  lngEl.className = 'val' + (isManual ? ' manual' : '');
+  modeEl.textContent = isManual ? '手動' : '自動 (IP)';
+  modeEl.className = 'val' + (isManual ? ' manual' : '');
+  document.getElementById('statGps').textContent =
+    `${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`;
+}
+
+async function setLocation() {
+  const lat = parseFloat(document.getElementById('latInput').value);
+  const lng = parseFloat(document.getElementById('lngInput').value);
+  if (isNaN(lat) || isNaN(lng)) { toast('請輸入有效的緯度和經度', true); return; }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) { toast('座標超出有效範圍', true); return; }
+  const r = await fetch('/api/location', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ lat, lng }),
+  });
+  if (r.ok) toast(`位置已設定: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+  else toast('設定失敗', true);
+}
+
+async function resetLocation() {
+  const r = await fetch('/api/location', { method: 'DELETE' });
+  if (r.ok) toast('已切換至自動定位 (IP)');
+  else toast('重置失敗', true);
+}
+
+// ==================== 攝影機參數 ====================
+async function setHeading() {
+  const h = parseFloat(document.getElementById('headingInput').value);
+  if (isNaN(h)) { toast('請輸入有效航向', true); return; }
+  const r = await fetch('/api/heading', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ heading: h }),
+  });
+  if (r.ok) {
+    const d = await r.json();
+    document.getElementById('dispHeading').textContent = d.heading.toFixed(0);
+    toast(`航向已設定: ${d.heading.toFixed(0)}°`);
+  }
+}
+
+async function setFov() {
+  const fov = parseFloat(document.getElementById('fovInput').value);
+  if (isNaN(fov)) { toast('請輸入有效 FOV', true); return; }
+  const r = await fetch('/api/config', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ fov_degrees: fov }),
+  });
+  if (r.ok) {
+    const d = await r.json();
+    document.getElementById('dispFov').textContent = d.fov.toFixed(0);
+    toast(`FOV 已設定: ${d.fov.toFixed(0)}°`);
+  } else {
+    const err = await r.json();
+    toast(err.detail || '設定失敗', true);
+  }
+}
+
+// ==================== 模式切換 ====================
+async function switchToCamera() {
+  const r = await fetch('/api/mode', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ mode: 'camera' }),
+  });
+  if (r.ok) { refreshVideoFeed(); toast('已切換至攝影機模式'); }
+}
+
+// ==================== 上傳 ====================
+async function uploadImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const progress = document.getElementById('uploadProgress');
+  progress.style.display = 'block';
+  progress.textContent = `上傳圖片: ${file.name}...`;
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch('/api/upload/image', { method: 'POST', body: fd });
+    if (r.ok) { refreshVideoFeed(); progress.textContent = `圖片已載入: ${file.name}`; toast(`圖片已載入: ${file.name}`); }
+    else { const err = await r.json(); toast(err.detail || '上傳失敗', true); progress.style.display = 'none'; }
+  } catch (e) { toast('上傳失敗', true); progress.style.display = 'none'; }
+  input.value = '';
+}
+
+async function uploadVideo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const progress = document.getElementById('uploadProgress');
+  progress.style.display = 'block';
+  progress.textContent = `上傳影片: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)...`;
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch('/api/upload/video', { method: 'POST', body: fd });
+    if (r.ok) {
+      const d = await r.json();
+      refreshVideoFeed();
+      progress.textContent = `影片已載入: ${file.name} | ${d.resolution} | ${d.fps} fps | ${d.duration_sec}s`;
+      toast(`影片已載入: ${file.name}`);
+    } else { const err = await r.json(); toast(err.detail || '上傳失敗', true); progress.style.display = 'none'; }
+  } catch (e) { toast('上傳失敗', true); progress.style.display = 'none'; }
+  input.value = '';
+}
+
+function refreshVideoFeed() {
+  const img = document.getElementById('videoFeed');
+  img.style.display = 'block';
+  document.getElementById('videoPlaceholder').style.display = 'none';
+  img.src = '/video_feed?' + Date.now();
+}
+
+// ==================== 截圖 ====================
+async function takeScreenshot() {
+  const el = document.getElementById('screenshotResult');
+  el.textContent = '截圖中...';
+  try {
+    const r = await fetch('/api/screenshot', { method: 'POST' });
+    if (r.ok) {
+      const d = await r.json();
+      el.innerHTML =
+        `圖片: <a href="/api/screenshot/${d.image}" target="_blank" style="color:var(--accent)">${d.image}</a><br>` +
+        `資料: <a href="/api/screenshot/${d.json}" target="_blank" style="color:var(--accent)">${d.json}</a><br>` +
+        `報告: <a href="/api/screenshot/${d.txt}" target="_blank" style="color:var(--accent)">${d.txt}</a><br>` +
+        `偵測 ${d.ship_count} 艘船隻`;
+      toast(`截圖完成，偵測 ${d.ship_count} 艘船隻`);
+    } else { const err = await r.json(); el.textContent = err.detail || '截圖失敗'; toast(err.detail || '截圖失敗', true); }
+  } catch (e) { el.textContent = '截圖失敗'; toast('截圖失敗', true); }
+}
+
+// ==================== 匯出 ====================
+function exportData() {
+  window.open('/api/export', '_blank');
+}
+
+// ==================== AIS 刷新 ====================
+async function refreshAis() {
+  const el = document.getElementById('aisRefreshResult');
+  el.textContent = '刷新中...';
+  try {
+    const r = await fetch('/api/ais/refresh', { method: 'POST' });
+    if (r.ok) {
+      const d = await r.json();
+      el.textContent = `已更新 ${d.count} 筆 AIS 資料`;
+      toast(`AIS 已刷新：${d.count} 筆`);
+    } else { el.textContent = '刷新失敗'; toast('AIS 刷新失敗', true); }
+  } catch (e) { el.textContent = '刷新失敗'; toast('AIS 刷新失敗', true); }
+}
+
+// ==================== 船隻表格 ====================
+const MODE_LABELS = { camera: '攝影機', image: '圖片', video: '影片' };
+
+function updateShipsTable(ships) {
+  const tbody = document.getElementById('shipsTableBody');
+  if (!ships || ships.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="no-ships">尚未偵測到船隻</td></tr>';
+    return;
+  }
+  tbody.innerHTML = ships.map(s => `
+    <tr>
+      <td style="font-weight:600">${esc(s['船名'] || '--')}</td>
+      <td style="font-size:11px;color:var(--subtext)">${esc(s['MMSL'] || '--')}</td>
+      <td style="color:var(--accent)">${(s['距離_km'] || 0).toFixed(2)}</td>
+      <td style="color:var(--green)">${s['航速_節'] != null ? Number(s['航速_節']).toFixed(1) : '--'}</td>
+      <td style="color:var(--yellow)">${s['方位角'] != null ? s['方位角'] + '°' : '--'}</td>
+      <td>${esc(s['方位'] || '--')}</td>
+      <td style="font-size:11px;color:var(--subtext)">${
+        s['緯度'] != null ? s['緯度'].toFixed(4) + ', ' + s['經度'].toFixed(4) : '--'
+      }</td>
+    </tr>`).join('');
+}
+
+function updateStatusBar(d) {
+  document.getElementById('shipCount').textContent = d.ship_count || 0;
+  document.getElementById('aisCount').textContent = d.ais_count || 0;
+  document.getElementById('statMode').textContent = MODE_LABELS[d.detection_mode] || d.detection_mode;
+  document.getElementById('statShips').textContent = d.ship_count || 0;
+  document.getElementById('statAis').textContent = d.ais_count || 0;
+  document.getElementById('statHeading').textContent = d.heading != null ? d.heading.toFixed(0) : '--';
+  document.getElementById('modeBadge').textContent = MODE_LABELS[d.detection_mode] || d.detection_mode || '--';
+  if (d.heading != null) document.getElementById('dispHeading').textContent = d.heading.toFixed(0);
+  if (d.fov != null) document.getElementById('dispFov').textContent = d.fov.toFixed(0);
+}
+
+// ==================== Toast ====================
+let toastTimer;
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>

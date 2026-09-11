@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Camera, Grid2x2, MapPin } from "lucide-react";
 
 import type {
@@ -97,10 +98,11 @@ export function CameraWidget({ widget }: { widget: CameraWidgetData }) {
 }
 
 export function ImageWidget({ widget }: { widget: ImageWidgetData }) {
+  const t = useTranslations("ShapeWidgets");
   if (!widget.src) {
     return (
       <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 text-[10px] text-muted-foreground">
-        Floor plan image
+        {t("floorPlanImage")}
       </div>
     );
   }

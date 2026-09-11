@@ -12,7 +12,12 @@ import {
   HUDData,
   CallRecord,
   RaceSession,
+  Banner,
+  MinimapBlip,
+  OrbitCamState,
+  Point,
   TILE_SIZE,
+  TILE_3D,
   GRID_SIZE,
   WORLD_SIZE,
 } from './types';
@@ -24,6 +29,7 @@ import {
   createHelicopter,
   createDrone,
   updateTraffic,
+  updateParkedCars,
   updateServiceVehicle,
   updateDrone,
   nextVehicleId,
@@ -31,6 +37,22 @@ import {
 import { generateWorld, getZoneName } from './worldGen';
 import { createRaceSession, tickRace } from './race';
 import { getCourse } from './raceCourses';
+import {
+  CamMode,
+  createOrbitCam,
+  shortestArc,
+  stepOrbitCamera,
+} from './orbitCamera';
+import { PedestrianSystem } from './pedestrians';
+import { CollisionSystem, Impact } from './collision';
+import { WantedSystem } from './wanted';
+import { PoliceSystem, SIGHT_RANGE } from './police';
+import { isWalkable } from './worldGen';
+import { RouteCache } from './gpsRoute';
+import { Economy, FOOD_MENU, PRICES } from './economy';
+import { CitySave, clearSave, loadSave, writeSave } from './save';
+import { MissionManager } from './missionManager';
+import { Garage, createGarages, garageBlips, updateGarages } from './paynspray';
 
 const CAR_MAX_SPEED = 160;      // 2D px / sec
 const CAR_ACCELERATION = 280;   // 2D px / sec²
@@ -38,8 +60,27 @@ const CAR_DECEL = 200;
 const FRICTION = 0.06;           // fraction of speed lost per second (exponential)
 const STEER_SPEED = 2.2;         // radians / sec
 const FOOT_SPEED = 70;
+const FOOT_RUN_SPEED = 130;
+const FOOT_TURN_RATE = 12;      // rad / sec — how fast the character faces its heading
+const JUMP_VEL = 55;            // px / sec — apex ~9.5px (0.95 three.js units)
+const GRAVITY = 160;            // px / sec^2 — ~0.7s hang time
 const ENTER_VEHICLE_RADIUS = 35;
 const NPC_COUNT = 22;
+
+const EMPTY_BLIPS: MinimapBlip[] = [];
+
+// Carjacking / damage tuning
+const CARJACK_TIME = 0.8;             // seconds of animation lock
+const CARJACK_MAX_TARGET_SPEED = 60;  // px/s — cannot board a car going faster
+const WALL_DAMAGE_MIN_SPEED = 60;     // px/s
+const WALL_DAMAGE_COOLDOWN = 400;     // ms between wall dents
+const EJECT_HEALTH_LOSS = 40;
+const WRECK_LIFETIME = 20;            // seconds a wreck stays as an obstacle
+const MAX_WRECKS = 6;
+const POLICE_RAM_CRIME_SPEED = 45;    // px/s closing speed that counts as ramming
+const POLICE_HIT_COOLDOWN = 3000;     // ms
+const BUSTED_TOTAL = 2.4;             // seconds of the whole Busted sequence
+const BUSTED_RESPAWN_AT = 1.2;        // seconds — screen is fully black here
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 function dist(ax: number, ay: number, bx: number, by: number) {
@@ -57,20 +98,55 @@ const RACE_THROTTLE   = 120;  // altitude units/sec
 const RACE_BOOST_MULT = 1.5;
 
 export class GameEngine3D {
+  // The world is generated once and never rebuilt: `reset()` deliberately
+  // keeps it, because a new WorldData reference would force CityMesh to
+  // rebuild every instanced batch in the city.
   world: WorldData;
-  player: Player;
-  vehicles: Map<string, Vehicle>;
-  orders: Order[];
-  callLog: CallRecord[];
-  drone: DroneState;
-  waypoint: Waypoint;
-  notifications: Notification[];
-  zone: string;
-  tick: number;
-  camera: { x: number; y: number };
+  player!: Player;
+  vehicles!: Map<string, Vehicle>;
+  orders!: Order[];
+  callLog!: CallRecord[];
+  drone!: DroneState;
+  waypoint!: Waypoint;
+  notifications!: Notification[];
+  zone!: string;
+  tick!: number;
+  camera!: { x: number; y: number };
   raceSession: RaceSession | null = null;
 
+  economy: Economy;
+  save: CitySave;
+  missions: MissionManager;
+  banner: Banner | null = null;
+
   input: InputManager;
+  orbitCam!: OrbitCamState;
+  pedestrians: PedestrianSystem;
+  collisions = new CollisionSystem();
+  wanted: WantedSystem;
+  police = new PoliceSystem();
+
+  /** 0 = clear, 1 = fully black. Driven by the Busted sequence. */
+  screenFade = 0;
+  screenLabel: string | null = null;
+
+  /** Cached GPS route to the active waypoint. */
+  route = new RouteCache();
+
+  /** Pay-n-Spray garages. Fixed for the life of the world. */
+  garages: Garage[] = [];
+
+  private parkedBlocks = new Set<number>();
+  private wreckIds: string[] = [];
+  private lastPoliceHitMs = 0;
+  private bustedRespawned = false;
+  private persistTimer = 0;
+  private persistDirty = false;
+
+  /** Population / effect budgets. Lowered on touch devices. */
+  perf = { maxPeds: 96, maxPolice: 5, pedShadows: true };
+
+  private blipProviders = new Map<string, () => MinimapBlip[]>();
   private hudCallback: HUDCallback3D | null = null;
   private lastHudTime = 0;
   private racePrevX = 0;
@@ -84,6 +160,36 @@ export class GameEngine3D {
   constructor() {
     this.input = new InputManager();
     this.world = generateWorld(42);
+
+    this.save = loadSave();
+    this.economy = Economy.fromJSON({ cash: this.save.cash, log: this.save.economyLog });
+    this.pedestrians = new PedestrianSystem(this.world, 128);
+
+    this.wanted = new WantedSystem({
+      onStarsChanged: (stars, prev) => {
+        if (stars > prev) {
+          this.addNotification(`★ 通緝等級 ${stars}`, '#ff4444');
+        } else if (stars === 0) {
+          this.addNotification('✅ 已擺脫警方', '#00ff88');
+        }
+      },
+    });
+
+    this.missions = new MissionManager(this);
+
+    this.registerBlipProvider('police', () => this.police.getBlips(this.vehicles));
+    this.registerBlipProvider('missions', () => this.missions.getBlips());
+    this.garages = createGarages(this.world);
+    this.registerBlipProvider('garages', () => garageBlips(this.garages, performance.now()));
+
+    this.initDynamicState();
+  }
+
+  /**
+   * Build (or rebuild) everything that a restart should wipe. The world,
+   * input listeners, economy and save file are intentionally NOT touched here.
+   */
+  private initDynamicState() {
     this.tick = 0;
     this.zone = '城市區';
     this.notifications = [];
@@ -91,6 +197,16 @@ export class GameEngine3D {
     this.callLog = [];
     this.camera = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 };
     this.waypoint = { x: 0, y: 0, active: false };
+    this.banner = null;
+    this.screenFade = 0;
+    this.screenLabel = null;
+    this.bustedRespawned = false;
+    this.raceSession = null;
+    this.raceVx = 0;
+    this.raceVy = 0;
+    this.wreckIds = [];
+    this.parkedBlocks.clear();
+    this.route.clear();
     this.drone = {
       active: false, altitude: 0, throttle: 0, pitch: 0,
       roll: 0, yaw: 0, battery: 100, signal: 100, vehicleId: null,
@@ -107,7 +223,12 @@ export class GameEngine3D {
       state: 'inCar',
       currentVehicleId: null,
       health: 100,
+      z: 0,
+      jumpVel: 0,
+      action: null,
     };
+
+    this.orbitCam = createOrbitCam();
 
     this.vehicles = new Map();
 
@@ -121,6 +242,7 @@ export class GameEngine3D {
       width: 16, height: 26,
       occupant: 'player',
       waypoints: [], waypointIndex: 0,
+      hp: 100,
     };
     this.vehicles.set(pCar.id, pCar);
     this.player.currentVehicleId = pCar.id;
@@ -130,15 +252,111 @@ export class GameEngine3D {
       const npc = createNPCCar(this.world, i);
       this.vehicles.set(npc.id, npc);
     }
+
+    this.pedestrians.clear();
+    this.pedestrians.populate(sx, sy, this.perf.maxPeds);
+    this.police.clear(this.vehicles);
+    this.wanted.clear();
+  }
+
+  /**
+   * Restart. Keeps the generated world (and therefore the whole city mesh)
+   * and only rebuilds the simulation on top of it.
+   */
+  reset(opts: { clearSave: boolean } = { clearSave: false }) {
+    if (opts.clearSave) {
+      clearSave();
+      this.save = loadSave();
+      this.economy = Economy.fromJSON({ cash: this.save.cash, log: this.save.economyLog });
+    }
+    this.missions.reset();
+    this.initDynamicState();
+    this.persist();
+    this.addNotification('🔄 已重新開始', '#00e5ff');
+  }
+
+  /** Touch devices get a smaller crowd and no pedestrian shadows. */
+  setPerfProfile(profile: 'low' | 'high') {
+    this.perf = profile === 'low'
+      ? { maxPeds: 64, maxPolice: 3, pedShadows: false }
+      : { maxPeds: 96, maxPolice: 5, pedShadows: true };
   }
 
   setHUDCallback(cb: HUDCallback3D) { this.hudCallback = cb; }
+
+  // ── MissionHost surface ───────────────────────────────────────────────────
+
+  wantedLevel(): number { return this.wanted.stars; }
+  setWantedLevel(n: number) { this.wanted.set(n); }
+
+  /** True speed of the player in px/s, regardless of vehicle bookkeeping. */
+  playerSpeed(): number {
+    const v = this.player.currentVehicleId ? this.vehicles.get(this.player.currentVehicleId) : null;
+    if (v) return Math.hypot(v.vx ?? 0, v.vy ?? 0);
+    return Math.abs(this.player.speed);
+  }
+
+  showBanner(text: string, sub: string, color: string, ms: number) {
+    this.banner = { id: `b${Date.now()}`, text, sub, color, until: performance.now() + ms };
+  }
+
+  /** Debounced save; call freely. */
+  persist() {
+    this.persistDirty = true;
+  }
+
+  /** Write immediately (page hide / unload). */
+  flushSave() {
+    this.save.cash = this.economy.cash;
+    this.save.economyLog = this.economy.log;
+    writeSave(this.save);
+    this.persistDirty = false;
+    this.persistTimer = 0;
+  }
+
+  /**
+   * Put a job vehicle within reach of a marker, reusing one that is already
+   * parked nearby rather than littering the street with duplicates.
+   */
+  spawnJobVehicle(type: VehicleType, at: Point): Vehicle | null {
+    let existing: Vehicle | null = null;
+    this.vehicles.forEach(v => {
+      if (existing || v.type !== type) return;
+      if (v.occupant === 'player') return;
+      if (dist(v.x, v.y, at.x, at.y) < 80) existing = v;
+    });
+    if (existing) return existing;
+
+    const v = type === VehicleType.TAXI
+      ? createTaxi(this.world, at.x, at.y, 0)
+      : createDeliveryScooter(this.world, at, at.x, at.y, 0);
+    v.x = at.x;
+    v.y = at.y;
+    v.occupant = null;      // free to board, and not a carjack
+    v.isService = true;     // traffic AI leaves it alone
+    v.speed = 0;
+    this.vehicles.set(v.id, v);
+    return v;
+  }
+
+  // ── Mission controls exposed to React ─────────────────────────────────────
+
+  acceptMission() { this.missions.accept(); }
+  declineMission() { this.missions.decline(); }
+
+  setWaypointToMission(defId: string) {
+    const at = this.missions.markerPosition(defId);
+    if (!at) { this.addNotification('這個任務沒有地點', '#aaa'); return; }
+    this.setWaypoint(at.x, at.y, 'user');
+  }
 
   update(dt: number, nowMs: number): void {
     this.tick++;
     const { player, vehicles, orders, drone } = this;
     const isDriving = player.state === 'inCar' || player.state === 'inHelicopter';
-    const input = this.input.getState(isDriving);
+    const isOnFoot  = player.state === 'onFoot';
+    const isAirborne = player.state === 'inDrone' || player.state === 'inHelicopter';
+    const input = this.input.getState(isDriving, isOnFoot, isAirborne);
 
     // Expire notifications
     this.notifications = this.notifications.filter(n => n.expiresAt > nowMs);
@@ -146,8 +364,21 @@ export class GameEngine3D {
     // Reset race collision flag each tick
     this.raceDroneCollision = false;
 
+    // Remember where everything was so true velocities can be derived below.
+    this.snapshotVelocities();
+
+    // Camera before physics: on-foot movement is relative to this frame's yaw.
+    this.updateOrbitCamera(dt, nowMs);
+
     // Player state update
-    if (player.state === 'inCar') {
+    if (player.action) {
+      this.updateAction(dt);
+    } else if (this.missions.isBriefing()) {
+      // Hold the player still while reading the brief; traffic keeps moving.
+      const held = player.currentVehicleId ? vehicles.get(player.currentVehicleId) : null;
+      if (held) held.speed = 0;
+      player.speed = 0;
+    } else if (player.state === 'inCar') {
       this.updateCarPhysics(dt, input);
     } else if (player.state === 'inHelicopter') {
       this.updateHelicopterPhysics(dt, input);
@@ -178,6 +409,7 @@ export class GameEngine3D {
           this.addNotification(`✅ 第 ${this.raceSession.currentLap - 1} 圈完成！`, '#ffff00');
         } else if (event === 'finish') {
           this.addNotification('🏁 完賽！', '#ffffff');
+          this.onRaceFinished(course.id, this.raceSession.bestLap, course.parTime);
         } else if (event === 'crash') {
           this.addNotification('💥 撞機！自動重生中...', '#ff4444');
         } else if (event === 'respawn') {
@@ -202,8 +434,73 @@ export class GameEngine3D {
     // Enter / exit vehicle
     if (input.enter) this.handleEnterExit();
 
+    // Mission interaction
+    if (input.interact) this.handleInteract(nowMs);
+    if (input.cancelMission) this.missions.requestCancel(nowMs);
+
     // NPC traffic
-    updateTraffic(vehicles, this.world, dt, this.player.x, this.player.y, this.player.angle);
+    updateTraffic(
+      vehicles, this.world, dt,
+      this.player.x, this.player.y, this.player.angle,
+      this.pedestrians, this.player.state === 'onFoot',
+    );
+
+    // Parked / abandoned cars near the player
+    updateParkedCars(vehicles, this.world, player, player.currentVehicleId, this.parkedBlocks);
+
+    // Police pursuit (moves units, may complete an arrest)
+    const playerVeh = player.currentVehicleId ? vehicles.get(player.currentVehicleId) : null;
+    const arrested = this.police.update({
+      world: this.world,
+      vehicles,
+      player: { x: player.x, y: player.y, state: player.state, speed: player.speed },
+      playerSpeed: Math.hypot(playerVeh?.vx ?? 0, playerVeh?.vy ?? 0),
+      playerVx: playerVeh?.vx ?? 0,
+      playerVy: playerVeh?.vy ?? 0,
+      dt,
+      isSolidAt: (wx, wy) => this.isSolidAt(wx, wy),
+    });
+
+    // Velocities must be derived after ALL movement this frame, because the
+    // player's `speed` is px/s while NPC `speed` is px/frame — only position
+    // deltas are comparable across that boundary.
+    this.deriveVelocities(dt);
+
+    // Vehicle-vs-vehicle impacts
+    this.collisions.update({
+      vehicles,
+      playerVehicleId: player.state === 'inCar' ? player.currentVehicleId : null,
+      nowMs,
+      onImpact: imp => this.handleImpact(imp, nowMs),
+      onDestroyed: v => this.handleDestroyed(v),
+    });
+
+    this.updateWrecks(dt);
+
+    // Pedestrians (reads vehicle velocities for knockdowns and panic)
+    this.pedestrians.update(dt, {
+      player: {
+        x: player.x, y: player.y, angle: player.angle, state: player.state,
+      },
+      playerVehicleId: player.state === 'inCar' ? player.currentVehicleId : null,
+      vehicles,
+      world: this.world,
+      maxPeds: this.perf.maxPeds,
+      onHitByPlayer: () => this.onPlayerHitPedestrian(),
+    });
+
+    // Wanted level — police presence scales with the star count
+    const nearestPolice = this.police.nearestDist({ vehicles, player });
+    const seen = nearestPolice < SIGHT_RANGE;
+    const targetUnits = this.wanted.update(dt, seen, seen && this.wanted.stars > 0);
+    this.police.setTarget(Math.min(this.perf.maxPolice, targetUnits));
+    if (arrested === 'busted') this.bust();
+
+    // Pay-n-Spray: pull in slowly with a damaged or wanted car
+    this.updateGarages(nowMs);
+
+    // Missions
+    this.missions.update(dt, nowMs);
 
     // Service orders
     this.updateOrders(dt);
@@ -227,8 +524,24 @@ export class GameEngine3D {
     this.camera.x = lerp(this.camera.x, player.x, 0.1);
     this.camera.y = lerp(this.camera.y, player.y, 0.1);
 
-    // Zone
+    // Zone + sightseeing discovery (cheap, but no need to run every frame)
     this.zone = getZoneName(this.world.grid, player.x, player.y);
+    if (this.tick % 15 === 0) this.missions.checkDiscovery();
+
+    // Banner expiry
+    if (this.banner && nowMs > this.banner.until) this.banner = null;
+
+    // Debounced save (at most once a second)
+    if (this.persistDirty) {
+      this.persistTimer += dt;
+      if (this.persistTimer >= 1) this.flushSave();
+    }
+
+    // GPS route — the cache re-runs BFS only when the destination changes or
+    // the player leaves the route corridor, so this stays cheap.
+    if (this.tick % 10 === 0) {
+      this.route.update(this.world.grid, player, this.waypoint);
+    }
 
     // Order ETA
     orders.forEach(o => { o.eta = Math.max(0, o.eta - dt); });
@@ -240,6 +553,347 @@ export class GameEngine3D {
     }
 
     this.input.flush();
+  }
+
+  // ── Camera ────────────────────────────────────────────────────────────────
+
+  /** Camera yaw in radians (0 = North, clockwise), same convention as Player.angle. */
+  getCameraYaw(): number {
+    return this.orbitCam.yaw;
+  }
+
+  /** Unit forward vector of the camera in 2D world space. */
+  getCameraForward2D(): Point {
+    return { x: Math.sin(this.orbitCam.yaw), y: -Math.cos(this.orbitCam.yaw) };
+  }
+
+  /**
+   * Occlusion probe for the camera boom. Unlike isSolidAt, out-of-bounds is
+   * NOT solid — otherwise the camera collapses onto the player at the map edge.
+   */
+  private cameraBlocked = (wx: number, wy: number, alt: number): boolean => {
+    const gx = Math.floor(wx / TILE_SIZE);
+    const gy = Math.floor(wy / TILE_SIZE);
+    if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return false;
+    return this.isSolidAtAlt(wx, wy, alt);
+  };
+
+  private updateOrbitCamera(dt: number, nowMs: number) {
+    const { player } = this;
+    const mode: CamMode =
+      player.state === 'onFoot' ? 'foot'
+      : player.state === 'inCar' ? 'vehicle'
+      : 'air';
+
+    let vehicleAngle = player.angle;
+    let focusAlt = 0;
+    if (player.state === 'inDrone' && this.drone.vehicleId) {
+      const dv = this.vehicles.get(this.drone.vehicleId);
+      if (dv) {
+        vehicleAngle = dv.angle;
+        focusAlt = ((dv.altitude ?? 0) * TILE_3D) / TILE_SIZE;
+      }
+    } else if (player.state === 'inHelicopter' && player.currentVehicleId) {
+      const hv = this.vehicles.get(player.currentVehicleId);
+      if (hv) {
+        vehicleAngle = hv.angle;
+        focusAlt = ((hv.altitude ?? 0) * TILE_3D) / TILE_SIZE;
+      }
+    }
+
+    stepOrbitCamera(
+      this.orbitCam, dt, nowMs,
+      this.input.consumeLook(),
+      this.input.consumeWheelSteps(),
+      {
+        mode,
+        vehicleAngle,
+        player: { x: player.x, y: player.y },
+        focusAlt,
+        isBlocked: this.cameraBlocked,
+      },
+    );
+  }
+
+  // ── Velocity bookkeeping ──────────────────────────────────────────────────
+
+  private snapshotVelocities() {
+    this.vehicles.forEach(v => {
+      v.prevX = v.x;
+      v.prevY = v.y;
+    });
+  }
+
+  private deriveVelocities(dt: number) {
+    if (dt <= 0) return;
+    const inv = 1 / dt;
+    this.vehicles.forEach(v => {
+      v.vx = (v.x - (v.prevX ?? v.x)) * inv;
+      v.vy = (v.y - (v.prevY ?? v.y)) * inv;
+    });
+  }
+
+  // ── Scripted player actions ───────────────────────────────────────────────
+
+  /** Advances an input-locking animation (carjack / busted / ejected). */
+  private updateAction(dt: number) {
+    const act = this.player.action;
+    if (!act) return;
+    act.timer += dt;
+
+    if (act.kind === 'busted') {
+      // Fade to black, swap the player out at full black, then fade back in.
+      this.screenFade = act.timer < BUSTED_RESPAWN_AT
+        ? Math.min(1, act.timer / 1.0)
+        : Math.max(0, 1 - (act.timer - BUSTED_RESPAWN_AT) / 1.2);
+      if (act.timer >= BUSTED_RESPAWN_AT && !this.bustedRespawned) {
+        this.bustedRespawned = true;
+        this.respawnAfterBust();
+      }
+      if (act.timer >= act.total) {
+        this.player.action = null;
+        this.screenFade = 0;
+        this.screenLabel = null;
+        this.bustedRespawned = false;
+      }
+      return;
+    }
+
+    if (act.kind === 'carjack') {
+      const v = this.vehicles.get(act.vehicleId);
+      if (!v) { this.player.action = null; return; }
+      // Slide the player across to the driver's door.
+      const t = Math.min(1, act.timer / act.total);
+      const doorX = v.x + Math.cos(v.angle) * 11;
+      const doorY = v.y + Math.sin(v.angle) * 11;
+      this.player.x = act.fromX + (doorX - act.fromX) * t;
+      this.player.y = act.fromY + (doorY - act.fromY) * t;
+      this.player.angle = v.angle;
+      if (act.timer >= act.total) {
+        this.player.action = null;
+        this.finishCarjack(act.vehicleId);
+      }
+      return;
+    }
+
+    if (act.timer >= act.total) this.player.action = null;
+  }
+
+  private onPlayerHitPedestrian() {
+    this.wanted.addCrime('hitPed');
+  }
+
+  /** E: accept a brief, or start taxi work from inside a cab. */
+  private handleInteract(nowMs: number) {
+    if (this.missions.isBriefing()) {
+      this.missions.accept();
+      return;
+    }
+    if (this.missions.startTaxiFromVehicle(nowMs)) return;
+    this.addNotification('這裡沒有可互動的東西', '#666');
+  }
+
+  // ── Carjacking ────────────────────────────────────────────────────────────
+
+  private startCarjack(v: Vehicle) {
+    v.npcState = 'hijacked';
+    v.speed = 0;
+    v.waypoints = [];
+    v.waypointIndex = 0;
+    this.player.action = {
+      kind: 'carjack',
+      vehicleId: v.id,
+      timer: 0,
+      total: CARJACK_TIME,
+      fromX: this.player.x,
+      fromY: this.player.y,
+    };
+  }
+
+  private finishCarjack(vehicleId: string) {
+    const v = this.vehicles.get(vehicleId);
+    if (!v) return;
+
+    // The driver becomes a fleeing pedestrian, and everyone nearby panics.
+    this.pedestrians.spawnEjectedDriver(v, { x: v.x, y: v.y });
+
+    v.occupant = 'player';
+    v.isService = false;
+    v.isParked = false;
+    v.npcState = undefined;
+    v.waypoints = [];
+    v.waypointIndex = 0;
+
+    this.player.currentVehicleId = v.id;
+    this.player.state = 'inCar';
+    this.player.z = 0;
+    this.player.jumpVel = 0;
+    this.orbitCam.lastLookMs = 0;
+
+    this.wanted.addCrime(v.type === VehicleType.POLICE ? 'carjackPolice' : 'carjack');
+    this.addNotification('🔓 搶到車了！', '#ff8800');
+  }
+
+  // ── Damage, wrecks, Busted ────────────────────────────────────────────────
+
+  private handleImpact(imp: Impact, nowMs: number) {
+    const playerVehId = this.player.state === 'inCar' ? this.player.currentVehicleId : null;
+    if (!playerVehId) return;
+
+    const other = imp.a.id === playerVehId ? imp.b
+      : imp.b.id === playerVehId ? imp.a
+      : null;
+    if (!other) return;
+
+    if (other.type === VehicleType.POLICE) {
+      if (imp.relSpeed > POLICE_RAM_CRIME_SPEED && nowMs - this.lastPoliceHitMs > POLICE_HIT_COOLDOWN) {
+        this.lastPoliceHitMs = nowMs;
+        this.wanted.addCrime('hitPolice');
+      }
+      return;
+    }
+
+    this.missions.onCollision();
+
+    // Rattled NPC drivers pull up for a moment before carrying on.
+    if (other.occupant === 'npc' && !other.isParked) {
+      other.npcState = 'stopped';
+      other.waitTimer = 1.2 + Math.random() * 1.5;
+    }
+  }
+
+  private handleDestroyed(v: Vehicle) {
+    if ((v.wreckTimer ?? 0) > 0) return;
+    v.wreckTimer = WRECK_LIFETIME;
+    v.speed = 0;
+    v.isParked = true;
+    v.npcState = undefined;
+    v.waypoints = [];
+
+    const wasPlayers = v.occupant === 'player';
+    v.occupant = null;
+    this.missions.onVehicleDestroyed(v.id);
+    if (wasPlayers) this.ejectPlayer();
+
+    this.wreckIds.push(v.id);
+    while (this.wreckIds.length > MAX_WRECKS) {
+      const oldest = this.wreckIds.shift();
+      if (oldest) this.vehicles.delete(oldest);
+    }
+    this.addNotification('💥 車輛報廢！', '#ff4444');
+  }
+
+  private updateWrecks(dt: number) {
+    // Collect first: deleting from a Map while iterating it is legal, but
+    // queueing keeps the intent obvious and matches the rest of the engine.
+    const expired: string[] = [];
+    this.vehicles.forEach(v => {
+      if ((v.wreckTimer ?? 0) <= 0) return;
+      v.wreckTimer = (v.wreckTimer ?? 0) - dt;
+      if ((v.wreckTimer ?? 0) <= 0) expired.push(v.id);
+    });
+    for (const id of expired) {
+      this.vehicles.delete(id);
+      const i = this.wreckIds.indexOf(id);
+      if (i !== -1) this.wreckIds.splice(i, 1);
+    }
+  }
+
+  /** Throw the player clear of a destroyed vehicle. */
+  private ejectPlayer() {
+    const { player } = this;
+    const v = player.currentVehicleId ? this.vehicles.get(player.currentVehicleId) : null;
+
+    if (v) {
+      const rightX = Math.cos(v.angle);
+      const rightY = Math.sin(v.angle);
+      const backX = -Math.sin(v.angle);
+      const backY = Math.cos(v.angle);
+      const sides: Array<[number, number]> = [
+        [-rightX * 18, -rightY * 18],
+        [rightX * 18, rightY * 18],
+        [backX * 22, backY * 22],
+      ];
+      for (const [ox, oy] of sides) {
+        if (isWalkable(this.world.grid, v.x + ox, v.y + oy)) {
+          player.x = v.x + ox;
+          player.y = v.y + oy;
+          break;
+        }
+      }
+    }
+
+    player.state = 'onFoot';
+    player.currentVehicleId = null;
+    player.z = 0;
+    player.jumpVel = 0;
+    player.speed = 0;
+    player.health = Math.max(5, player.health - EJECT_HEALTH_LOSS);
+    player.action = { kind: 'ejected', timer: 0, total: 0.6 };
+  }
+
+  /** Start the Busted sequence. Safe to call repeatedly. */
+  bust() {
+    if (this.player.action?.kind === 'busted') return;
+    this.player.action = { kind: 'busted', timer: 0, total: BUSTED_TOTAL };
+    this.screenLabel = 'BUSTED';
+    this.bustedRespawned = false;
+    this.addNotification('🚔 你被逮捕了', '#ff4444');
+  }
+
+  private respawnAfterBust() {
+    const { player } = this;
+
+    // The car is impounded.
+    if (player.currentVehicleId) {
+      const v = this.vehicles.get(player.currentVehicleId);
+      if (v) {
+        v.occupant = null;
+        v.isParked = true;
+      }
+    }
+
+    // townHallPos is a solid TOWN_HALL tile, so respawn in the walkable lobby.
+    player.x = this.world.respawnPos.x;
+    player.y = this.world.respawnPos.y;
+    player.angle = 0;
+    player.speed = 0;
+    player.z = 0;
+    player.jumpVel = 0;
+    player.state = 'onFoot';
+    player.currentVehicleId = null;
+    player.health = 100;
+
+    this.wanted.clear();
+    this.police.clear(this.vehicles);
+    this.orbitCam.lastLookMs = 0;
+
+    // A partial charge, so a broke player loses what they have rather than
+    // going into debt.
+    this.economy.charge('busted', 'busted', { allowPartial: true });
+    this.save.stats.timesBusted += 1;
+    this.missions.onBusted();
+    this.persist();
+  }
+
+  // ── Minimap blips ─────────────────────────────────────────────────────────
+
+  registerBlipProvider(id: string, fn: () => MinimapBlip[]) {
+    this.blipProviders.set(id, fn);
+  }
+
+  unregisterBlipProvider(id: string) {
+    this.blipProviders.delete(id);
+  }
+
+  private collectBlips(): MinimapBlip[] {
+    if (this.blipProviders.size === 0) return EMPTY_BLIPS;
+    const out: MinimapBlip[] = [];
+    this.blipProviders.forEach(fn => {
+      const list = fn();
+      for (let i = 0; i < list.length; i++) out.push(list[i]);
+    });
+    return out;
   }
 
   private updateCarPhysics(dt: number, input: ReturnType<InputManager['getState']>) {
@@ -285,6 +939,14 @@ export class GameEngine3D {
       car.y = ny;
       car.speed *= 0.5;
     } else {
+      // Head-on into a building: dent the car proportionally to the impact.
+      const impactSpeed = Math.abs(car.speed);
+      const now = performance.now();
+      if (impactSpeed > WALL_DAMAGE_MIN_SPEED && now - (car.lastHitTime ?? 0) > WALL_DAMAGE_COOLDOWN) {
+        car.lastHitTime = now;
+        car.hp = Math.max(0, car.hp - (impactSpeed - 40) * 0.25);
+        if (car.hp <= 0) this.handleDestroyed(car);
+      }
       car.speed *= 0.1;
     }
 
@@ -429,26 +1091,68 @@ export class GameEngine3D {
     this.drone.roll  = targetVside / sideSpeed;
   }
 
+  /**
+   * Camera-relative on-foot movement (GTA III style): the stick/WASD direction
+   * is interpreted in camera space and the character turns to face it, rather
+   * than the old tank controls where A/D rotated the body.
+   */
   private updateFootPhysics(dt: number, input: ReturnType<InputManager['getState']>) {
     const { player } = this;
-    const dx = Math.sin(player.angle) * FOOT_SPEED * dt;
-    const dy = -Math.cos(player.angle) * FOOT_SPEED * dt;
-    if (input.left)  player.angle -= 2.5 * dt;
-    if (input.right) player.angle += 2.5 * dt;
-    if (input.up) {
-      const nx = player.x + dx, ny = player.y + dy;
-      if (!this.isSolidAt(nx, ny)) { player.x = nx; player.y = ny; }
-      else if (!this.isSolidAt(nx, player.y)) player.x = nx;
-      else if (!this.isSolidAt(player.x, ny)) player.y = ny;
+
+    const axes = this.input.getMoveAxes();
+    const yaw = this.orbitCam.yaw;
+    // Camera basis in world space, same angle convention as the rest of the sim.
+    const fwdX = Math.sin(yaw);
+    const fwdY = -Math.cos(yaw);
+    const rightX = Math.cos(yaw);
+    const rightY = Math.sin(yaw);
+
+    const dx = fwdX * axes.y + rightX * axes.x;
+    const dy = fwdY * axes.y + rightY * axes.x;
+    const mag = Math.hypot(dx, dy);
+
+    if (mag > 0.01) {
+      // atan2(dx, -dy) is the inverse of forward = (sin a, -cos a).
+      const targetAngle = Math.atan2(dx, -dy);
+      player.angle += shortestArc(player.angle, targetAngle) * Math.min(1, FOOT_TURN_RATE * dt);
+      const speed = (input.sprint ? FOOT_RUN_SPEED : FOOT_SPEED) * Math.min(1, mag);
+      this.tryMoveFoot(
+        player.x + (dx / mag) * speed * dt,
+        player.y + (dy / mag) * speed * dt,
+      );
+      player.speed = speed;
+    } else {
+      player.speed = 0;
     }
-    if (input.down) {
-      const nx = player.x - dx * 0.5, ny = player.y - dy * 0.5;
-      if (!this.isSolidAt(nx, ny)) { player.x = nx; player.y = ny; }
-      else if (!this.isSolidAt(nx, player.y)) player.x = nx;
-      else if (!this.isSolidAt(player.x, ny)) player.y = ny;
+
+    // Jump: a plain parabola on the fake altitude axis. Air control allowed.
+    if (input.jump && player.z === 0 && player.jumpVel === 0) {
+      player.jumpVel = JUMP_VEL;
     }
+    if (player.z > 0 || player.jumpVel !== 0) {
+      player.jumpVel -= GRAVITY * dt;
+      player.z += player.jumpVel * dt;
+      if (player.z <= 0) {
+        player.z = 0;
+        player.jumpVel = 0;
+      }
+    }
+
     player.x = Math.max(5, Math.min(WORLD_SIZE - 5, player.x));
     player.y = Math.max(5, Math.min(WORLD_SIZE - 5, player.y));
+  }
+
+  /** Move on foot, sliding along whichever axis is free. */
+  private tryMoveFoot(nx: number, ny: number) {
+    const { player } = this;
+    if (!this.isSolidAt(nx, ny)) {
+      player.x = nx;
+      player.y = ny;
+    } else if (!this.isSolidAt(nx, player.y)) {
+      player.x = nx;
+    } else if (!this.isSolidAt(player.x, ny)) {
+      player.y = ny;
+    }
   }
 
   private handleEnterExit() {
@@ -459,12 +1163,14 @@ export class GameEngine3D {
       if (v) {
         v.occupant = null;
         v.speed = 0;
-        // Mark as "parked" — traffic system skips isService vehicles
-        // so the car stays where the player left it
-        v.isService = true;
+        // Abandoned where it stands. Traffic skips parked cars, and the
+        // despawn ring recycles it once the player is far enough away.
+        v.isParked = true;
       }
       player.state = 'onFoot';
       player.currentVehicleId = null;
+      player.z = 0;
+      player.jumpVel = 0;
       this.addNotification('已下車', '#aaa');
       return;
     }
@@ -475,16 +1181,35 @@ export class GameEngine3D {
     vehicles.forEach(v => {
       if (v.type === VehicleType.RC_DRONE) return;
       if (v.occupant === 'player') return;
+      if (v.hp <= 0) return;   // burnt-out wreck
       const d = dist(player.x, player.y, v.x, v.y);
       if (d < ENTER_VEHICLE_RADIUS && d < closestDist) { closestDist = d; closest = v; }
     });
 
     if (closest) {
       const v = closest as Vehicle;
+
+      // A vehicle you called is yours to board; anything else with a driver
+      // in it has to be taken by force.
+      const isOrdered = this.orders.some(o => o.vehicleId === v.id && o.status !== 'completed');
+      if (v.occupant === 'npc' && !isOrdered) {
+        const speed = Math.hypot(v.vx ?? 0, v.vy ?? 0);
+        if (speed > CARJACK_MAX_TARGET_SPEED) {
+          this.addNotification('車速太快，攔不下來', '#ffcc00');
+          return;
+        }
+        this.startCarjack(v);
+        return;
+      }
+
       v.occupant = 'player';
       v.waypoints = [];
       v.waypointIndex = 0;
       player.currentVehicleId = v.id;
+      player.z = 0;
+      player.jumpVel = 0;
+      // Snap the camera back behind the vehicle immediately.
+      this.orbitCam.lastLookMs = 0;
       if (v.type === VehicleType.HELICOPTER) {
         player.state = 'inHelicopter';
         this.addNotification('🚁 已登上直升機！', '#a0d8ef');
@@ -540,7 +1265,7 @@ export class GameEngine3D {
     }
   }
 
-  private isSolidAt(wx: number, wy: number): boolean {
+  isSolidAt(wx: number, wy: number): boolean {
     const gx = Math.floor(wx / TILE_SIZE);
     const gy = Math.floor(wy / TILE_SIZE);
     if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return true;
@@ -553,7 +1278,7 @@ export class GameEngine3D {
 
   // Altitude-aware solid check for drones. Returns false if the drone is physically
   // above the building's roof (altitude > floors * 14 + 5 safety buffer).
-  private isSolidAtAlt(wx: number, wy: number, altitude: number): boolean {
+  isSolidAtAlt(wx: number, wy: number, altitude: number): boolean {
     const gx = Math.floor(wx / TILE_SIZE);
     const gy = Math.floor(wy / TILE_SIZE);
     if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return true;
@@ -592,13 +1317,24 @@ export class GameEngine3D {
     this.addNotification('❌ 已取消服務', '#aaa');
   }
 
-  setWaypoint(wx: number, wy: number) {
-    this.waypoint = { x: wx, y: wy, active: true };
-    this.addNotification('📍 路標已設定', '#00e5ff');
+  setWaypoint(wx: number, wy: number, source: 'user' | 'mission' = 'user') {
+    this.waypoint = { x: wx, y: wy, active: true, source };
+    this.route.update(this.world.grid, this.player, this.waypoint);
+    if (source === 'user') this.addNotification('📍 路標已設定', '#00e5ff');
+  }
+
+  clearWaypoint(source: 'user' | 'mission' = 'user') {
+    if (this.waypoint.active && this.waypoint.source && this.waypoint.source !== source) return;
+    this.waypoint = { x: 0, y: 0, active: false };
+    this.route.clear();
   }
 
   dispatchTaxi() {
     if (this.orders.find(o => o.type === 'taxi' && o.status !== 'completed')) { this.addNotification('計程車已在路上！', '#ffee00'); return; }
+    if (!this.economy.charge(PRICES.phone_taxi, 'phone_taxi')) {
+      this.addNotification('💸 現金不足', '#ff4444');
+      return;
+    }
     const t = createTaxi(this.world, this.player.x, this.player.y, this.player.angle);
     this.vehicles.set(t.id, t);
     const orderId = `o_t_${Date.now()}`;
@@ -609,6 +1345,11 @@ export class GameEngine3D {
 
   dispatchFood(shopIdx = 0) {
     if (this.orders.find(o => o.type === 'food' && o.status !== 'completed')) { this.addNotification('外送已在路上！', '#ff8c00'); return; }
+    const item = FOOD_MENU[shopIdx % FOOD_MENU.length];
+    if (!this.economy.charge(item.price, `food_${item.name}`)) {
+      this.addNotification('💸 現金不足', '#ff4444');
+      return;
+    }
     const shop = this.world.shopPositions[shopIdx % Math.max(1, this.world.shopPositions.length)];
     const s = createDeliveryScooter(this.world, shop, this.player.x, this.player.y, this.player.angle);
     this.vehicles.set(s.id, s);
@@ -620,6 +1361,10 @@ export class GameEngine3D {
 
   dispatchHelicopter() {
     if (this.orders.find(o => o.type === 'helicopter' && o.status !== 'completed')) { this.addNotification('直升機已在路上！', '#a0d8ef'); return; }
+    if (!this.economy.charge(PRICES.phone_heli, 'phone_heli')) {
+      this.addNotification('💸 現金不足', '#ff4444');
+      return;
+    }
     const h = createHelicopter(this.world);
     this.vehicles.set(h.id, h);
     const orderId = `o_h_${Date.now()}`;
@@ -630,6 +1375,7 @@ export class GameEngine3D {
 
   launchDrone() {
     if (this.drone.active) { this.addNotification('無人機已在飛', '#00e5ff'); return; }
+    this.missions.onDistraction('離開車輛');
     const d = createDrone(this.player.x, this.player.y);
     d.angle = this.player.angle;
     // Start slightly above ground so it's immediately visible
@@ -646,12 +1392,15 @@ export class GameEngine3D {
     if (this.drone.vehicleId) this.vehicles.delete(this.drone.vehicleId);
     this.drone = { active: false, altitude: 0, throttle: 0, pitch: 0, roll: 0, yaw: 0, battery: 100, signal: 100, vehicleId: null };
     this.player.state = 'onFoot';
+    this.player.z = 0;
+    this.player.jumpVel = 0;
     this.addNotification('無人機已降落', '#00e5ff');
   }
 
   // ── Race management ────────────────────────────────────────────────────────
 
   startRace(courseId: string) {
+    this.missions.onDistraction('開始競速');
     const course = getCourse(courseId);
     if (!this.drone.active) {
       this.launchDrone();
@@ -683,6 +1432,19 @@ export class GameEngine3D {
       this.racePrevAlt = dv?.altitude ?? 8;
     }
     this.addNotification(`🏁 ${course.name} — 準備起飛！`, course.color);
+  }
+
+  /** Pay out a finished race and fold the lap into the unified save. */
+  private onRaceFinished(courseId: string, bestLap: number, parTime: number) {
+    if (bestLap > 0) {
+      const prev = this.save.raceBest[courseId];
+      if (!prev || bestLap < prev) this.save.raceBest[courseId] = bestLap;
+    }
+    // Beating par pays double.
+    const prize = bestLap > 0 && bestLap <= parTime ? 600 : 300;
+    this.economy.earn(prize, 'race');
+    this.showBanner('完賽獎金', `+$${prize}`, '#ffd23f', 2600);
+    this.persist();
   }
 
   exitRace() {
@@ -758,7 +1520,68 @@ export class GameEngine3D {
       tick: this.tick,
       notifications: this.notifications,
       zone: this.zone,
+      camYaw: this.orbitCam.yaw,
+      route: this.route.points,
+      blips: this.collectBlips(),
     };
+  }
+
+  private updateGarages(nowMs: number) {
+    const vehicle = this.player.currentVehicleId
+      ? this.vehicles.get(this.player.currentVehicleId) ?? null
+      : null;
+
+    updateGarages(this.garages, {
+      player: this.player,
+      vehicle,
+      speed: this.playerSpeed(),
+      wantedStars: this.wanted.stars,
+      nowMs,
+      charge: () => {
+        const ok = this.economy.charge('paynspray', 'paynspray');
+        if (!ok) this.addNotification('💸 噴漆廠：現金不足', '#ff4444');
+        return ok;
+      },
+      onServiced: () => {
+        this.wanted.clear();
+        this.police.clear(this.vehicles);
+        this.addNotification('🎨 噴漆完成，車輛修復', '#22d3ee');
+        this.showBanner('Pay-n-Spray', '車輛修復 · 通緝解除', '#22d3ee', 2200);
+        this.persist();
+      },
+    });
+  }
+
+  /** True when pressing E would start taxi work from the current vehicle. */
+  canStartTaxi(): boolean {
+    if (this.missions.session) return false;
+    const v = this.player.currentVehicleId ? this.vehicles.get(this.player.currentVehicleId) : null;
+    return v?.type === VehicleType.TAXI;
+  }
+
+  /** What pressing F would do right now — drives the hint and mobile label. */
+  nearestVehicleInfo(): HUDData['nearVehicle'] {
+    const { player, vehicles } = this;
+    if (player.state !== 'onFoot') return 'none';
+
+    let best: Vehicle | null = null;
+    let bestDist = Infinity;
+    vehicles.forEach(v => {
+      if (v.type === VehicleType.RC_DRONE) return;
+      if (v.occupant === 'player') return;
+      // Must match handleEnterExit exactly, or the hint promises an action
+      // that pressing F will not perform.
+      if (v.hp <= 0) return;
+      const d = dist(player.x, player.y, v.x, v.y);
+      if (d < ENTER_VEHICLE_RADIUS && d < bestDist) { bestDist = d; best = v; }
+    });
+
+    if (!best) return 'none';
+    const v = best as Vehicle;
+    if (v.type === VehicleType.POLICE) return 'police';
+    // A dispatched service vehicle is yours to board, not to steal.
+    const isOrdered = this.orders.some(o => o.vehicleId === v.id && o.status !== 'completed');
+    return v.occupant === 'npc' && !isOrdered ? 'occupied' : 'free';
   }
 
   private emitHUD() {
@@ -782,6 +1605,21 @@ export class GameEngine3D {
       nearTownHall: dist(player.x, player.y, this.world.townHallPos.x, this.world.townHallPos.y) < 220,
       callLog: [...this.callLog],
       raceSession: this.raceSession ? { ...this.raceSession } : null,
+      health: player.health,
+      vehicleHp: curVeh?.hp,
+      wantedStars: this.wanted.stars,
+      wantedEvading: this.wanted.evading,
+      arrestProgress: this.police.arrestProgress(),
+      screenFade: this.screenFade,
+      screenLabel: this.screenLabel,
+      nearVehicle: this.nearestVehicleInfo(),
+      cash: this.economy.cash,
+      cashTicker: this.economy.drainTicks(performance.now()),
+      mission: this.missions.getHUD(),
+      nearMarker: this.missions.nearMarker(),
+      canStartTaxi: this.canStartTaxi(),
+      banner: this.banner,
+      jobs: this.missions.getJobList(),
     };
     this.hudCallback(data);
   }

@@ -1,6 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useShallow } from "zustand/react/shallow";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/control-center/shared/EmptyState";
-import { LAYER_GROUP_LABEL } from "@/lib/control-center/constants";
 import { useControlCenterStore } from "@/store/useControlCenterStore";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import type { Widget } from "@/lib/control-center/types";
@@ -42,16 +43,47 @@ function NumberField({ value, onChange, min, max, step = 1 }: { value: number; o
 }
 
 export function PropertyPanel() {
+  const t = useTranslations("PropertyPanel");
+  const tLayer = useTranslations("LayerGroup");
   const selection = useControlCenterStore(useShallow((s) => s.selection));
-  const widgets = useControlCenterStore((s) => s.widgets);
+  // Only the selected widgets, so dragging an *unselected* widget doesn't
+  // re-render ~30 form controls. useSyncExternalStoreWithSelector (via
+  // useStoreWithEqualityFn) caches the derived array properly; a plain
+  // useShallow selector that builds a new array here loops.
+  const selected = useStoreWithEqualityFn(
+    useControlCenterStore,
+    (s) => {
+      const ids = new Set(s.selection);
+      return s.widgets.filter((w) => ids.has(w.id));
+    },
+    (a, b) => a.length === b.length && a.every((w, i) => w === b[i])
+  );
   const updateWidget = useControlCenterStore((s) => s.updateWidget);
   const updateWidgets = useControlCenterStore((s) => s.updateWidgets);
   const commit = useControlCenterStore((s) => s.commit);
-  const machines = useMachinesStore((s) => s.machines);
-  const stores = useMachinesStore((s) => s.stores);
-  const groups = useMachinesStore((s) => s.groups);
-
-  const selected = widgets.filter((w) => selection.includes(w.id));
+  // This panel only shows a machine's identity, never its telemetry, so it
+  // compares on those fields alone: Live Mode replaces every machine object
+  // once a second, and a plain subscription re-rendered ~30 form controls each
+  // time. (A selector that mapped to fresh objects can't be used here — shallow
+  // comparison would never match and the component would loop.)
+  const machineOptions = useStoreWithEqualityFn(
+    useMachinesStore,
+    (s) => s.machines,
+    (a, b) =>
+      a.length === b.length &&
+      a.every((m, i) => {
+        const other = b[i];
+        return (
+          m.id === other.id &&
+          m.name === other.name &&
+          m.deviceId === other.deviceId &&
+          m.storeId === other.storeId &&
+          m.groupId === other.groupId
+        );
+      })
+  );
+  const stores = useMachinesStore(useShallow((s) => s.stores));
+  const groups = useMachinesStore(useShallow((s) => s.groups));
 
   function patch(id: string, p: Partial<Widget>) {
     updateWidget(id, p);
@@ -64,18 +96,18 @@ export function PropertyPanel() {
   return (
     <div className="flex h-full w-72 shrink-0 flex-col border-l border-border bg-card/40">
       <div className="border-b border-border px-3 py-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Properties</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("properties")}</p>
       </div>
       <ScrollArea className="flex-1">
         <div className="space-y-4 p-3">
           {selected.length === 0 && (
-            <EmptyState title="Nothing selected" description="Select a widget on the canvas to edit its properties." />
+            <EmptyState title={t("nothingSelected")} description={t("nothingSelectedDescription")} />
           )}
 
           {selected.length > 1 && (
             <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">{selected.length} widgets selected</p>
-              <Field label="Opacity">
+              <p className="text-xs text-muted-foreground">{t("widgetsSelected", { count: selected.length })}</p>
+              <Field label={t("opacity")}>
                 <Slider
                   value={[selected[0].opacity * 100]}
                   min={0}
@@ -86,11 +118,11 @@ export function PropertyPanel() {
                 />
               </Field>
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Lock all</Label>
+                <Label className="text-xs text-muted-foreground">{t("lockAll")}</Label>
                 <Switch checked={selected.every((w) => w.locked)} onCheckedChange={(v) => { updateWidgets(selection, { locked: v }); commit(); }} />
               </div>
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Visible</Label>
+                <Label className="text-xs text-muted-foreground">{t("visible")}</Label>
                 <Switch checked={selected.every((w) => !w.hidden)} onCheckedChange={(v) => { updateWidgets(selection, { hidden: !v }); commit(); }} />
               </div>
             </div>
@@ -98,25 +130,25 @@ export function PropertyPanel() {
 
           {selected.length === 1 && (() => {
             const w = selected[0];
-            const machine = w.type === "machine" ? machines.find((m) => m.id === w.machineId) : undefined;
+            const machine = w.type === "machine" ? machineOptions.find((m) => m.id === w.machineId) : undefined;
             const store = machine ? stores.find((s) => s.id === machine.storeId) : undefined;
             const group = machine ? groups.find((g) => g.id === machine.groupId) : undefined;
 
             return (
               <div className="space-y-4">
-                <Field label="Name">
+                <Field label={t("name")}>
                   <Input className="h-8" value={w.name} onChange={(e) => patch(w.id, { name: e.target.value })} onBlur={() => commit()} />
                 </Field>
 
                 {w.type === "machine" && (
                   <>
-                    <Field label="Bound Machine">
+                    <Field label={t("boundMachine")}>
                       <Select value={w.machineId || undefined} onValueChange={(v) => patchAndCommit(w.id, { machineId: v })}>
                         <SelectTrigger className="h-8">
-                          <SelectValue placeholder="Unbound" />
+                          <SelectValue placeholder={t("unbound")} />
                         </SelectTrigger>
                         <SelectContent>
-                          {machines.map((m) => (
+                          {machineOptions.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
                               {m.name}
                             </SelectItem>
@@ -124,24 +156,24 @@ export function PropertyPanel() {
                         </SelectContent>
                       </Select>
                     </Field>
-                    <Field label="Device ID">
+                    <Field label={t("deviceId")}>
                       <Input className="h-8" value={machine?.deviceId ?? "—"} readOnly disabled />
                     </Field>
-                    <Field label="Store">
+                    <Field label={t("store")}>
                       <Input className="h-8" value={store?.name ?? "—"} readOnly disabled />
                     </Field>
-                    <Field label="Group">
+                    <Field label={t("group")}>
                       <Input className="h-8" value={group?.name ?? "—"} readOnly disabled />
                     </Field>
-                    <Field label="Widget Size">
+                    <Field label={t("widgetSize")}>
                       <Select value={w.size} onValueChange={(v) => patchAndCommit(w.id, { size: v as typeof w.size })}>
                         <SelectTrigger className="h-8">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="small">Small</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
+                          <SelectItem value="small">{t("small")}</SelectItem>
+                          <SelectItem value="medium">{t("medium")}</SelectItem>
+                          <SelectItem value="large">{t("large")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </Field>
@@ -150,13 +182,13 @@ export function PropertyPanel() {
 
                 {w.type === "text" && (
                   <>
-                    <Field label="Text">
+                    <Field label={t("text")}>
                       <Input className="h-8" value={w.text} onChange={(e) => patch(w.id, { text: e.target.value })} onBlur={() => commit()} />
                     </Field>
-                    <Field label="Font Size">
+                    <Field label={t("fontSize")}>
                       <NumberField value={w.fontSize} min={8} max={72} onChange={(v) => patchAndCommit(w.id, { fontSize: v })} />
                     </Field>
-                    <Field label="Color">
+                    <Field label={t("color")}>
                       <Input type="color" className="h-8 w-full" value={w.color} onChange={(e) => patchAndCommit(w.id, { color: e.target.value })} />
                     </Field>
                   </>
@@ -164,13 +196,13 @@ export function PropertyPanel() {
 
                 {(w.type === "rectangle" || w.type === "circle") && (
                   <>
-                    <Field label="Background">
+                    <Field label={t("background")}>
                       <Input className="h-8" value={w.fill} onChange={(e) => patch(w.id, { fill: e.target.value })} onBlur={() => commit()} />
                     </Field>
-                    <Field label="Border Color">
+                    <Field label={t("borderColor")}>
                       <Input type="color" className="h-8 w-full" value={w.stroke} onChange={(e) => patchAndCommit(w.id, { stroke: e.target.value })} />
                     </Field>
-                    <Field label="Border Width">
+                    <Field label={t("borderWidth")}>
                       <NumberField value={w.strokeWidth} min={0} max={12} onChange={(v) => patchAndCommit(w.id, { strokeWidth: v })} />
                     </Field>
                   </>
@@ -178,27 +210,27 @@ export function PropertyPanel() {
 
                 {w.type === "zone" && (
                   <>
-                    <Field label="Label">
+                    <Field label={t("label")}>
                       <Input className="h-8" value={w.label} onChange={(e) => patch(w.id, { label: e.target.value })} onBlur={() => commit()} />
                     </Field>
-                    <Field label="Background">
+                    <Field label={t("background")}>
                       <Input className="h-8" value={w.fill} onChange={(e) => patch(w.id, { fill: e.target.value })} onBlur={() => commit()} />
                     </Field>
                   </>
                 )}
 
                 {(w.type === "camera" || w.type === "map") && (
-                  <Field label="Label">
+                  <Field label={t("label")}>
                     <Input className="h-8" value={w.label} onChange={(e) => patch(w.id, { label: e.target.value })} onBlur={() => commit()} />
                   </Field>
                 )}
 
                 {w.type === "counter" && (
                   <>
-                    <Field label="Label">
+                    <Field label={t("label")}>
                       <Input className="h-8" value={w.label} onChange={(e) => patch(w.id, { label: e.target.value })} onBlur={() => commit()} />
                     </Field>
-                    <Field label="Value">
+                    <Field label={t("value")}>
                       <NumberField value={w.value} onChange={(v) => patchAndCommit(w.id, { value: v })} />
                     </Field>
                   </>
@@ -206,24 +238,24 @@ export function PropertyPanel() {
 
                 {(w.type === "arrow" || w.type === "line") && (
                   <>
-                    <Field label="Color">
+                    <Field label={t("color")}>
                       <Input type="color" className="h-8 w-full" value={w.stroke} onChange={(e) => patchAndCommit(w.id, { stroke: e.target.value })} />
                     </Field>
-                    <Field label="Thickness">
+                    <Field label={t("thickness")}>
                       <NumberField value={w.strokeWidth} min={1} max={12} onChange={(v) => patchAndCommit(w.id, { strokeWidth: v })} />
                     </Field>
                   </>
                 )}
 
                 {w.type === "divider" && (
-                  <Field label="Orientation">
+                  <Field label={t("orientation")}>
                     <Select value={w.orientation} onValueChange={(v) => patchAndCommit(w.id, { orientation: v as typeof w.orientation })}>
                       <SelectTrigger className="h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="horizontal">Horizontal</SelectItem>
-                        <SelectItem value="vertical">Vertical</SelectItem>
+                        <SelectItem value="horizontal">{t("horizontal")}</SelectItem>
+                        <SelectItem value="vertical">{t("vertical")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -232,21 +264,21 @@ export function PropertyPanel() {
                 <Separator />
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Width">
+                  <Field label={t("width")}>
                     <NumberField value={w.width} min={8} onChange={(v) => patchAndCommit(w.id, { width: v })} />
                   </Field>
-                  <Field label="Height">
+                  <Field label={t("height")}>
                     <NumberField value={w.height} min={8} onChange={(v) => patchAndCommit(w.id, { height: v })} />
                   </Field>
-                  <Field label="Rotation">
+                  <Field label={t("rotation")}>
                     <NumberField value={w.rotation} onChange={(v) => patchAndCommit(w.id, { rotation: v })} />
                   </Field>
-                  <Field label="Z-Index">
+                  <Field label={t("zIndex")}>
                     <Input className="h-8" value={w.zIndex} readOnly disabled />
                   </Field>
                 </div>
 
-                <Field label={`Opacity — ${Math.round(w.opacity * 100)}%`}>
+                <Field label={t("opacityPercent", { percent: Math.round(w.opacity * 100) })}>
                   <Slider
                     value={[w.opacity * 100]}
                     min={0}
@@ -257,18 +289,18 @@ export function PropertyPanel() {
                   />
                 </Field>
 
-                <Field label="Layer">
-                  <Input className="h-8" value={LAYER_GROUP_LABEL[w.layerGroup]} readOnly disabled />
+                <Field label={t("layer")}>
+                  <Input className="h-8" value={tLayer(w.layerGroup)} readOnly disabled />
                 </Field>
 
                 <Separator />
 
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Locked</Label>
+                  <Label className="text-xs text-muted-foreground">{t("locked")}</Label>
                   <Switch checked={w.locked} onCheckedChange={(v) => patchAndCommit(w.id, { locked: v })} />
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Visible</Label>
+                  <Label className="text-xs text-muted-foreground">{t("visible")}</Label>
                   <Switch checked={!w.hidden} onCheckedChange={(v) => patchAndCommit(w.id, { hidden: !v })} />
                 </div>
               </div>

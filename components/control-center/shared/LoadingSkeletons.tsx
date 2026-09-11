@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function KpiGridSkeleton({ count = 8 }: { count?: number }) {
@@ -51,11 +55,12 @@ export function TableSkeleton({ rows = 8, cols = 5 }: { rows?: number; cols?: nu
 }
 
 export function CanvasSkeleton() {
+  const t = useTranslations("LoadingSkeletons");
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <div className="spinner" />
-        <p className="text-sm text-muted-foreground">Loading Layout Editor…</p>
+        <p className="text-sm text-muted-foreground">{t("loadingEditor")}</p>
       </div>
     </div>
   );

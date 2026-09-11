@@ -1232,21 +1232,45 @@ display: block;
 
 
 
+    const [activeTab, setActiveTab] = useState('generator');
+
     return (
 
         <div className="min-h-screen bg-gradient-to-br from-yellow-100 via-pink-100 to-red-100 p-8">
 
             <div className="max-w-7xl mx-auto">
 
-                <h1 className="text-4xl font-bold text-center mb-8 text-red-600">
+                <h1 className="text-4xl font-bold text-center mb-6 text-red-600">
 
                     娃娃機刮刮卡產生器
 
                 </h1>
 
+                {/* Tabs */}
+                <div className="flex gap-2 mb-6 border-b-2 border-red-200">
+                    <button
+                        onClick={() => setActiveTab('generator')}
+                        className={`px-6 py-3 font-bold text-base rounded-t-lg transition-all ${activeTab === 'generator' ? 'bg-red-500 text-white border-2 border-b-0 border-red-500' : 'bg-white text-gray-600 border-2 border-b-0 border-gray-200 hover:border-red-300'}`}
+                    >
+                        🎴 刮刮卡產生器
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('guide')}
+                        className={`px-6 py-3 font-bold text-base rounded-t-lg transition-all ${activeTab === 'guide' ? 'bg-amber-500 text-white border-2 border-b-0 border-amber-500' : 'bg-white text-gray-600 border-2 border-b-0 border-gray-200 hover:border-amber-300'}`}
+                    >
+                        🏭 貼膜示意
+                    </button>
+                </div>
 
+                {activeTab === 'guide' && (
+                    <div>
+                        <ScratchFilmApplicatorGuide />
+                    </div>
+                )}
 
-                <div className="bg-white rounded-lg shadow-xl p-8 mb-8">
+                {activeTab === 'generator' && (
+                <div>
+                    <div className="bg-white rounded-lg shadow-xl p-8 mb-8">
 
                     <div className="flex flex-col items-center gap-6">
 
@@ -1442,7 +1466,7 @@ display: block;
 
                                     onChange={(e) => handleScratchesChange(parseInt(e.target.value))}
 
-                                    className="text-2xl font-bold border-2 border-red-300 rounded-lg p-2 px-4"
+                                    className="text-2xl font-bold border-2 border-red-300 rounded-lg p-2 px-4 text-gray-700 bg-white"
 
                                 >
 
@@ -1538,10 +1562,6 @@ display: block;
                     </div>
 
                 </div>
-
-                <ScratchFilmApplicatorGuide />
-
-
 
                 <div className="bg-white rounded-lg shadow-xl p-4">
 
@@ -1640,7 +1660,9 @@ display: block;
 
                     </div>
 
-                </div>
+                    </div>
+
+                </div>)}
 
             </div>
 

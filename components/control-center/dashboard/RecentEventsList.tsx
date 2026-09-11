@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { Activity, AlertTriangle, Info, ShieldAlert } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,8 @@ const SEVERITY_CLASS = {
 } as const;
 
 export function RecentEventsList() {
+  const t = useTranslations("RecentEvents");
+  const locale = useLocale();
   const events = useMachinesStore((s) => s.events);
   const openMachineDrawer = useUIStore((s) => s.openMachineDrawer);
 
@@ -23,12 +26,12 @@ export function RecentEventsList() {
     <Card className="cc-glass">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <Activity className="h-4 w-4 text-primary" /> Recent Events
+          <Activity className="h-4 w-4 text-primary" /> {t("title")}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {events.length === 0 ? (
-          <EmptyState title="No events yet" description="Events will appear here as machines report activity." />
+          <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
         ) : (
           <div className="max-h-80 space-y-1.5 overflow-y-auto custom-scrollbar pr-1">
             {events.slice(0, 30).map((e) => {
@@ -43,7 +46,7 @@ export function RecentEventsList() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-foreground">{e.message}</p>
                   </div>
-                  <span className="shrink-0 text-muted-foreground">{new Date(e.timestamp).toLocaleTimeString("zh-TW")}</span>
+                  <span className="shrink-0 text-muted-foreground">{new Date(e.timestamp).toLocaleTimeString(locale)}</span>
                 </button>
               );
             })}

@@ -168,6 +168,24 @@
     from { opacity: 0; transform: translateX(24px); }
     to   { opacity: 1; transform: translateX(0); }
   }
+
+  /* Wanted stars pulse while the player is evading the police */
+  @keyframes wantedBlink {
+    0%, 100% { opacity: 0.45; }
+    50%      { opacity: 0.15; }
+  }
+
+  /* Floating +$ / -$ figure under the cash counter */
+  @keyframes cashTick {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(16px); }
+  }
+
+  /* Centre-screen mission announcement */
+  @keyframes bannerPop {
+    from { opacity: 0; transform: translateX(-50%) scale(0.9); }
+    to   { opacity: 1; transform: translateX(-50%) scale(1); }
+  }
 }
 
 /* ============================================================

@@ -1,0 +1,573 @@
+{
+  "Sidebar": {
+    "dashboard": "儀表板",
+    "controlCenter": "控制中心",
+    "machines": "機台",
+    "alerts": "警報",
+    "history": "歷史紀錄",
+    "analytics": "數據分析",
+    "storeManagement": "門市管理",
+    "users": "使用者",
+    "settings": "設定",
+    "collapse": "收合"
+  },
+  "TopNav": {
+    "title": "IoT 控制中心",
+    "subtitle": "企業級監控平台",
+    "searchPlaceholder": "搜尋機台…",
+    "switchStore": "切換門市",
+    "selectStore": "選擇門市",
+    "notifications": "通知",
+    "activeCount": "{count} 則進行中",
+    "noActiveAlerts": "目前沒有進行中的警報 🎉",
+    "themeToggleToast": "此原型固定為 Dark Theme（監控中心慣例），已記錄偏好設定。",
+    "userMenu": {
+      "opsAdmin": "維運管理員",
+      "profile": "個人檔案",
+      "team": "團隊",
+      "apiKeys": "API 金鑰",
+      "signOut": "登出"
+    }
+  },
+  "Dashboard": {
+    "title": "儀表板",
+    "subtitle": "設備艦隊即時總覽"
+  },
+  "Settings": {
+    "title": "設定",
+    "subtitle": "平台、編輯器與整合偏好設定"
+  },
+  "AppearanceSettings": {
+    "title": "外觀",
+    "description": "語言與主題偏好設定",
+    "languageLabel": "語言",
+    "themeLabel": "主題",
+    "themeDescription": "此原型的監控中心固定使用深色主題",
+    "themeOptions": {
+      "dark": "深色",
+      "light": "淺色（即將推出）",
+      "system": "跟隨系統"
+    },
+    "save": "儲存",
+    "saveToast": "外觀偏好設定已儲存"
+  },
+  "KpiGrid": {
+    "totalMachines": "機台總數",
+    "totalMachinesSub": "所有連線設備",
+    "online": "在線",
+    "onlineSub": "佔艦隊 {percent}%",
+    "offline": "離線",
+    "offlineSub": "無心跳訊號",
+    "abnormal": "異常",
+    "abnormalSub": "警告 + 警報",
+    "todaysAlerts": "今日警報",
+    "todaysAlertsSub": "自午夜起計算",
+    "todaysEvents": "今日事件",
+    "todaysEventsSub": "所有事件類型",
+    "cpu": "CPU",
+    "cpuSub": "邊緣閘道器（示意）",
+    "mqtt": "MQTT",
+    "mqttConnected": "已連線",
+    "mqttSub": "broker.iot.local（示意）",
+    "api": "API",
+    "apiOk": "200 OK",
+    "apiSub": "p95 42ms（示意）"
+  },
+  "RecentEvents": {
+    "title": "最近事件",
+    "emptyTitle": "尚無事件",
+    "emptyDescription": "當機台回報活動時，事件會顯示在這裡。"
+  },
+  "RecentAlerts": {
+    "title": "警報",
+    "viewAll": "查看全部",
+    "emptyTitle": "沒有警報",
+    "emptyDescription": "您的設備艦隊狀態良好。"
+  },
+  "Status": {
+    "online": "在線",
+    "warning": "警告",
+    "alarm": "警報",
+    "offline": "離線"
+  },
+  "Common": {
+    "cancel": "取消",
+    "confirm": "確認",
+    "delete": "刪除",
+    "edit": "編輯",
+    "save": "儲存",
+    "add": "新增",
+    "search": "搜尋",
+    "all": "全部",
+    "actions": "操作",
+    "name": "名稱",
+    "status": "狀態",
+    "showing": "顯示第 {from}–{to} 筆，共 {total} 筆",
+    "page": "第 {page} / {totalPages} 頁",
+    "previousPage": "上一頁",
+    "nextPage": "下一頁"
+  },
+  "Machines": {
+    "title": "機台目錄",
+    "subtitle": "所有門市的機台",
+    "searchPlaceholder": "搜尋名稱／設備 ID…",
+    "allStores": "所有門市",
+    "allGroups": "所有群組",
+    "addMachine": "新增機台"
+  },
+  "MachinesTable": {
+    "emptyTitle": "找不到機台",
+    "emptyDescription": "請調整篩選條件，或新增一台機台。",
+    "deviceId": "設備 ID",
+    "store": "門市",
+    "group": "群組",
+    "current": "電流",
+    "deleteTitle": "刪除「{name}」？",
+    "deleteDescription": "此操作無法復原。綁定此機台的畫布元件將顯示為未綁定。",
+    "viewMachine": "檢視 {name}",
+    "editMachine": "編輯 {name}",
+    "deleteMachine": "刪除 {name}"
+  },
+  "MachineForm": {
+    "fillAllFields": "請填寫所有欄位",
+    "editTitle": "編輯機台",
+    "addTitle": "新增機台",
+    "description": "機台隸屬於門市內的群組。",
+    "nameLabel": "機台名稱",
+    "namePlaceholder": "例如：夾娃娃機 #99",
+    "deviceIdLabel": "設備 ID",
+    "deviceIdPlaceholder": "例如：DEV-1A9999",
+    "storeLabel": "門市",
+    "selectStore": "選擇門市",
+    "groupLabel": "群組",
+    "selectGroup": "選擇群組",
+    "statusLabel": "初始狀態",
+    "saveChanges": "儲存變更",
+    "createMachine": "建立機台"
+  },
+  "AlertStatus": {
+    "active": "進行中",
+    "acknowledged": "已確認",
+    "resolved": "已解決",
+    "ignored": "已忽略"
+  },
+  "Alerts": {
+    "title": "警報中心",
+    "subtitle": "確認、解決或忽略艦隊警報",
+    "searchPlaceholder": "搜尋警報…",
+    "emptyTitle": "沒有符合篩選條件的警報",
+    "emptyDescription": "請調整狀態或門市篩選條件。"
+  },
+  "AlertRow": {
+    "ack": "確認",
+    "resolve": "解決",
+    "ignore": "忽略",
+    "ignoreTitle": "忽略此警報？",
+    "ignoreDescription": "已忽略的警報會從進行中監控移除，但仍保留在歷史紀錄中。"
+  },
+  "History": {
+    "title": "歷史紀錄",
+    "subtitle": "所有機台與門市的完整事件時間軸"
+  },
+  "HistoryFilters": {
+    "dateRange": "日期範圍",
+    "allMachines": "所有機台",
+    "eventType": "事件類型",
+    "clear": "清除"
+  },
+  "HistoryTable": {
+    "emptyTitle": "找不到事件",
+    "emptyDescription": "請調整篩選條件或日期範圍。",
+    "timestamp": "時間戳記",
+    "machine": "機台",
+    "type": "類型",
+    "message": "訊息"
+  },
+  "ExportButtons": {
+    "noRows": "沒有可匯出的資料",
+    "exportedCsv": "已匯出 {count} 筆資料至 CSV",
+    "exportedExcel": "已匯出 {count} 筆資料至 Excel",
+    "exportCsv": "匯出 CSV",
+    "exportExcel": "匯出 Excel"
+  },
+  "Analytics": {
+    "title": "數據分析",
+    "subtitle": "艦隊層級的正常運行時間、電流消耗與警報頻率報告",
+    "fleetUptime": "艦隊正常運行率",
+    "uptimeSub": "{online}/{total} 在線",
+    "avgCurrentDraw": "平均電流消耗",
+    "avgCurrentSub": "所有運作中機台",
+    "alerts7d": "警報數（7 天）",
+    "alerts7dSub": "最近 7 天",
+    "resolutionRate": "解決率",
+    "resolutionSub": "已解決 + 已忽略",
+    "emptyTitle": "此門市沒有機台",
+    "emptyDescription": "請切換門市或新增機台以查看數據分析。",
+    "statusBreakdown": "狀態分佈",
+    "machinesByStore": "各門市機台數",
+    "alertActivity": "警報活動（14 天）",
+    "topEventTypes": "熱門事件類型"
+  },
+  "Charts": {
+    "noMachines": "沒有機台可顯示",
+    "noEvents": "沒有事件可顯示",
+    "info": "資訊",
+    "critical": "嚴重",
+    "count": "數量"
+  },
+  "StoreManagement": {
+    "title": "門市管理",
+    "subtitle": "管理品牌以及旗下的門市",
+    "brandsTab": "品牌",
+    "storesTab": "門市"
+  },
+  "BrandTable": {
+    "addBrand": "新增品牌",
+    "emptyTitle": "尚無品牌",
+    "emptyDescription": "建立品牌以開始將門市分組。",
+    "brand": "品牌",
+    "description": "描述",
+    "stores": "門市數",
+    "deleteTitle": "刪除「{name}」？",
+    "deleteDescription": "此操作無法復原。請先重新指派或移除旗下門市。"
+  },
+  "StoreTable": {
+    "addStore": "新增門市",
+    "emptyTitle": "尚無門市",
+    "emptyDescription": "建立門市以開始新增機台。",
+    "store": "門市",
+    "address": "地址",
+    "brand": "品牌",
+    "machines": "機台數",
+    "switchTo": "切換至此",
+    "deleteTitle": "刪除「{name}」？",
+    "deleteDescription": "此操作無法復原。請先重新指派或移除旗下機台。"
+  },
+  "BrandForm": {
+    "editTitle": "編輯品牌",
+    "addTitle": "新增品牌",
+    "description": "品牌可將一個或多個門市分組在一起。",
+    "nameLabel": "名稱",
+    "namePlaceholder": "例如：AKADE 娛樂集團",
+    "descriptionLabel": "描述",
+    "descriptionPlaceholder": "選填描述",
+    "colorLabel": "顏色",
+    "saveChanges": "儲存變更",
+    "createBrand": "建立品牌"
+  },
+  "StoreForm": {
+    "editTitle": "編輯門市",
+    "addTitle": "新增門市",
+    "description": "門市隸屬於品牌，並包含機台。",
+    "nameLabel": "名稱",
+    "namePlaceholder": "例如：台北信義旗艦店",
+    "addressLabel": "地址",
+    "addressPlaceholder": "門市地址",
+    "brandLabel": "品牌",
+    "selectBrand": "選擇品牌",
+    "selectBrandError": "請選擇一個品牌",
+    "saveChanges": "儲存變更",
+    "createStore": "建立門市"
+  },
+  "GridSnapSettings": {
+    "title": "版面編輯器",
+    "description": "控制中心畫布的網格、貼齊與動畫行為",
+    "gridSize": "網格大小",
+    "snapToGrid": "貼齊網格",
+    "snapToGridDescription": "拖曳或調整大小時，元件會自動貼齊網格",
+    "showGrid": "顯示網格",
+    "showGridDescription": "在畫布上顯示背景網格",
+    "animation": "動畫效果",
+    "animationDescription": "狀態脈動／閃爍動畫與轉場效果"
+  },
+  "NotificationSettings": {
+    "title": "通知",
+    "description": "選擇警報與事件的通知方式",
+    "saveToast": "通知偏好設定已儲存",
+    "toastAlerts": "彈出提示",
+    "toastAlertsDescription": "有新警報觸發時，於右上角顯示提示訊息",
+    "emailDigest": "每日電子郵件摘要",
+    "emailDigestDescription": "每天早上寄送事件與警報摘要",
+    "criticalOnly": "僅顯示重大警報",
+    "criticalOnlyDescription": "隱藏警告等級的通知",
+    "sound": "提示音效",
+    "soundDescription": "重大警報觸發時播放提示音"
+  },
+  "MqttConfig": {
+    "title": "MQTT 設定",
+    "description": "用於即時裝置遙測資料的 Broker 連線（示意用）",
+    "connected": "已連線",
+    "saveToast": "MQTT 設定已儲存",
+    "brokerAddress": "Broker 位址",
+    "topicPattern": "主題（Topic）模式",
+    "clientId": "客戶端 ID"
+  },
+  "ApiConfig": {
+    "title": "API 設定",
+    "description": "後端端點與憑證（示意用）",
+    "saveToast": "API 設定已儲存",
+    "endpoint": "端點",
+    "apiKey": "API 金鑰"
+  },
+  "LayoutDefaults": {
+    "title": "版面預設值",
+    "description": "建立新控制中心版面時套用的預設值",
+    "saveToast": "版面預設值已儲存",
+    "widgetSizeLabel": "機台元件預設大小",
+    "small": "小",
+    "medium": "中",
+    "large": "大",
+    "modeLabel": "開啟時的預設模式",
+    "editMode": "編輯模式",
+    "liveMode": "即時模式"
+  },
+  "StoreConfig": {
+    "title": "店鋪設定",
+    "description": "此頁面的設定僅套用於目前選取的店鋪（可於上方導覽列切換）",
+    "manageStores": "管理店鋪",
+    "currentStore": "目前店鋪",
+    "brand": "品牌"
+  },
+  "LayerGroup": {
+    "background": "背景",
+    "zones": "區域",
+    "machines": "機台",
+    "texts": "文字",
+    "overlays": "覆蓋層"
+  },
+  "PropertyPanel": {
+    "properties": "屬性",
+    "nothingSelected": "尚未選取任何項目",
+    "nothingSelectedDescription": "在畫布上選取一個元件以編輯其屬性。",
+    "widgetsSelected": "已選取 {count} 個元件",
+    "opacity": "透明度",
+    "opacityPercent": "透明度 — {percent}%",
+    "lockAll": "全部鎖定",
+    "visible": "顯示",
+    "name": "名稱",
+    "boundMachine": "綁定機台",
+    "unbound": "未綁定",
+    "deviceId": "設備 ID",
+    "store": "門市",
+    "group": "群組",
+    "widgetSize": "元件大小",
+    "small": "小",
+    "medium": "中",
+    "large": "大",
+    "text": "文字",
+    "fontSize": "字型大小",
+    "color": "顏色",
+    "background": "背景",
+    "borderColor": "邊框顏色",
+    "borderWidth": "邊框粗細",
+    "label": "標籤",
+    "value": "數值",
+    "thickness": "粗細",
+    "orientation": "方向",
+    "horizontal": "水平",
+    "vertical": "垂直",
+    "width": "寬度",
+    "height": "高度",
+    "rotation": "旋轉角度",
+    "zIndex": "圖層順序",
+    "layer": "圖層",
+    "locked": "已鎖定"
+  },
+  "Toolbar": {
+    "undo": "復原 (Ctrl+Z)",
+    "redo": "重做 (Ctrl+Y)",
+    "save": "儲存",
+    "discard": "捨棄",
+    "autoArrange": "自動排列",
+    "snapToGrid": "貼齊網格",
+    "showGrid": "顯示網格",
+    "zoomOut": "縮小",
+    "zoomIn": "放大",
+    "fitScreen": "符合畫面",
+    "exportLayout": "匯出版面",
+    "importLayout": "匯入版面",
+    "editMode": "編輯模式",
+    "liveMode": "即時模式",
+    "exported": "版面已匯出",
+    "imported": "已匯入 {count} 個元件",
+    "invalidFile": "版面檔案格式錯誤",
+    "discardTitle": "捨棄未儲存的變更？",
+    "discardDescription": "這會將版面還原至最後一次儲存的版本。",
+    "switchStoreTitle": "切換門市？",
+    "switchStoreDescription": "目前的平面圖有未儲存的變更，切換門市將會捨棄這些變更。",
+    "switchStoreConfirm": "捨棄並切換",
+    "loadFailed": "無法載入此門市的平面圖。"
+  },
+  "LayersPanel": {
+    "title": "圖層",
+    "emptyTitle": "尚無圖層",
+    "emptyDescription": "新增一個元件即可在此顯示。",
+    "lockLayer": "鎖定 {name}",
+    "unlockLayer": "解除鎖定 {name}",
+    "hideLayer": "隱藏 {name}",
+    "showLayer": "顯示 {name}"
+  },
+  "WidgetPalette": {
+    "title": "元件庫",
+    "hint": "拖曳至畫布，或點擊新增"
+  },
+  "WidgetType": {
+    "machine": "機台",
+    "text": "文字",
+    "rectangle": "矩形",
+    "circle": "圓形",
+    "arrow": "箭頭",
+    "zone": "區域",
+    "camera": "攝影機",
+    "image": "圖片",
+    "counter": "計數器",
+    "map": "地圖",
+    "divider": "分隔線",
+    "line": "線條"
+  },
+  "WidgetContextMenu": {
+    "duplicate": "複製",
+    "bringToFront": "移到最前",
+    "sendToBack": "移到最後",
+    "unlock": "解除鎖定",
+    "lock": "鎖定",
+    "show": "顯示",
+    "hide": "隱藏",
+    "alignLeft": "靠左對齊",
+    "alignCenter": "水平置中",
+    "alignRight": "靠右對齊",
+    "alignTop": "靠上對齊",
+    "alignMiddle": "垂直置中",
+    "alignBottom": "靠下對齊",
+    "distributeHorizontally": "水平均分",
+    "distributeVertically": "垂直均分",
+    "delete": "刪除"
+  },
+  "LayoutVersionsMenu": {
+    "versions": "版本",
+    "title": "版面版本",
+    "saveNew": "另存新版本",
+    "switchTitle": "切換版面版本？",
+    "switchDescription": "目前版面有未儲存的變更，切換將會捨棄這些變更。",
+    "switchConfirm": "切換",
+    "deleteTitle": "刪除「{name}」？",
+    "deleteDescription": "此操作無法復原。",
+    "saveAsNewTitle": "另存為新版本",
+    "renameTitle": "重新命名版本",
+    "saveAsNewDescription": "將目前畫布另存為一個新的命名版面版本。",
+    "renameDescription": "更新此版本的顯示名稱。",
+    "nameLabel": "名稱",
+    "save": "儲存",
+    "rename": "重新命名",
+    "savedAs": "已另存為「{name}」",
+    "defaultVersionName": "版面 {number}",
+    "justNow": "剛剛",
+    "minutesAgo": "{mins} 分鐘前",
+    "hoursAgo": "{hours} 小時前"
+  },
+  "SearchLocate": {
+    "locateMachine": "定位機台…"
+  },
+  "MachineWidget": {
+    "unbound": "未綁定",
+    "current": "電流",
+    "door": "門禁",
+    "open": "開啟",
+    "closed": "關閉",
+    "heartbeat": "心跳",
+    "secondsAgo": "{seconds} 秒前",
+    "rssi": "訊號強度",
+    "firmware": "韌體",
+    "lastUpdate": "最後更新"
+  },
+  "ShapeWidgets": {
+    "floorPlanImage": "平面圖圖片"
+  },
+  "MachineDrawer": {
+    "liveTab": "即時",
+    "overviewTab": "總覽",
+    "historyTab": "歷史",
+    "currentLabel": "電流 (A)",
+    "machineName": "機台名稱",
+    "deviceId": "設備 ID",
+    "store": "門市",
+    "group": "群組",
+    "firmware": "韌體",
+    "restartCount": "重啟次數",
+    "recentEvents": "最近事件",
+    "alertHistory": "警報歷史",
+    "maintenanceRecords": "維護紀錄"
+  },
+  "MachineLiveInfo": {
+    "heartbeat": "心跳",
+    "door": "門禁",
+    "open": "開啟",
+    "closed": "關閉",
+    "wifiRssi": "WiFi 訊號強度",
+    "restartCount": "重啟次數",
+    "firmware": "韌體",
+    "lastUpdate": "最後更新",
+    "justNow": "剛剛",
+    "secondsAgo": "{seconds} 秒前",
+    "minutesAgo": "{minutes} 分鐘前",
+    "hoursAgo": "{hours} 小時前"
+  },
+  "MachineEventsList": {
+    "emptyTitle": "尚無最近事件",
+    "emptyDescription": "此機台目前沒有任何紀錄事件。"
+  },
+  "MachineAlertHistory": {
+    "emptyTitle": "尚無警報歷史",
+    "emptyDescription": "此機台從未觸發過警報。"
+  },
+  "MachineMaintenanceRecords": {
+    "emptyTitle": "尚無維護紀錄",
+    "emptyDescription": "此機台尚未記錄任何維護。"
+  },
+  "LoadingSkeletons": {
+    "loadingEditor": "版面編輯器載入中…"
+  },
+  "ErrorState": {
+    "title": "發生錯誤",
+    "description": "資料載入失敗，請重試。",
+    "retry": "重試"
+  },
+  "SearchCommand": {
+    "placeholder": "搜尋機台 ID / 名稱 / Device ID / 店家…",
+    "empty": "沒有找到相符的結果。",
+    "machinesGroup": "機台",
+    "navigateGroup": "前往"
+  },
+  "ComingSoon": {
+    "description": "此模組正在規劃中，將於未來版本推出。"
+  },
+  "UsersPage": {
+    "title": "使用者與權限",
+    "subtitle": "檢視所有帳號紀錄與目前權限狀態",
+    "accountsSuffix": "個帳號",
+    "totalUsers": "使用者總數",
+    "totalUsersSub": "所有已註冊帳號",
+    "administrators": "管理員",
+    "administratorsSub": "擁有進階權限的使用者",
+    "totalPoints": "點數總計",
+    "totalPointsSub": "所有累計獎勵點數",
+    "totalTickets": "票券總計",
+    "updatedAt": "更新於 {date}",
+    "noActivityYet": "尚無活動紀錄",
+    "unavailableTitle": "使用者頁面暫時無法使用",
+    "loadError": "無法載入使用者資料，請稍後再試。",
+    "emptyTitle": "尚無使用者",
+    "emptyDescription": "當有帳號建立或從後端同步後，使用者會顯示在這裡。",
+    "directoryTitle": "使用者目錄",
+    "directorySubtitle": "依點數總計由高到低排序",
+    "user": "使用者",
+    "points": "點數",
+    "tickets": "票券",
+    "role": "角色",
+    "joined": "加入時間",
+    "updated": "更新時間",
+    "admin": "管理員",
+    "regularUser": "一般使用者",
+    "anonymousUser": "匿名使用者"
+  }
+}

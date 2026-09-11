@@ -1,0 +1,573 @@
+{
+  "Sidebar": {
+    "dashboard": "Dashboard",
+    "controlCenter": "Control Center",
+    "machines": "Machines",
+    "alerts": "Alerts",
+    "history": "History",
+    "analytics": "Analytics",
+    "storeManagement": "Store Management",
+    "users": "Users",
+    "settings": "Settings",
+    "collapse": "Collapse"
+  },
+  "TopNav": {
+    "title": "IoT Control Center",
+    "subtitle": "Enterprise Monitoring Platform",
+    "searchPlaceholder": "Search machines…",
+    "switchStore": "Switch Store",
+    "selectStore": "Select store",
+    "notifications": "Notifications",
+    "activeCount": "{count} active",
+    "noActiveAlerts": "No active alerts 🎉",
+    "themeToggleToast": "This prototype is fixed to Dark Theme (monitoring center convention); your preference has been noted.",
+    "userMenu": {
+      "opsAdmin": "Ops Admin",
+      "profile": "Profile",
+      "team": "Team",
+      "apiKeys": "API Keys",
+      "signOut": "Sign out"
+    }
+  },
+  "Dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Real-time overview of your device fleet"
+  },
+  "Settings": {
+    "title": "Settings",
+    "subtitle": "Platform, editor & integration preferences"
+  },
+  "AppearanceSettings": {
+    "title": "Appearance",
+    "description": "Language and theme preferences",
+    "languageLabel": "Language",
+    "themeLabel": "Theme",
+    "themeDescription": "This prototype's monitoring center is fixed to dark theme",
+    "themeOptions": {
+      "dark": "Dark",
+      "light": "Light (coming soon)",
+      "system": "System"
+    },
+    "save": "Save",
+    "saveToast": "Appearance preferences saved"
+  },
+  "KpiGrid": {
+    "totalMachines": "Total Machines",
+    "totalMachinesSub": "All connected devices",
+    "online": "Online",
+    "onlineSub": "{percent}% of fleet",
+    "offline": "Offline",
+    "offlineSub": "No heartbeat",
+    "abnormal": "Abnormal",
+    "abnormalSub": "Warning + Alarm",
+    "todaysAlerts": "Today's Alerts",
+    "todaysAlertsSub": "Since midnight",
+    "todaysEvents": "Today's Events",
+    "todaysEventsSub": "All event types",
+    "cpu": "CPU",
+    "cpuSub": "Edge gateway (placeholder)",
+    "mqtt": "MQTT",
+    "mqttConnected": "Connected",
+    "mqttSub": "broker.iot.local (placeholder)",
+    "api": "API",
+    "apiOk": "200 OK",
+    "apiSub": "p95 42ms (placeholder)"
+  },
+  "RecentEvents": {
+    "title": "Recent Events",
+    "emptyTitle": "No events yet",
+    "emptyDescription": "Events will appear here as machines report activity."
+  },
+  "RecentAlerts": {
+    "title": "Alerts",
+    "viewAll": "View all",
+    "emptyTitle": "No alerts",
+    "emptyDescription": "Your fleet is healthy."
+  },
+  "Status": {
+    "online": "Online",
+    "warning": "Warning",
+    "alarm": "Alarm",
+    "offline": "Offline"
+  },
+  "Common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "save": "Save",
+    "add": "Add",
+    "search": "Search",
+    "all": "All",
+    "actions": "Actions",
+    "name": "Name",
+    "status": "Status",
+    "showing": "Showing {from}–{to} of {total}",
+    "page": "Page {page} / {totalPages}",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
+  },
+  "Machines": {
+    "title": "Machines Directory",
+    "subtitle": "All machines across every store",
+    "searchPlaceholder": "Search name / device ID…",
+    "allStores": "All Stores",
+    "allGroups": "All Groups",
+    "addMachine": "Add Machine"
+  },
+  "MachinesTable": {
+    "emptyTitle": "No machines found",
+    "emptyDescription": "Try adjusting your filters, or add a new machine.",
+    "deviceId": "Device ID",
+    "store": "Store",
+    "group": "Group",
+    "current": "Current",
+    "deleteTitle": "Delete '{name}'?",
+    "deleteDescription": "This cannot be undone. Any canvas widgets bound to it will show as unbound.",
+    "viewMachine": "View {name}",
+    "editMachine": "Edit {name}",
+    "deleteMachine": "Delete {name}"
+  },
+  "MachineForm": {
+    "fillAllFields": "Please fill in all fields",
+    "editTitle": "Edit Machine",
+    "addTitle": "Add Machine",
+    "description": "Machines belong to a group within a store.",
+    "nameLabel": "Machine Name",
+    "namePlaceholder": "e.g. Claw Machine #99",
+    "deviceIdLabel": "Device ID",
+    "deviceIdPlaceholder": "e.g. DEV-1A9999",
+    "storeLabel": "Store",
+    "selectStore": "Select store",
+    "groupLabel": "Group",
+    "selectGroup": "Select group",
+    "statusLabel": "Initial Status",
+    "saveChanges": "Save Changes",
+    "createMachine": "Create Machine"
+  },
+  "AlertStatus": {
+    "active": "Active",
+    "acknowledged": "Acknowledged",
+    "resolved": "Resolved",
+    "ignored": "Ignored"
+  },
+  "Alerts": {
+    "title": "Alert Center",
+    "subtitle": "Acknowledge, resolve, or ignore fleet alerts",
+    "searchPlaceholder": "Search alerts…",
+    "emptyTitle": "No alerts match your filters",
+    "emptyDescription": "Try adjusting the status or store filter."
+  },
+  "AlertRow": {
+    "ack": "Ack",
+    "resolve": "Resolve",
+    "ignore": "Ignore",
+    "ignoreTitle": "Ignore this alert?",
+    "ignoreDescription": "Ignored alerts are removed from active monitoring but kept in history."
+  },
+  "History": {
+    "title": "History",
+    "subtitle": "Full event timeline across all machines and stores"
+  },
+  "HistoryFilters": {
+    "dateRange": "Date Range",
+    "allMachines": "All Machines",
+    "eventType": "Event Type",
+    "clear": "Clear"
+  },
+  "HistoryTable": {
+    "emptyTitle": "No events found",
+    "emptyDescription": "Try adjusting your filters or date range.",
+    "timestamp": "Timestamp",
+    "machine": "Machine",
+    "type": "Type",
+    "message": "Message"
+  },
+  "ExportButtons": {
+    "noRows": "No rows to export",
+    "exportedCsv": "Exported {count} rows to CSV",
+    "exportedExcel": "Exported {count} rows to Excel",
+    "exportCsv": "Export CSV",
+    "exportExcel": "Export Excel"
+  },
+  "Analytics": {
+    "title": "Analytics",
+    "subtitle": "Fleet-wide uptime, current draw, and alert-frequency reports",
+    "fleetUptime": "Fleet Uptime",
+    "uptimeSub": "{online}/{total} online",
+    "avgCurrentDraw": "Avg Current Draw",
+    "avgCurrentSub": "Across active machines",
+    "alerts7d": "Alerts (7d)",
+    "alerts7dSub": "Last 7 days",
+    "resolutionRate": "Resolution Rate",
+    "resolutionSub": "Resolved + ignored",
+    "emptyTitle": "No machines in this store",
+    "emptyDescription": "Switch stores or add machines to see analytics.",
+    "statusBreakdown": "Status Breakdown",
+    "machinesByStore": "Machines by Store",
+    "alertActivity": "Alert Activity (14 days)",
+    "topEventTypes": "Top Event Types"
+  },
+  "Charts": {
+    "noMachines": "No machines to display",
+    "noEvents": "No events to display",
+    "info": "Info",
+    "critical": "Critical",
+    "count": "Count"
+  },
+  "StoreManagement": {
+    "title": "Store Management",
+    "subtitle": "Manage brands and the stores that belong under them",
+    "brandsTab": "Brands",
+    "storesTab": "Stores"
+  },
+  "BrandTable": {
+    "addBrand": "Add Brand",
+    "emptyTitle": "No brands yet",
+    "emptyDescription": "Create a brand to start grouping stores under it.",
+    "brand": "Brand",
+    "description": "Description",
+    "stores": "Stores",
+    "deleteTitle": "Delete '{name}'?",
+    "deleteDescription": "This cannot be undone. Stores must be reassigned or removed first."
+  },
+  "StoreTable": {
+    "addStore": "Add Store",
+    "emptyTitle": "No stores yet",
+    "emptyDescription": "Create a store to start adding machines to it.",
+    "store": "Store",
+    "address": "Address",
+    "brand": "Brand",
+    "machines": "Machines",
+    "switchTo": "Switch to",
+    "deleteTitle": "Delete '{name}'?",
+    "deleteDescription": "This cannot be undone. Machines must be reassigned or removed first."
+  },
+  "BrandForm": {
+    "editTitle": "Edit Brand",
+    "addTitle": "Add Brand",
+    "description": "Brands group one or more stores together.",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. AKADE Entertainment Group",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Optional description",
+    "colorLabel": "Color",
+    "saveChanges": "Save Changes",
+    "createBrand": "Create Brand"
+  },
+  "StoreForm": {
+    "editTitle": "Edit Store",
+    "addTitle": "Add Store",
+    "description": "Stores belong to a brand and contain machines.",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. Taipei Xinyi Flagship Store",
+    "addressLabel": "Address",
+    "addressPlaceholder": "Store address",
+    "brandLabel": "Brand",
+    "selectBrand": "Select a brand",
+    "selectBrandError": "Please select a brand",
+    "saveChanges": "Save Changes",
+    "createStore": "Create Store"
+  },
+  "GridSnapSettings": {
+    "title": "Layout Editor",
+    "description": "Grid, snap, and animation behavior for the Control Center canvas",
+    "gridSize": "Grid Size",
+    "snapToGrid": "Snap to Grid",
+    "snapToGridDescription": "Widgets snap to the grid automatically when dragging or resizing",
+    "showGrid": "Show Grid",
+    "showGridDescription": "Display the background grid on the canvas",
+    "animation": "Animations",
+    "animationDescription": "Status pulse/blink animations and transitions"
+  },
+  "NotificationSettings": {
+    "title": "Notifications",
+    "description": "Choose how alerts and events are delivered",
+    "saveToast": "Notification preferences saved",
+    "toastAlerts": "Toast Alerts",
+    "toastAlertsDescription": "Show a toast in the top-right when a new alert fires",
+    "emailDigest": "Daily Email Digest",
+    "emailDigestDescription": "Send a morning summary of events and alerts",
+    "criticalOnly": "Critical Only",
+    "criticalOnlyDescription": "Hide warning-level notifications",
+    "sound": "Sound Alert",
+    "soundDescription": "Play a sound when a critical alert fires"
+  },
+  "MqttConfig": {
+    "title": "MQTT Configuration",
+    "description": "Broker connection used for real-time device telemetry (placeholder)",
+    "connected": "Connected",
+    "saveToast": "MQTT configuration saved",
+    "brokerAddress": "Broker Address",
+    "topicPattern": "Topic Pattern",
+    "clientId": "Client ID"
+  },
+  "ApiConfig": {
+    "title": "API Configuration",
+    "description": "Backend endpoint and credentials (placeholder)",
+    "saveToast": "API configuration saved",
+    "endpoint": "Endpoint",
+    "apiKey": "API Key"
+  },
+  "LayoutDefaults": {
+    "title": "Layout Defaults",
+    "description": "Defaults applied when creating a new Control Center layout",
+    "saveToast": "Layout defaults saved",
+    "widgetSizeLabel": "Default Machine Widget Size",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "modeLabel": "Default Mode on Open",
+    "editMode": "Edit Mode",
+    "liveMode": "Live Mode"
+  },
+  "StoreConfig": {
+    "title": "Store Configuration",
+    "description": "Settings on this page apply only to the currently selected store (switch it from the top nav)",
+    "manageStores": "Manage Stores",
+    "currentStore": "Current Store",
+    "brand": "Brand"
+  },
+  "LayerGroup": {
+    "background": "Background",
+    "zones": "Zones",
+    "machines": "Machines",
+    "texts": "Texts",
+    "overlays": "Overlays"
+  },
+  "PropertyPanel": {
+    "properties": "Properties",
+    "nothingSelected": "Nothing selected",
+    "nothingSelectedDescription": "Select a widget on the canvas to edit its properties.",
+    "widgetsSelected": "{count} widgets selected",
+    "opacity": "Opacity",
+    "opacityPercent": "Opacity — {percent}%",
+    "lockAll": "Lock all",
+    "visible": "Visible",
+    "name": "Name",
+    "boundMachine": "Bound Machine",
+    "unbound": "Unbound",
+    "deviceId": "Device ID",
+    "store": "Store",
+    "group": "Group",
+    "widgetSize": "Widget Size",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "text": "Text",
+    "fontSize": "Font Size",
+    "color": "Color",
+    "background": "Background",
+    "borderColor": "Border Color",
+    "borderWidth": "Border Width",
+    "label": "Label",
+    "value": "Value",
+    "thickness": "Thickness",
+    "orientation": "Orientation",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "width": "Width",
+    "height": "Height",
+    "rotation": "Rotation",
+    "zIndex": "Z-Index",
+    "layer": "Layer",
+    "locked": "Locked"
+  },
+  "Toolbar": {
+    "undo": "Undo (Ctrl+Z)",
+    "redo": "Redo (Ctrl+Y)",
+    "save": "Save",
+    "discard": "Discard",
+    "autoArrange": "Auto Arrange",
+    "snapToGrid": "Snap to Grid",
+    "showGrid": "Show Grid",
+    "zoomOut": "Zoom Out",
+    "zoomIn": "Zoom In",
+    "fitScreen": "Fit Screen",
+    "exportLayout": "Export Layout",
+    "importLayout": "Import Layout",
+    "editMode": "Edit Mode",
+    "liveMode": "Live Mode",
+    "exported": "Layout exported",
+    "imported": "Imported {count} widgets",
+    "invalidFile": "Invalid layout file",
+    "discardTitle": "Discard unsaved changes?",
+    "discardDescription": "This reverts the layout back to the last saved version.",
+    "switchStoreTitle": "Switch store?",
+    "switchStoreDescription": "You have unsaved layout changes. Switching store will discard them.",
+    "switchStoreConfirm": "Discard and switch",
+    "loadFailed": "Failed to load this store's layout."
+  },
+  "LayersPanel": {
+    "title": "Layers",
+    "emptyTitle": "No layers",
+    "emptyDescription": "Add a widget to see it here.",
+    "lockLayer": "Lock {name}",
+    "unlockLayer": "Unlock {name}",
+    "hideLayer": "Hide {name}",
+    "showLayer": "Show {name}"
+  },
+  "WidgetPalette": {
+    "title": "Widget Library",
+    "hint": "Drag onto canvas, or click to add"
+  },
+  "WidgetType": {
+    "machine": "Machine",
+    "text": "Text",
+    "rectangle": "Rectangle",
+    "circle": "Circle",
+    "arrow": "Arrow",
+    "zone": "Zone",
+    "camera": "Camera",
+    "image": "Image",
+    "counter": "Counter",
+    "map": "Map",
+    "divider": "Divider",
+    "line": "Line"
+  },
+  "WidgetContextMenu": {
+    "duplicate": "Duplicate",
+    "bringToFront": "Bring to Front",
+    "sendToBack": "Send to Back",
+    "unlock": "Unlock",
+    "lock": "Lock",
+    "show": "Show",
+    "hide": "Hide",
+    "alignLeft": "Align Left",
+    "alignCenter": "Align Center",
+    "alignRight": "Align Right",
+    "alignTop": "Align Top",
+    "alignMiddle": "Align Middle",
+    "alignBottom": "Align Bottom",
+    "distributeHorizontally": "Distribute Horizontally",
+    "distributeVertically": "Distribute Vertically",
+    "delete": "Delete"
+  },
+  "LayoutVersionsMenu": {
+    "versions": "Versions",
+    "title": "Layout Versions",
+    "saveNew": "Save New",
+    "switchTitle": "Switch layout version?",
+    "switchDescription": "You have unsaved changes on the current layout. Switching will discard them.",
+    "switchConfirm": "Switch",
+    "deleteTitle": "Delete \"{name}\"?",
+    "deleteDescription": "This cannot be undone.",
+    "saveAsNewTitle": "Save as New Version",
+    "renameTitle": "Rename Version",
+    "saveAsNewDescription": "Saves the current canvas as a new named layout version.",
+    "renameDescription": "Update this version's display name.",
+    "nameLabel": "Name",
+    "save": "Save",
+    "rename": "Rename",
+    "savedAs": "Saved as \"{name}\"",
+    "defaultVersionName": "Layout {number}",
+    "justNow": "just now",
+    "minutesAgo": "{mins}m ago",
+    "hoursAgo": "{hours}h ago"
+  },
+  "SearchLocate": {
+    "locateMachine": "Locate machine…"
+  },
+  "MachineWidget": {
+    "unbound": "Unbound",
+    "current": "Current",
+    "door": "Door",
+    "open": "Open",
+    "closed": "Closed",
+    "heartbeat": "Heartbeat",
+    "secondsAgo": "{seconds}s ago",
+    "rssi": "RSSI",
+    "firmware": "Firmware",
+    "lastUpdate": "Last Update"
+  },
+  "ShapeWidgets": {
+    "floorPlanImage": "Floor plan image"
+  },
+  "MachineDrawer": {
+    "liveTab": "Live",
+    "overviewTab": "Overview",
+    "historyTab": "History",
+    "currentLabel": "Current (A)",
+    "machineName": "Machine Name",
+    "deviceId": "Device ID",
+    "store": "Store",
+    "group": "Group",
+    "firmware": "Firmware",
+    "restartCount": "Restart Count",
+    "recentEvents": "Recent Events",
+    "alertHistory": "Alert History",
+    "maintenanceRecords": "Maintenance Records"
+  },
+  "MachineLiveInfo": {
+    "heartbeat": "Heartbeat",
+    "door": "Door",
+    "open": "Open",
+    "closed": "Closed",
+    "wifiRssi": "WiFi RSSI",
+    "restartCount": "Restart Count",
+    "firmware": "Firmware",
+    "lastUpdate": "Last Update",
+    "justNow": "just now",
+    "secondsAgo": "{seconds}s ago",
+    "minutesAgo": "{minutes}m ago",
+    "hoursAgo": "{hours}h ago"
+  },
+  "MachineEventsList": {
+    "emptyTitle": "No recent events",
+    "emptyDescription": "This machine has no recorded events yet."
+  },
+  "MachineAlertHistory": {
+    "emptyTitle": "No alert history",
+    "emptyDescription": "This machine has never triggered an alert."
+  },
+  "MachineMaintenanceRecords": {
+    "emptyTitle": "No maintenance records",
+    "emptyDescription": "No maintenance has been logged for this machine."
+  },
+  "LoadingSkeletons": {
+    "loadingEditor": "Loading Layout Editor…"
+  },
+  "ErrorState": {
+    "title": "Something went wrong",
+    "description": "Failed to load data, please try again.",
+    "retry": "Retry"
+  },
+  "SearchCommand": {
+    "placeholder": "Search machine ID / name / device ID / store…",
+    "empty": "No matching results found.",
+    "machinesGroup": "Machines",
+    "navigateGroup": "Navigate"
+  },
+  "ComingSoon": {
+    "description": "This module is being planned and will launch in a future release."
+  },
+  "UsersPage": {
+    "title": "Users & Permissions",
+    "subtitle": "View all account records and current permission state",
+    "accountsSuffix": "accounts",
+    "totalUsers": "Total Users",
+    "totalUsersSub": "All registered accounts",
+    "administrators": "Administrators",
+    "administratorsSub": "Users with elevated access",
+    "totalPoints": "Total Points",
+    "totalPointsSub": "Combined reward balance",
+    "totalTickets": "Total Tickets",
+    "updatedAt": "Updated {date}",
+    "noActivityYet": "No activity yet",
+    "unavailableTitle": "Users page unavailable",
+    "loadError": "Failed to load user data, please try again later.",
+    "emptyTitle": "No users yet",
+    "emptyDescription": "Users will appear here once accounts are created or synced from the backend.",
+    "directoryTitle": "User Directory",
+    "directorySubtitle": "Sorted by total points in descending order",
+    "user": "User",
+    "points": "Points",
+    "tickets": "Tickets",
+    "role": "Role",
+    "joined": "Joined",
+    "updated": "Updated",
+    "admin": "Admin",
+    "regularUser": "User",
+    "anonymousUser": "Anonymous User"
+  }
+}

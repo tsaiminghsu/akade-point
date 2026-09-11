@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   BarChart3,
   HardDrive,
@@ -37,6 +38,8 @@ interface SearchCommandProps {
 }
 
 export function SearchCommand({ open, onOpenChange, onSelectMachine }: SearchCommandProps) {
+  const t = useTranslations("SearchCommand");
+  const tSidebar = useTranslations("Sidebar");
   const router = useRouter();
   const machines = useMachinesStore((s) => s.machines);
   const stores = useMachinesStore((s) => s.stores);
@@ -60,10 +63,10 @@ export function SearchCommand({ open, onOpenChange, onSelectMachine }: SearchCom
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="搜尋機台 ID / 名稱 / Device ID / 店家…" />
+      <CommandInput placeholder={t("placeholder")} />
       <CommandList>
-        <CommandEmpty>沒有找到相符的結果。</CommandEmpty>
-        <CommandGroup heading="Machines">
+        <CommandEmpty>{t("empty")}</CommandEmpty>
+        <CommandGroup heading={t("machinesGroup")}>
           {machines.slice(0, 50).map((m) => (
             <CommandItem
               key={m.id}
@@ -77,33 +80,33 @@ export function SearchCommand({ open, onOpenChange, onSelectMachine }: SearchCom
           ))}
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="Navigate">
+        <CommandGroup heading={t("navigateGroup")}>
           <CommandItem value="dashboard" onSelect={() => go(ROOT)}>
-            <LayoutDashboard className="h-4 w-4" /> Dashboard
+            <LayoutDashboard className="h-4 w-4" /> {tSidebar("dashboard")}
           </CommandItem>
           <CommandItem value="control center editor" onSelect={() => go(`${ROOT}/editor`)}>
-            <MonitorSmartphone className="h-4 w-4" /> Control Center
+            <MonitorSmartphone className="h-4 w-4" /> {tSidebar("controlCenter")}
           </CommandItem>
           <CommandItem value="machines" onSelect={() => go(`${ROOT}/machines`)}>
-            <HardDrive className="h-4 w-4" /> Machines
+            <HardDrive className="h-4 w-4" /> {tSidebar("machines")}
           </CommandItem>
           <CommandItem value="alerts" onSelect={() => go(`${ROOT}/alerts`)}>
-            <ShieldAlert className="h-4 w-4" /> Alert Center
+            <ShieldAlert className="h-4 w-4" /> {tSidebar("alerts")}
           </CommandItem>
           <CommandItem value="history" onSelect={() => go(`${ROOT}/history`)}>
-            <HistoryIcon className="h-4 w-4" /> History
+            <HistoryIcon className="h-4 w-4" /> {tSidebar("history")}
           </CommandItem>
           <CommandItem value="analytics" onSelect={() => go(`${ROOT}/analytics`)}>
-            <BarChart3 className="h-4 w-4" /> Analytics
+            <BarChart3 className="h-4 w-4" /> {tSidebar("analytics")}
           </CommandItem>
           <CommandItem value="store management" onSelect={() => go(`${ROOT}/stores`)}>
-            <StoreIcon className="h-4 w-4" /> Store Management
+            <StoreIcon className="h-4 w-4" /> {tSidebar("storeManagement")}
           </CommandItem>
           <CommandItem value="users" onSelect={() => go(`${ROOT}/users`)}>
-            <UsersIcon className="h-4 w-4" /> Users
+            <UsersIcon className="h-4 w-4" /> {tSidebar("users")}
           </CommandItem>
           <CommandItem value="settings" onSelect={() => go(`${ROOT}/settings`)}>
-            <SettingsIcon className="h-4 w-4" /> Settings
+            <SettingsIcon className="h-4 w-4" /> {tSidebar("settings")}
           </CommandItem>
         </CommandGroup>
       </CommandList>

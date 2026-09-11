@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { ArrowRight, Store } from "lucide-react";
 
@@ -8,6 +9,7 @@ import { SettingsSection, SettingsRow } from "./SettingsSection";
 import { useMachinesStore } from "@/store/useMachinesStore";
 
 export function StoreConfigForm() {
+  const t = useTranslations("StoreConfig");
   const stores = useMachinesStore((s) => s.stores);
   const brands = useMachinesStore((s) => s.brands);
   const activeStoreId = useMachinesStore((s) => s.activeStoreId);
@@ -16,21 +18,21 @@ export function StoreConfigForm() {
 
   return (
     <SettingsSection
-      title="Store Configuration"
-      description="Settings on this page apply to the active store, switched from the top navigation bar"
+      title={t("title")}
+      description={t("description")}
       icon={Store}
       actions={
         <Button asChild size="sm" variant="outline" className="gap-1.5">
           <Link href="/iot-control-center/stores">
-            Manage Stores <ArrowRight className="h-3.5 w-3.5" />
+            {t("manageStores")} <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </Button>
       }
     >
-      <SettingsRow label="Active store" description={activeStore?.address}>
+      <SettingsRow label={t("currentStore")} description={activeStore?.address}>
         <span className="text-sm font-medium text-foreground">{activeStore?.name ?? "—"}</span>
       </SettingsRow>
-      <SettingsRow label="Brand">
+      <SettingsRow label={t("brand")}>
         <span className="flex items-center gap-1.5 text-sm text-foreground">
           {brand && <span className="h-2.5 w-2.5 rounded-full" style={{ background: brand.color }} />}
           {brand?.name ?? "—"}

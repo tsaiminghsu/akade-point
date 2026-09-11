@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ interface SearchLocateProps {
 }
 
 export function SearchLocate({ containerRef }: SearchLocateProps) {
+  const t = useTranslations("SearchLocate");
   const [open, setOpen] = useState(false);
 
   function locateMachine(machineId: string) {
@@ -33,7 +35,7 @@ export function SearchLocate({ containerRef }: SearchLocateProps) {
   return (
     <>
       <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => setOpen(true)}>
-        <Search className="h-3.5 w-3.5" /> <span className="hidden md:inline">Locate machine…</span>
+        <Search className="h-3.5 w-3.5" /> <span className="hidden md:inline">{t("locateMachine")}</span>
       </Button>
       <SearchCommand open={open} onOpenChange={setOpen} onSelectMachine={locateMachine} />
     </>

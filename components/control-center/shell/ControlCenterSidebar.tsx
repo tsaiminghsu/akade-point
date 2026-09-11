@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   MonitorSmartphone,
@@ -26,7 +27,7 @@ import { useAlertStore } from "@/store/useAlertStore";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
   badgeCount?: () => number;
 }
@@ -34,18 +35,19 @@ interface NavItem {
 const ROOT = "/iot-control-center";
 
 const NAV_ITEMS: NavItem[] = [
-  { href: ROOT, label: "Dashboard", icon: LayoutDashboard },
-  { href: `${ROOT}/editor`, label: "Control Center", icon: MonitorSmartphone },
-  { href: `${ROOT}/machines`, label: "Machines", icon: HardDrive },
-  { href: `${ROOT}/alerts`, label: "Alerts", icon: ShieldAlert },
-  { href: `${ROOT}/history`, label: "History", icon: History },
-  { href: `${ROOT}/analytics`, label: "Analytics", icon: BarChart3 },
-  { href: `${ROOT}/stores`, label: "Store Management", icon: Store },
-  { href: `${ROOT}/users`, label: "Users", icon: Users },
-  { href: `${ROOT}/settings`, label: "Settings", icon: Settings },
+  { href: ROOT, labelKey: "dashboard", icon: LayoutDashboard },
+  { href: `${ROOT}/editor`, labelKey: "controlCenter", icon: MonitorSmartphone },
+  { href: `${ROOT}/machines`, labelKey: "machines", icon: HardDrive },
+  { href: `${ROOT}/alerts`, labelKey: "alerts", icon: ShieldAlert },
+  { href: `${ROOT}/history`, labelKey: "history", icon: History },
+  { href: `${ROOT}/analytics`, labelKey: "analytics", icon: BarChart3 },
+  { href: `${ROOT}/stores`, labelKey: "storeManagement", icon: Store },
+  { href: `${ROOT}/users`, labelKey: "users", icon: Users },
+  { href: `${ROOT}/settings`, labelKey: "settings", icon: Settings },
 ];
 
 export function ControlCenterSidebar() {
+  const t = useTranslations("Sidebar");
   const pathname = usePathname() ?? "";
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -92,7 +94,7 @@ export function ControlCenterSidebar() {
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
-                  <span className={cn("truncate", collapsed && "md:hidden")}>{item.label}</span>
+                  <span className={cn("truncate", collapsed && "md:hidden")}>{t(item.labelKey)}</span>
                   {item.href === `${ROOT}/alerts` && activeAlerts > 0 && (
                     <span
                       className={cn(
@@ -111,7 +113,7 @@ export function ControlCenterSidebar() {
                     <Tooltip>
                       <TooltipTrigger asChild>{link}</TooltipTrigger>
                       <TooltipContent side="right" className="hidden md:block">
-                        {item.label}
+                        {t(item.labelKey)}
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -131,7 +133,7 @@ export function ControlCenterSidebar() {
             onClick={toggleSidebar}
           >
             {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-            {!collapsed && <span>Collapse</span>}
+            {!collapsed && <span>{t("collapse")}</span>}
           </Button>
         </div>
       </aside>

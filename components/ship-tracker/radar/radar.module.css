@@ -1,0 +1,661 @@
+/*
+ * Radar console styling.
+ *
+ * Variables are scoped to .root rather than :root so they cannot leak into the
+ * Tailwind theme the rest of the app uses. The palette is the phosphor green of
+ * a marine set against near-black, with amber and red reserved for warnings and
+ * alarms so a coloured pixel on this screen always means something.
+ */
+
+.root {
+  --bg: #060b09;
+  --panel: #0d1512;
+  --panel-raised: #121d18;
+  --border: #1e2f27;
+  --border-bright: #2c4a3c;
+  --text: #d6e8de;
+  --text-dim: #7d9a8d;
+  --accent: #4ade9a;
+  --warning: #f5c451;
+  --danger: #ff5f56;
+  --info: #5ac8f5;
+
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-size: 13px;
+}
+
+.main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr) 320px;
+  gap: 10px;
+  padding: 10px;
+  min-height: 0;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 2px;
+  min-height: 0;
+}
+
+.rail::-webkit-scrollbar,
+.tableScroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.rail::-webkit-scrollbar-thumb,
+.tableScroll::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 4px;
+}
+
+.center {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(150px, 34%);
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ── Panels ─────────────────────────────────────────────────────── */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+}
+
+.hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
+
+/* ── Controls ───────────────────────────────────────────────────── */
+
+.rangeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.rangeButton,
+.rangeActive {
+  padding: 6px 0;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--panel-raised);
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.rangeButton:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.rangeActive {
+  background: rgba(74, 222, 154, 0.16);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.segmented {
+  display: flex;
+  gap: 3px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.segment,
+.segmentActive {
+  flex: 1;
+  padding: 5px 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.segment:hover {
+  color: var(--text);
+}
+
+.segmentActive {
+  background: rgba(74, 222, 154, 0.18);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sliderLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.sliderLabel em {
+  font-style: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+.slider input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-bright);
+  outline: none;
+  cursor: pointer;
+}
+
+.slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.slider input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.toggleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.toggle input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.btnRow {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  flex: 1;
+  padding: 7px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border-bright);
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+  background: rgba(74, 222, 154, 0.1);
+}
+
+.liveStatus {
+  font-size: 11.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-dim);
+}
+
+.live_connected {
+  color: var(--accent);
+}
+
+.live_connecting {
+  color: var(--warning);
+}
+
+.live_error {
+  color: var(--danger);
+}
+
+/* ── Readouts ───────────────────────────────────────────────────── */
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 10px;
+  margin: 0;
+}
+
+.readout > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.readout dt {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.readout dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.valueAlarm {
+  color: var(--danger) !important;
+  font-weight: 600;
+}
+
+.detailName {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge_safe {
+  background: rgba(74, 222, 154, 0.15);
+  color: var(--accent);
+}
+
+.badge_warning {
+  background: rgba(245, 196, 81, 0.15);
+  color: var(--warning);
+}
+
+.badge_danger {
+  background: rgba(255, 95, 86, 0.18);
+  color: var(--danger);
+}
+
+.flags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+}
+
+.flagDanger {
+  color: var(--danger);
+}
+
+.flagWarn {
+  color: var(--warning);
+}
+
+/* ── Scope ──────────────────────────────────────────────────────── */
+
+.scopeWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.scopeCanvas {
+  display: block;
+  touch-action: none;
+}
+
+.cursorReadout {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: rgba(6, 18, 13, 0.82);
+  border: 1px solid var(--border-bright);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--accent);
+}
+
+.cursorReadout span {
+  color: var(--text-dim);
+}
+
+.scopeHint {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+/* ── Target table ───────────────────────────────────────────────── */
+
+.tableWrap {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tableHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tableCount {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tableScroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel-raised);
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(30, 47, 39, 0.55);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.table tbody tr {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.table tbody tr:hover {
+  background: rgba(74, 222, 154, 0.07);
+}
+
+.rowSelected {
+  background: rgba(74, 222, 154, 0.14) !important;
+}
+
+.rowWarning td {
+  color: var(--warning);
+}
+
+.rowDanger td {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.cellName {
+  font-family: ui-sans-serif, system-ui, "Noto Sans TC", sans-serif !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tagAis,
+.tagDark {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.tagAis {
+  background: rgba(90, 200, 245, 0.16);
+  color: var(--info);
+}
+
+.tagDark {
+  background: rgba(125, 154, 141, 0.16);
+  color: var(--text-dim);
+}
+
+.tableEmpty {
+  text-align: center;
+  padding: 24px !important;
+  color: var(--text-dim);
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* ── Alarms and status ──────────────────────────────────────────── */
+
+.alarmDanger,
+.alarmWarn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  border-bottom: 1px solid;
+}
+
+.alarmDanger {
+  background: rgba(255, 95, 86, 0.14);
+  border-color: rgba(255, 95, 86, 0.4);
+  color: #ffb3ae;
+  animation: alarmPulse 1s ease-in-out infinite;
+}
+
+.alarmWarn {
+  background: rgba(245, 196, 81, 0.12);
+  border-color: rgba(245, 196, 81, 0.35);
+  color: #ffe0a3;
+}
+
+.alarmDanger strong,
+.alarmWarn strong {
+  letter-spacing: 0.08em;
+}
+
+.alarmDanger em,
+.alarmWarn em {
+  margin-left: auto;
+  font-style: normal;
+  opacity: 0.75;
+  font-size: 11.5px;
+}
+
+@keyframes alarmPulse {
+  0%, 100% { background: rgba(255, 95, 86, 0.1); }
+  50% { background: rgba(255, 95, 86, 0.22); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alarmDanger {
+    animation: none;
+  }
+}
+
+.statusBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.statusAlarm {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ── Narrow layouts ─────────────────────────────────────────────── */
+
+@media (max-width: 1240px) {
+  .main {
+    grid-template-columns: 240px minmax(0, 1fr) 280px;
+  }
+}
+
+@media (max-width: 1040px) {
+  .root {
+    position: relative;
+    inset: auto;
+    min-height: 100dvh;
+  }
+
+  .main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
+  /* Stacked, the scope has to come first. Source order puts the left-hand
+     controls above it, which would leave the operator scrolling past every
+     slider on the console before reaching the picture. */
+  .center {
+    order: -1;
+  }
+
+  .rail {
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+
+  .center {
+    grid-template-rows: auto auto;
+  }
+
+  .scopeWrap {
+    aspect-ratio: 1;
+    min-height: 320px;
+  }
+
+  .tableScroll {
+    max-height: 300px;
+  }
+}

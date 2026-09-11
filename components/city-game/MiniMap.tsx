@@ -1,10 +1,16 @@
 'use client';
-import { useRef, useEffect } from 'react';
-import { GameState, WorldData, TILE_SIZE, GRID_SIZE } from './types';
-import { renderMiniMap } from './renderer';
+import { useRef, useEffect, useCallback } from 'react';
+import { GameState, WorldData } from './types';
+import {
+  MiniMapTransform,
+  minimapToWorld,
+  renderMiniMapFull,
+  renderMiniMapGTA,
+  VIEW_RADIUS_FOOT,
+  VIEW_RADIUS_VEHICLE,
+} from './minimapRender';
 
 interface Props {
-  state: GameState | null;
   world: WorldData | null;
   expanded: boolean;
   onWaypointSet: (worldX: number, worldY: number) => void;
@@ -12,173 +18,177 @@ interface Props {
   onCollapse?: () => void;
 }
 
-export default function MiniMap({ state, world, expanded, onWaypointSet, isMobile = false, onCollapse }: Props) {
+/**
+ * The minimap subscribes to the engine's snapshot event directly and draws
+ * imperatively. Routing the ~20Hz snapshot through React state would re-render
+ * the whole game shell on every tick.
+ */
+export default function MiniMap({ world, expanded, onWaypointSet, isMobile = false, onCollapse }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const worldTotal = GRID_SIZE * TILE_SIZE;
+  const overlayRef = useRef<HTMLCanvasElement>(null);
 
-  // Desktop size
-  const mapSize = isMobile ? (expanded ? 0 : 96) : (expanded ? 280 : 160);
+  // Latest engine snapshot, and the transform used by the most recent draw.
+  const stateRef = useRef<GameState | null>(null);
+  const transformRef = useRef<MiniMapTransform | null>(null);
+  const overlayTransformRef = useRef<MiniMapTransform | null>(null);
 
-  // Draw on the compact canvas (desktop + mobile collapsed)
-  useEffect(() => {
-    if (isMobile && expanded) return; // overlay handles its own draw
+  // Read in the event handler; kept in refs so the listener never re-binds.
+  const expandedRef = useRef(expanded);
+  const worldRef = useRef(world);
+  const viewRadiusRef = useRef(VIEW_RADIUS_VEHICLE);
+  expandedRef.current = expanded;
+  worldRef.current = world;
+
+  const compactSize = isMobile ? 104 : 168;
+
+  const draw = useCallback(() => {
+    const state = stateRef.current;
+    const w = worldRef.current;
+    if (!state || !w) return;
+
+    // Zoom out a little while driving so there is more warning of turns.
+    const target = state.player.state === 'onFoot' ? VIEW_RADIUS_FOOT : VIEW_RADIUS_VEHICLE;
+    viewRadiusRef.current += (target - viewRadiusRef.current) * 0.08;
+
+    if (expandedRef.current) {
+      const canvas = overlayRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) {
+        overlayTransformRef.current = renderMiniMapFull(ctx, state, w, canvas.width, canvas.height);
+      }
+      return;
+    }
+
     const canvas = canvasRef.current;
-    if (!canvas || !state || !world) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    renderMiniMap(ctx, state, world, mapSize);
-  });
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) {
+      transformRef.current = renderMiniMapGTA(ctx, state, w, canvas.width, viewRadiusRef.current);
+    }
+  }, []);
 
-  // Draw on the full-screen overlay canvas (mobile expanded)
   useEffect(() => {
-    if (!isMobile || !expanded) return;
-    const canvas = overlayCanvasRef.current;
-    if (!canvas || !state || !world) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    renderMiniMap(ctx, state, world, Math.max(canvas.width, canvas.height));
-  });
+    const handler = (e: Event) => {
+      stateRef.current = (e as CustomEvent<GameState>).detail;
+      draw();
+    };
+    window.addEventListener('city:minimap', handler as EventListener);
+    return () => window.removeEventListener('city:minimap', handler as EventListener);
+  }, [draw]);
 
-  function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    const scale = mapSize / worldTotal;
-    const wx = cx / scale;
-    const wy = cy / scale;
-    onWaypointSet(wx, wy);
-  }
+  // Redraw immediately when switching views so the panel is never blank.
+  useEffect(() => { draw(); }, [expanded, draw]);
 
-  function handleClickOverlay(e: React.MouseEvent<HTMLCanvasElement>) {
-    const canvas = overlayCanvasRef.current;
-    if (!canvas) return;
+  function handleCompactClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    const t = transformRef.current;
+    if (!canvas || !t) return;
     const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    const wx = (cx / rect.width) * worldTotal;
-    const wy = (cy / rect.height) * worldTotal;
-    onWaypointSet(wx, wy);
+    // Use the transform from the last render, not the live camera yaw, or the
+    // waypoint lands offset from where the player clicked.
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const p = minimapToWorld(t, (e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+    onWaypointSet(p.x, p.y);
   }
 
-  // Mobile expanded: full-screen overlay panel
-  if (isMobile && expanded) {
+  function handleOverlayClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const canvas = overlayRef.current;
+    const t = overlayTransformRef.current;
+    if (!canvas || !t) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const p = minimapToWorld(t, (e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+    onWaypointSet(p.x, p.y);
+  }
+
+  // ── Expanded: full-city map ────────────────────────────────────────────────
+  if (expanded) {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 400;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 400;
+    const side = Math.min(Math.round(w * (isMobile ? 0.92 : 0.6)), Math.round(h * 0.7));
+
     return (
       <div
         style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '60vh',
-          background: 'rgba(0,0,0,0.92)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
+          inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
           zIndex: 45,
-          pointerEvents: 'all',
           display: 'flex',
           flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          pointerEvents: 'all',
         }}
       >
-        {/* Header with close button */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', flexShrink: 0 }}>
-          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontFamily: 'monospace' }}>小地圖</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontFamily: 'monospace' }}>
+            城市地圖 · 點擊設定目的地
+          </span>
           <button
             onClick={onCollapse}
             aria-label="關閉地圖"
             style={{
-              minWidth: 44,
-              minHeight: 44,
+              minWidth: 44, minHeight: 40,
               background: 'rgba(255,255,255,0.1)',
               border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: 8,
-              color: '#fff',
-              fontSize: 14,
-              fontFamily: 'monospace',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
+              borderRadius: 8, color: '#fff',
+              fontSize: 13, fontFamily: 'monospace', cursor: 'pointer',
             }}
           >
-            ✕ 關閉
+            ✕ 關閉 {!isMobile && '(M)'}
           </button>
         </div>
 
-        {/* Full-width canvas */}
         <canvas
-          ref={overlayCanvasRef}
-          width={typeof window !== 'undefined' ? window.innerWidth : 400}
-          height={typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.6) - 60 : 300}
-          onClick={handleClickOverlay}
-          style={{ flex: 1, width: '100%', cursor: 'crosshair', display: 'block' }}
-          title="點擊設定路標"
+          ref={overlayRef}
+          width={side}
+          height={side}
+          onClick={handleOverlayClick}
+          style={{
+            width: side, height: side,
+            cursor: 'crosshair',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.2)',
+          }}
         />
-
-        {/* Hint bar */}
-        <div style={{ padding: '6px 12px', color: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace', flexShrink: 0 }}>
-          點擊設定目的地
-        </div>
-
-        {/* Legend */}
-        <div style={{ padding: '4px 12px 8px', display: 'flex', gap: 16, flexShrink: 0 }}>
-          {[
-            { color: '#facc15', round: true,  label: '你' },
-            { color: '#fde047', round: false, label: '計程車' },
-            { color: '#fb923c', round: false, label: '外送' },
-            { color: '#ef4444', round: false, label: '目標' },
-          ].map(({ color, round, label }) => (
-            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.5)', fontSize: 10, fontFamily: 'monospace' }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: round ? '50%' : 2, background: color }} />
-              {label}
-            </span>
-          ))}
-        </div>
       </div>
     );
   }
 
+  // ── Collapsed: rotating GTA-style minimap, bottom-right ────────────────────
   return (
     <div
-      className="absolute flex flex-col items-end gap-1"
+      className="absolute"
       style={{
-        top: isMobile ? 'calc(12px + env(safe-area-inset-top, 0px))' : '12px',
-        right: isMobile ? 'calc(12px + env(safe-area-inset-right, 0px))' : '12px',
+        bottom: isMobile
+          ? 'calc(150px + env(safe-area-inset-bottom, 0px))'
+          : '12px',
+        right: isMobile ? '50%' : '12px',
+        transform: isMobile ? 'translateX(50%)' : undefined,
         pointerEvents: 'all',
       }}
     >
-      <div
-        className="relative rounded-lg overflow-hidden border border-white/20 shadow-2xl"
-        style={{ width: mapSize, height: mapSize }}
-      >
+      <div className="relative" style={{ width: compactSize, height: compactSize }}>
         <canvas
           ref={canvasRef}
-          width={mapSize}
-          height={mapSize}
-          onClick={handleClick}
+          width={compactSize}
+          height={compactSize}
+          onClick={handleCompactClick}
           className="block cursor-crosshair"
           title="點擊設定路標"
+          style={{ borderRadius: '50%' }}
         />
-        {/* Corner label */}
-        <div className="absolute top-1 left-1 text-[9px] font-mono text-white/30 pointer-events-none">
-          小地圖{!isMobile ? ' (M)' : ''}
-        </div>
-        <div className="absolute bottom-1 left-1 text-[9px] font-mono text-white/30 pointer-events-none">
-          點擊設定目的地
-        </div>
+        {!isMobile && (
+          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[9px] font-mono text-white/35 pointer-events-none whitespace-nowrap">
+            M 全圖
+          </div>
+        )}
       </div>
-
-      {/* Legend — desktop expanded only */}
-      {expanded && !isMobile && (
-        <div className="bg-black/70 backdrop-blur border border-white/10 rounded px-2 py-1 text-[9px] font-mono text-white/50 flex gap-3">
-          <span><span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1" />你</span>
-          <span><span className="inline-block w-2 h-2 bg-yellow-300 mr-1" />計程車</span>
-          <span><span className="inline-block w-2 h-2 bg-orange-400 mr-1" />外送</span>
-          <span><span className="inline-block w-2 h-2 bg-red-500 mr-1" />目標</span>
-        </div>
-      )}
     </div>
   );
 }
