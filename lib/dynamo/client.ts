@@ -27,17 +27,6 @@ export const TABLES = {
   SESSIONS: "akade-sessions",
   SHOPS: "akade-shops",
   REWARDS: "akade-rewards",
-
-  // IoT Control Center
-  CC_BRANDS: "akade-cc-brands",
-  CC_STORES: "akade-cc-stores",
-  CC_GROUPS: "akade-cc-groups",
-  CC_MACHINES: "akade-cc-machines",
-  CC_MACHINE_EVENTS: "akade-cc-machine-events",
-  CC_ALERTS: "akade-cc-alerts",
-  CC_MAINTENANCE_RECORDS: "akade-cc-maintenance-records",
-  CC_STORE_SETTINGS: "akade-cc-store-settings",
-  CC_LAYOUT_VERSIONS: "akade-cc-layout-versions",
 } as const;
 
 /**

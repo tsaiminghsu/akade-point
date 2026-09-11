@@ -35,18 +35,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# control center prototype data (temporary JSON-file storage, pre-database)
-/data/control-center/
-
 # DynamoDB Local (offline dev — see scripts/start-dynamodb-local.mjs)
 /.dynamodb-local/
 /.dynamodb-local-data/
-
-# ARIP backend/SDK build output and deps (split-out project; see D:\akade-arip)
-/arip/backend/node_modules
-/arip/backend/dist
-/arip/sdk/node_modules
-/arip/sdk/dist
 
 # Ship Tracker Python backend: runtime dirs + YOLO weights
 # yolov8n.pt is a 6.3MB pretrained weight — download from

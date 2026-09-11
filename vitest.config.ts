@@ -12,9 +12,7 @@ export default defineConfig({
     include: [
       'components/minecraft/**/*.test.ts',
       'components/minecraft/**/*.test.tsx',
-      'lib/control-center/**/*.test.ts',
       'lib/dynamo/**/*.test.ts',
-      'store/**/*.test.ts',
       'components/city-game/**/*.test.ts',
       'components/ship-tracker/**/*.test.ts',
       'components/dice-game/**/*.test.ts',

@@ -9,7 +9,7 @@
  * the picture paints continuously.
  */
 
-import { mulberry32 } from '@/lib/control-center/mockData';
+import { mulberry32 } from './rng';
 import {
   bearingDelta,
   haversineNm,

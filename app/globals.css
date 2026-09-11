@@ -42,9 +42,9 @@
     --z-floating: 900;
     --z-dropdown: 1000;
 
-    /* ---- shadcn/ui standard tokens (site-wide fallback defaults,
-       kept in the existing amber/purple family so any shadcn primitive
-       rendered outside the Control Center still blends in) ---- */
+    /* ---- shadcn/ui standard tokens, in the site's amber/purple family.
+       Only components/ui/rarity-badge.tsx remains of shadcn here, but the
+       .card / .page / .section component classes below read these too. ---- */
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
     --popover: 222 47% 11%;
@@ -55,56 +55,8 @@
     --ring: 38 92% 50%;
     --radius: 0.75rem;
 
-    /* ---- 4-state device status language + single chart hue,
-       default values here; overridden with the Control Center's
-       blue/cyan palette inside .cc-theme below ---- */
-    --status-online: 142 71% 45%;
-    --status-warning: 38 92% 50%;
-    --status-alarm: 0 84% 60%;
-    --status-offline: 215 16% 47%;
-    --chart-1: 217 91% 60%;
   }
 
-  /* ============================================================
-     Enterprise IoT Control Center — scoped dark/blue-cyan theme.
-     Applied on the (control-center) route group's shell root only,
-     so it never touches the amber/purple theme used elsewhere.
-     ============================================================ */
-  .cc-theme {
-    --card: 222 44% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 44% 9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 199 89% 48%;
-    --primary-foreground: 222 47% 6%;
-    --secondary: 217 33% 15%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 30% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 189 94% 43%;
-    --accent-foreground: 222 47% 6%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 22%;
-    --ring: 199 89% 48%;
-
-    --status-online: 142 71% 45%;
-    --status-warning: 38 95% 54%;
-    --status-alarm: 0 72% 51%;
-    --status-offline: 215 14% 40%;
-    --chart-1: 199 89% 55%;
-
-    background-color: hsl(224 50% 5%);
-    color: hsl(210 40% 98%);
-    background-image:
-      radial-gradient(ellipse 80% 60% at 15% 0%, hsl(199 89% 48% / 0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 100% 30%, hsl(189 94% 43% / 0.06) 0%, transparent 60%);
-  }
-
-  .cc-theme * {
-    border-color: hsl(var(--border));
-  }
 
   html {
     width: 100%;
@@ -712,42 +664,3 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ============================================================
-   Control Center utilities — glass cards, grid canvas background,
-   status glow rings. Only meant to be used within .cc-theme.
-   ============================================================ */
-@layer utilities {
-  .cc-glass {
-    background: hsl(var(--card) / 0.72);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid hsl(var(--border) / 0.8);
-  }
-
-  .cc-card {
-    border-radius: var(--radius);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  }
-
-  .cc-card:hover {
-    border-color: hsl(var(--primary) / 0.4);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px hsl(var(--primary) / 0.08);
-  }
-
-  .cc-grid-bg {
-    background-image:
-      linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
-  }
-
-  .cc-status-ring::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: inherit;
-    border: 2px solid currentColor;
-    animation: cc-pulse-ring 1.8s ease-out infinite;
-    pointer-events: none;
-  }
-}

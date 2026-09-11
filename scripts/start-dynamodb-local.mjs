@@ -12,7 +12,6 @@
  *   node scripts/start-dynamodb-local.mjs
  * Then, in another terminal (once per fresh .dynamodb-local-data/):
  *   DYNAMODB_LOCAL_ENDPOINT=http://localhost:8500 node scripts/create-tables.mjs
- *   DYNAMODB_LOCAL_ENDPOINT=http://localhost:8500 node scripts/seed-control-center-local.mjs
  *
  * Data persists to .dynamodb-local-data/ (gitignored) across restarts.
  * Set DYNAMODB_LOCAL_ENDPOINT=http://localhost:8500 in .env.local so the

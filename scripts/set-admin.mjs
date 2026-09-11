@@ -1,8 +1,8 @@
 /**
  * One-off: grants isAdmin: true to a user record in akade-users, so they can
- * access /admin and /iot-control-center. There's no in-app way to grant the
- * *first* admin (the admin API itself requires already being an admin), so
- * this has to be run directly against DynamoDB.
+ * access /admin. There's no in-app way to grant the *first* admin (the admin
+ * API itself requires already being an admin), so this has to be run directly
+ * against DynamoDB.
  *
  * Usage: log in once via LINE at /login first (so your user record exists),
  * then run:

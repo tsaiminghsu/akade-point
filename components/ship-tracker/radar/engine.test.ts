@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mulberry32 } from '@/lib/control-center/mockData';
+import { mulberry32 } from './rng';
 import { RadarEngine, DEFAULT_CONFIG } from './engine';
 import { DEFAULT_SENSOR, sweep } from './radar';
 import { DEFAULT_OWN_SHIP, SCENE_ORIGIN, createFleet } from './world';
