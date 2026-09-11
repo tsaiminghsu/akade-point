@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --border: 217 33% 20%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 222 47% 8%;
+    --accent: 262 83% 58%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --destructive: 0 84% 60%;
+
+    /* Viewport & safe area (from jvtutorcorner-rwd) */
+    --vh: 1vh;
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+
+    /* Shadow scale — dark theme (higher alpha than light theme) */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+    --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+
+    /* Amber primary hex values (for box-shadow color stops) */
+    --primary-hex: #ffa500;
+    --primary-600-hex: #d97706;
+
+    /* Z-index scale */
+    --z-handles: 10;
+    --z-modal: 40;
+    --z-header: 100;
+    --z-hamburger: 101;
+    --z-mobile-menu: 120;
+    --z-floating: 900;
+    --z-dropdown: 1000;
+
+    /* ---- shadcn/ui standard tokens (site-wide fallback defaults,
+       kept in the existing amber/purple family so any shadcn primitive
+       rendered outside the Control Center still blends in) ---- */
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --accent-foreground: 210 40% 98%;
+    --destructive-foreground: 210 40% 98%;
+    --input: 217 33% 20%;
+    --ring: 38 92% 50%;
+    --radius: 0.75rem;
+
+    /* ---- 4-state device status language + single chart hue,
+       default values here; overridden with the Control Center's
+       blue/cyan palette inside .cc-theme below ---- */
+    --status-online: 142 71% 45%;
+    --status-warning: 38 92% 50%;
+    --status-alarm: 0 84% 60%;
+    --status-offline: 215 16% 47%;
+    --chart-1: 217 91% 60%;
+  }
+
+  /* ============================================================
+     Enterprise IoT Control Center — scoped dark/blue-cyan theme.
+     Applied on the Control Center shell root. The :root defaults above
+     stay amber so the LINE login page, which renders outside the shell,
+     keeps its own look.
+     ============================================================ */
+  .cc-theme {
+    --card: 222 44% 10%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 44% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 217 33% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 30% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 189 94% 43%;
+    --accent-foreground: 222 47% 6%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 20%;
+    --input: 217 33% 22%;
+    --ring: 199 89% 48%;
+
+    --status-online: 142 71% 45%;
+    --status-warning: 38 95% 54%;
+    --status-alarm: 0 72% 51%;
+    --status-offline: 215 14% 40%;
+    --chart-1: 199 89% 55%;
+
+    background-color: hsl(224 50% 5%);
+    color: hsl(210 40% 98%);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 15% 0%, hsl(199 89% 48% / 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 100% 30%, hsl(189 94% 43% / 0.06) 0%, transparent 60%);
+  }
+
+  .cc-theme * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    width: 100%;
+    height: 100%;
+  }
+
+  * {
+    border-color: hsl(217 33% 20%);
+  }
+
+  body {
+    color: hsl(210 40% 98%);
+    background-color: hsl(222 47% 8%);
+    background-image: radial-gradient(
+        ellipse at 20% 50%,
+        rgba(99, 102, 241, 0.08) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse at 80% 20%,
+        rgba(245, 158, 11, 0.06) 0%,
+        transparent 50%
+      );
+    min-height: 100dvh;
+    font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont,
+      'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+}
+
+
+/* ============================================================
+   Components carried over from the app this was split out of:
+   the only two shared classes the Control Center actually uses.
+   ============================================================ */
+@layer components {
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid hsl(var(--border));
+    border-top-color: hsl(var(--primary));
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    display: inline-block;
+  }
+
+  .spinner-sm {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+  }
+
+  /* Custom scrollbar — dark themed */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+/* ============================================================
+   Keyframes (outside layers to avoid hoisting issues)
+   spin drives .spinner; cc-pulse-ring is declared in tailwind.config.ts.
+   ============================================================ */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   Control Center utilities — glass cards, grid canvas background,
+   status glow rings. Only meant to be used within .cc-theme.
+   ============================================================ */
+@layer utilities {
+  .cc-glass {
+    background: hsl(var(--card) / 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid hsl(var(--border) / 0.8);
+  }
+
+  .cc-card {
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .cc-card:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px hsl(var(--primary) / 0.08);
+  }
+
+  .cc-grid-bg {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  }
+
+  .cc-status-ring::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    border: 2px solid currentColor;
+    animation: cc-pulse-ring 1.8s ease-out infinite;
+    pointer-events: none;
+  }
+}
