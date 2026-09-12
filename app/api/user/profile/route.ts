@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/dynamo/users";
-import { getUserSessions } from "@/lib/dynamo/sessions";
+import { getUserSessions, toPublicSession } from "@/lib/dynamo/sessions";
 import { requireSession } from "@/lib/session";
 
 export async function GET() {
@@ -12,5 +12,10 @@ export async function GET() {
     getUserSessions(user.id),
   ]);
 
-  return NextResponse.json({ profile, sessions: sessions.slice(0, 10) });
+  return NextResponse.json({
+    profile,
+    // Was returning raw session rows, which include serverSeed for PENDING
+    // sessions — enough to defeat the provably-fair commitment entirely.
+    sessions: sessions.slice(0, 10).map(toPublicSession),
+  });
 }

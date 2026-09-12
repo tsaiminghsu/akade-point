@@ -2,7 +2,9 @@ import { GetCommand, PutCommand, UpdateCommand, QueryCommand } from "@aws-sdk/li
 import { ddb, TABLES } from "./client";
 import { createId } from "@paralleldrive/cuid2";
 
-export type GameTrigger = "SMALL_GIFT" | "MEDIUM_GIFT" | "LARGE_GIFT" | "SSR_COMPLETE";
+import { BASE_REWARDS, type GameTrigger } from "@/lib/game/award";
+
+export type { GameTrigger };
 export type GameStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "EXPIRED";
 
 export interface GameSession {
@@ -27,12 +29,9 @@ export interface GameSession {
   completedAt?: string;
 }
 
-export const BASE_REWARDS: Record<GameTrigger, number> = {
-  SMALL_GIFT: 5,
-  MEDIUM_GIFT: 15,
-  LARGE_GIFT: 40,
-  SSR_COMPLETE: 100,
-};
+// Defined in lib/game/award.ts so client pages can read it without pulling
+// the AWS SDK into the browser bundle.
+export { BASE_REWARDS };
 
 export async function createGameSession(
   data: Pick<GameSession, "userId" | "trigger" | "tier" | "serverSeed" | "serverSeedHash">
@@ -111,6 +110,24 @@ export async function completeGameSession(
       ConditionExpression: "#st = :active",
     })
   );
+}
+
+/**
+ * A game session with the provably-fair commitment secret removed.
+ *
+ * serverSeed must not reach a client before the round is settled: clientSeed
+ * is client-chosen and nonce is 0, so anyone holding the seed can compute the
+ * resulting board for any clientSeed offline and pick the most favourable one
+ * before calling /start. Only /api/game/[id]/verify may reveal it, and only
+ * once the session is COMPLETED.
+ */
+export type PublicGameSession = Omit<GameSession, "serverSeed">;
+
+export function toPublicSession(session: GameSession): PublicGameSession {
+  // Destructure rather than delete so a newly added secret field is a type error.
+  const { serverSeed: _serverSeed, ...rest } = session;
+  void _serverSeed;
+  return rest;
 }
 
 export async function getUserSessions(userId: string): Promise<GameSession[]> {

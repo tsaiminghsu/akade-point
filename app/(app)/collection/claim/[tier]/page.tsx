@@ -3,11 +3,19 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
-const TIER_INFO: Record<string, { name: string; base: number; desc: string }> = {
-  SMALL: { name: "小禮", base: 50, desc: "任意 2 張 N 卡" },
-  MEDIUM: { name: "中禮", base: 150, desc: "2N + 1R" },
-  LARGE: { name: "大禮", base: 400, desc: "2N + 2R + 1SR" },
-  SSR_COMPLETE: { name: "SSR 傳說卡", base: 1000, desc: "完整套組 + 機器人之王" },
+import {
+  baseRewardForTier,
+  maxRewardForTier,
+  type RewardTier,
+} from "@/lib/game/award";
+
+// Names and requirements are presentation; the point figures come from
+// lib/game/award.ts so the screen can never promise more than the server pays.
+const TIER_INFO: Record<string, { name: string; desc: string }> = {
+  SMALL: { name: "小禮", desc: "任意 2 張 N 卡" },
+  MEDIUM: { name: "中禮", desc: "2N + 1R" },
+  LARGE: { name: "大禮", desc: "2N + 2R + 1SR" },
+  SSR_COMPLETE: { name: "SSR 傳說卡", desc: "完整套組 + 機器人之王" },
 };
 
 export default function ClaimPage() {
@@ -54,10 +62,10 @@ export default function ClaimPage() {
 
       <div className="bg-white/5 rounded-xl p-5 space-y-3 text-center">
         <p className="text-zinc-400 text-sm">基礎獎勵</p>
-        <p className="text-3xl font-bold text-amber-400">{info.base.toLocaleString()} 點</p>
+        <p className="text-3xl font-bold text-amber-400">{baseRewardForTier(tier as RewardTier).toLocaleString()} 點</p>
         <div className="border-t border-white/10 pt-3 space-y-1">
           <p className="text-zinc-400 text-xs">透過轉珠連線遊戲可獲得倍數加成！</p>
-          <p className="text-emerald-400 text-xs">最高可達 {info.base * 8.5} 點</p>
+          <p className="text-emerald-400 text-xs">最高可達 {maxRewardForTier(tier as RewardTier).toLocaleString()} 點</p>
         </div>
       </div>
 

@@ -122,73 +122,23 @@ export async function addTicket(userId: string): Promise<void> {
 }
 
 export async function getLeaderboard(limit = 20): Promise<User[]> {
-  try {
-    const res = await ddb.send(
-      new QueryCommand({
-        TableName: TABLES.USERS,
-        IndexName: "leaderboard-index",
-        KeyConditionExpression: "entityType = :et",
-        ExpressionAttributeValues: { ":et": "USER" },
-        ScanIndexForward: false,
-        Limit: limit,
-      })
-    );
-    return (res.Items ?? []) as User[];
-  } catch (error) {
-    console.error("Failed to query leaderboard-index, attempting Scan fallback:", error);
-    try {
-      const res = await ddb.send(new ScanCommand({ TableName: TABLES.USERS }));
-      const users = (res.Items ?? []) as User[];
-      return users
-        .filter(u => u.totalPoints !== undefined)
-        .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
-        .slice(0, limit);
-    } catch (scanError) {
-      console.error("Failed scan fallback, returning mock leaders:", scanError);
-      return [
-        {
-          userId: "mock_1",
-          displayName: "星際解析者 X",
-          totalPoints: 3200,
-          ticketCount: 4,
-          isAdmin: false,
-          entityType: "USER",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          userId: "mock_2",
-          displayName: "符石連擊大師",
-          totalPoints: 2450,
-          ticketCount: 3,
-          isAdmin: false,
-          entityType: "USER",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          userId: "mock_3",
-          displayName: "創世先鋒 03",
-          totalPoints: 1850,
-          ticketCount: 2,
-          isAdmin: false,
-          entityType: "USER",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          userId: "mock_4",
-          displayName: "超弦漫遊者",
-          totalPoints: 1100,
-          ticketCount: 1,
-          isAdmin: false,
-          entityType: "USER",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-    }
-  }
+  // Previously: on a GSI failure this fell back to a full table Scan, and on a
+  // Scan failure it returned four hardcoded fake users with invented point
+  // totals from a public endpoint. Both fallbacks are gone — a query failure
+  // must surface as an error, not as fabricated leaderboard standings.
+  const res = await ddb.send(
+    new QueryCommand({
+      TableName: TABLES.USERS,
+      IndexName: "leaderboard-index",
+      KeyConditionExpression: "entityType = :et",
+      ExpressionAttributeValues: { ":et": "USER" },
+      ScanIndexForward: false,
+      Limit: limit,
+      // Least privilege at the storage layer; lib/api/dto.ts is the boundary.
+      ProjectionExpression: "userId, displayName, lineImage, totalPoints",
+    })
+  );
+  return (res.Items ?? []) as User[];
 }
 
 export async function listUsers(): Promise<User[]> {

@@ -5,7 +5,7 @@ import { addPoints, addInventoryItem } from "@/lib/dynamo/users";
 import { drawBlindBoxItem } from "@/lib/game/blind-box-pool";
 import { isPermutation, type OrbColor } from "@/lib/game/orb-generator";
 import { detectCombos } from "@/lib/game/combo-detector";
-import { calculateMultiplier } from "@/lib/game/multiplier";
+import { computeAward } from "@/lib/game/award";
 import { requireSession } from "@/lib/session";
 
 const ORB_VALUES = ["FIRE", "WATER", "WOOD", "LIGHT", "DARK", "RECOVERY"] as const;
@@ -45,15 +45,10 @@ export async function POST(
     return NextResponse.json({ error: "Invalid grid state" }, { status: 400 });
 
   const combos = detectCombos(finalGrid as OrbColor[]);
-  const multiplier = calculateMultiplier(combos);
-  const rawTotal = Math.round(session.baseReward * multiplier);
-  
-  const MAX_BONUS_LIMIT = 200; // 單局最高派發額外點數上限
-  let bonusPoints = rawTotal - session.baseReward;
-  if (bonusPoints > MAX_BONUS_LIMIT) {
-    bonusPoints = MAX_BONUS_LIMIT;
-  }
-  const totalPoints = session.baseReward + bonusPoints;
+  const { multiplier, bonusPoints, totalPoints } = computeAward(
+    session.baseReward,
+    combos
+  );
 
   const claimedItem = drawBlindBoxItem(combos);
 

@@ -5,8 +5,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  const isDev = process.env.NODE_ENV === "development";
-  if (!session && !isDev) redirect("/login");
+  if (!session) redirect("/login");
 
   return (
     <div className="max-w-lg mx-auto min-h-screen pb-20">

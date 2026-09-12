@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGameSession } from "@/lib/dynamo/sessions";
+import { getGameSession, toPublicSession } from "@/lib/dynamo/sessions";
 import { requireSession } from "@/lib/session";
 
 export async function GET(
@@ -15,8 +15,7 @@ export async function GET(
   if (session.userId !== user.id)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // Never expose serverSeed until COMPLETED
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { serverSeed: _s, ...safe } = session;
+  // serverSeed is stripped centrally; see toPublicSession in lib/dynamo/sessions.
+  const safe = toPublicSession(session);
   return NextResponse.json(safe);
 }
