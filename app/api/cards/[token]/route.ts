@@ -4,12 +4,13 @@ import { requireSession } from "@/lib/session";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   const user = await requireSession();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const card = await getCardByToken(params.token);
+  const { token } = await params;
+  const card = await getCardByToken(token);
   if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
 
   // Don't expose registration details (registeredBy) to the client

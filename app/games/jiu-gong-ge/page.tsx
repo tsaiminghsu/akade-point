@@ -1,12 +1,7 @@
-import nextDynamic from 'next/dynamic'
+import GameClient from './GameClient';
 
-const JiuGongGeGame = nextDynamic(
-  () => import('@/components/jiu-gong-ge/JiuGongGeGame'),
-  { ssr: false }
-)
-
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
 export default function Page() {
-  return <JiuGongGeGame />
+  return <GameClient />;
 }

@@ -3,9 +3,16 @@ frontend:
   phases:
     preBuild:
       commands:
+        - nvm use 20
         - npm ci
     build:
       commands:
+        # Backstop for direct pushes; GitHub Actions is the primary gate.
+        - npm run verify
+        # Amplify's SSR compute runtime does not see console env vars unless they
+        # are written into .env.production at build time. AWS_* is deliberately
+        # excluded: credentials come from the compute IAM role, not env vars.
+        - env | grep -e '^NEXTAUTH_' -e '^LINE_CLIENT_' -e '^TABLE_PREFIX' -e '^SENTRY_' -e '^AISSTREAM_' -e '^NEXT_PUBLIC_' >> .env.production || true
         - npm run build
   artifacts:
     baseDirectory: .next

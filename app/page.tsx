@@ -6,6 +6,8 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Providers } from "./providers";
 import { motion, AnimatePresence } from "framer-motion";
+import type { CollectionResponse } from "@/types/api";
+import type { User } from "@/lib/dynamo/users";
 import {
   BookOpen,
   Gamepad2,
@@ -114,8 +116,8 @@ function HomePageContent() {
   const [demoCombos, setDemoCombos] = useState(0);
   const [demoDamage, setDemoDamage] = useState(0);
 
-  const [profile, setProfile] = useState<any>(null);
-  const [collectionStatus, setCollectionStatus] = useState<any>(null);
+  const [profile, setProfile] = useState<User | null>(null);
+  const [collectionStatus, setCollectionStatus] = useState<CollectionResponse | null>(null);
   const [isLoadingUserData, setIsLoadingUserData] = useState(false);
 
   useEffect(() => {
@@ -560,13 +562,13 @@ function HomePageContent() {
                     第一彈：創世核心 收集進度
                   </h4>
                   <span className="text-xs font-bold text-amber-400 font-mono">
-                    {isLoadingUserData ? "載入中..." : `已收集 ${collectionStatus?.cards ? new Set(collectionStatus.cards.map((c: any) => c.cardNumber)).size : 0} / 5 種`}
+                    {isLoadingUserData ? "載入中..." : `已收集 ${collectionStatus?.cards ? new Set(collectionStatus.cards.map((c) => c.cardNumber)).size : 0} / 5 種`}
                   </span>
                 </div>
 
                 <div className="flex gap-3 justify-start overflow-x-auto py-1">
                   {["001", "002", "003", "004", "005"].map((num) => {
-                    const ownedNumbers = new Set(collectionStatus?.cards?.map((c: any) => c.cardNumber) ?? []);
+                    const ownedNumbers = new Set(collectionStatus?.cards?.map((c) => c.cardNumber) ?? []);
                     const isOwned = ownedNumbers.has(num);
                     const cardEmojis: Record<string, string> = {
                       "001": "🤖",
@@ -632,7 +634,7 @@ function HomePageContent() {
                   🎒 我的星際背包 (已獲得 {profile.inventory.length} 個盲盒戰利品)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-1">
-                  {profile.inventory.map((item: any) => {
+                  {profile.inventory.map((item) => {
                     const rarityColors: Record<string, string> = {
                       UR: "border-fuchsia-500/30 bg-fuchsia-500/5 text-fuchsia-400 shadow-[0_0_12px_rgba(217,70,239,0.1)]",
                       SSR: "border-amber-500/30 bg-amber-500/5 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.1)]",

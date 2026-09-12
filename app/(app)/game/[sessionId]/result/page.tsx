@@ -21,9 +21,9 @@ function ResultContent() {
   const ssr = params?.get("ssr") === "true";
 
   // Blind Box Reward Query Details
-  const itemName = params?.get("itemName") ? decodeURIComponent(params?.get("itemName")!) : "";
+  const itemName = decodeURIComponent(params?.get("itemName") ?? "");
   const itemRarity = params?.get("itemRarity") || "";
-  const itemDesc = params?.get("itemDesc") ? decodeURIComponent(params?.get("itemDesc")!) : "";
+  const itemDesc = decodeURIComponent(params?.get("itemDesc") ?? "");
 
   const [openState, setOpenState] = useState<OpenState>("closed");
 

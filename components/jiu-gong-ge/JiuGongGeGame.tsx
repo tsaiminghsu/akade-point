@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef } from "react";
 import JiuGongGeScene from "./JiuGongGeScene";
 import GameHUD from "./GameHUD";
+import Link from "next/link";
 
 export type BallColor = "red" | "blue" | "green";
 export type GamePhase =
@@ -233,9 +234,9 @@ export default function JiuGongGeGame() {
         <div className="absolute bottom-3 right-4 w-3 h-3 rounded-full border border-amber-500/40 bg-amber-900/30" />
       </div>
 
-      <a href="/" className="mt-6 text-zinc-500 hover:text-amber-400 text-sm transition-colors">
+      <Link href="/" className="mt-6 text-zinc-500 hover:text-amber-400 text-sm transition-colors">
         ← 返回首頁
-      </a>
+      </Link>
     </main>
   );
 }

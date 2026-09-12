@@ -38,7 +38,7 @@ function buildCallbacks(): NextAuthOptions["callbacks"] {
   };
 }
 
-/** Static auth options using env vars — used for getServerSession() calls only. */
+/** The single source of auth configuration: the NextAuth route handler and every getServerSession() call. LINE credentials come from the environment. */
 export const authOptions: NextAuthOptions = {
   adapter: DynamoDBAdapter(dynamoClient, { tableName: "akade-auth" }),
   providers: [
@@ -47,20 +47,8 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.LINE_CLIENT_SECRET!,
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
   callbacks: buildCallbacks(),
   pages: { signIn: "/login" },
 };
-
-/** Builds auth options with specific LINE credentials (from DynamoDB or env). */
-export function buildAuthOptions(clientId: string, clientSecret: string): NextAuthOptions {
-  return {
-    adapter: DynamoDBAdapter(dynamoClient, { tableName: "akade-auth" }),
-    providers: [
-      LineProvider({ clientId, clientSecret }),
-    ],
-    session: { strategy: "jwt" },
-    callbacks: buildCallbacks(),
-    pages: { signIn: "/login" },
-  };
-}

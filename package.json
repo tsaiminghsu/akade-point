@@ -3,34 +3,39 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n NEXT,SHIP,DDB -c blue,cyan,magenta \"next dev\" \"npm run ship-tracker\" \"npm run dynamodb:local\"",
+    "dev": "concurrently -n NEXT,DDB -c blue,magenta \"next dev\" \"npm run dynamodb:local\"",
     "dev:next": "next dev",
     "ship-tracker": "cd backend && uvicorn backend:app --host 0.0.0.0 --port 8000",
     "dynamodb:local": "node scripts/start-dynamodb-local.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project dom",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "dev:full": "concurrently -n NEXT,SHIP,DDB -c blue,cyan,magenta \"next dev\" \"npm run ship-tracker\" \"npm run dynamodb:local\"",
+    "typecheck": "tsc --noEmit",
+    "test:watch": "vitest --project unit --project dom",
+    "test:coverage": "vitest run --project unit --project dom --coverage",
+    "verify": "npm run typecheck && npm run lint && npm test",
+    "prepare": "husky",
+    "test:db": "vitest run --project integration"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1073.0",
     "@aws-sdk/lib-dynamodb": "^3.1073.0",
-    "@dimforge/rapier3d-compat": "^0.19.2",
     "@next-auth/dynamodb-adapter": "^3.0.2",
     "@paralleldrive/cuid2": "^3.3.0",
     "@pixi/filter-bloom": "^5.1.1",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
-    "@react-three/rapier": "^2.2.0",
     "@types/three": "^0.184.1",
     "@zxing/browser": "^0.2.0",
     "@zxing/library": "^0.22.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.26.0",
-    "next": "14.2.35",
+    "next": "^15.5.25",
     "next-auth": "^4.24.14",
     "pixi.js": "^7.4.3",
     "qrcode": "^1.5.4",
@@ -43,18 +48,34 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@dimforge/rapier3d-compat": "^0.19.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitest/coverage-v8": "^4.1.10",
     "concurrently": "^10.0.3",
     "eslint": "^8",
-    "eslint-config-next": "14.2.35",
+    "eslint-config-next": "^15.5.25",
+    "husky": "^9.1.7",
+    "jsdom": "^25.0.1",
+    "lint-staged": "^15.2.11",
     "postcss": "^8",
     "prettier": "^3.9.5",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
     "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=20 <25",
+    "npm": ">=10"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ]
   }
 }

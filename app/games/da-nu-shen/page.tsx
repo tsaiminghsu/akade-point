@@ -1,9 +1,7 @@
-import nextDynamic from 'next/dynamic'
+import GameClient from './GameClient';
 
-const DiceGame = nextDynamic(() => import('@/components/dice-game/DiceGame'), { ssr: false })
-
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
 export default function Page() {
-  return <DiceGame />
+  return <GameClient />;
 }

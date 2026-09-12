@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import type { CollectionResponse } from "@/types/api";
+
+type RarityFilter = "ALL" | "N" | "R" | "SR" | "SSR";
+type StatusFilter = "ALL" | "OWNED" | "LOCKED";
 
 interface CardDetail {
   id: string;
@@ -307,11 +311,11 @@ export default function CollectionPage() {
   // Tabs & filters state
   const [activeTab, setActiveTab] = useState<"series_1" | "series_2" | "series_3" | "series_4">("series_1");
   const [searchQuery, setSearchQuery] = useState("");
-  const [rarityFilter, setRarityFilter] = useState<"ALL" | "N" | "R" | "SR" | "SSR">("ALL");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "OWNED" | "LOCKED">("ALL");
+  const [rarityFilter, setRarityFilter] = useState<RarityFilter>("ALL");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   
   // Collection fetch state
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<CollectionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -438,28 +442,6 @@ export default function CollectionPage() {
           >
             使用 LINE 登入
           </Link>
-          <button
-            onClick={() => {
-              setStatus({
-                nCount: 2,
-                rCount: 2,
-                srCount: 1,
-                cards: [
-                  { cardNumber: "001", rarity: "N" },
-                  { cardNumber: "002", rarity: "N" },
-                  { cardNumber: "003", rarity: "R" },
-                  { cardNumber: "004", rarity: "R" },
-                  { cardNumber: "005", rarity: "SR" }
-                ],
-                claimedTiers: ["SMALL", "MEDIUM", "LARGE"],
-                eligibleTiers: ["SSR_COMPLETE"]
-              });
-              setError("");
-            }}
-            className="block w-full py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white rounded-xl text-xs transition-colors border border-white/5"
-          >
-            🛠️ 開發者免登入模擬測試圖鑑
-          </button>
         </div>
       </div>
     );
@@ -544,7 +526,7 @@ export default function CollectionPage() {
             <label className="text-[9px] text-zinc-500 font-bold uppercase block mb-1">稀有度</label>
             <select
               value={rarityFilter}
-              onChange={(e) => setRarityFilter(e.target.value as any)}
+              onChange={(e) => setRarityFilter(e.target.value as RarityFilter)}
               className="w-full bg-zinc-950/80 border border-white/5 rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:border-amber-500/50"
             >
               <option value="ALL">全部稀有度</option>
@@ -558,7 +540,7 @@ export default function CollectionPage() {
             <label className="text-[9px] text-zinc-500 font-bold uppercase block mb-1">解鎖狀態</label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="w-full bg-zinc-950/80 border border-white/5 rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:border-amber-500/50"
             >
               <option value="ALL">全部狀態</option>

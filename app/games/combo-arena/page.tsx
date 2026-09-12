@@ -593,7 +593,7 @@ export default function TestGamePage() {
     setPhase("cascading");
     setCascadeStep(1);
     
-    let gridCopy: (OrbColor | null)[] = [...finalGrid];
+    const gridCopy: (OrbColor | null)[] = [...finalGrid];
     let accumulatedCombos = 0;
     
     // Store matches in this turn

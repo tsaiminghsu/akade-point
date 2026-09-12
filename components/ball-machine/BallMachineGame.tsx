@@ -3,6 +3,7 @@ import { useState, useCallback, useRef } from "react";
 import BallScene, { type BallSceneHandle } from "./BallScene";
 import MachineHUD from "./MachineHUD";
 import { HOLE_SPACING, BALL_R, FLOOR_T, GRID_COLS, GRID_ROWS } from "./constants";
+import Link from "next/link";
 
 export type BallColor = "pink" | "blue" | "green" | "yellow";
 export type GamePhase =
@@ -262,9 +263,9 @@ export default function BallMachineGame() {
         <div className="absolute bottom-3 right-4 w-3 h-3 rounded-full border border-amber-500/40 bg-amber-900/30" />
       </div>
 
-      <a href="/" className="mt-6 text-zinc-500 hover:text-amber-400 text-sm transition-colors">
+      <Link href="/" className="mt-6 text-zinc-500 hover:text-amber-400 text-sm transition-colors">
         ← 返回首頁
-      </a>
+      </Link>
 
       <style jsx>{`
         .machine-shake {

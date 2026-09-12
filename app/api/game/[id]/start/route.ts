@@ -9,12 +9,13 @@ const schema = z.object({ clientSeed: z.string().optional() });
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await requireSession();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const session = await getGameSession(params.id);
+  const { id } = await params;
+  const session = await getGameSession(id);
   if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (session.userId !== user.id)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -28,10 +29,10 @@ export async function POST(
   const grid = generateGrid(finalSeed);
   const initialGrid = JSON.stringify(grid);
 
-  await startGameSession(params.id, clientSeed, finalSeed, initialGrid);
+  await startGameSession(id, clientSeed, finalSeed, initialGrid);
 
   return NextResponse.json({
-    sessionId: params.id,
+    sessionId: id,
     serverSeedHash: session.serverSeedHash,
     clientSeed,
     initialGrid: grid,

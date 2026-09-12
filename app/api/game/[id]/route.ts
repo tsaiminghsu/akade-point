@@ -4,12 +4,13 @@ import { requireSession } from "@/lib/session";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await requireSession();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const session = await getGameSession(params.id);
+  const { id } = await params;
+  const session = await getGameSession(id);
   if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (session.userId !== user.id)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
