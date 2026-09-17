@@ -19,6 +19,7 @@ import RaceGateMeshes from './RaceGateMeshes';
 import { getCourse } from './raceCourses';
 import { LOOK_TARGET_Y } from './orbitCamera';
 import * as gameClock from './gameClock';
+import type { ResolvedGraphics } from './graphicsSettings';
 
 // Reusable temp objects (never recreate in hot loop)
 const tmpVec3  = new THREE.Vector3();
@@ -140,13 +141,17 @@ const WEATHER: Record<WeatherType, WeatherConfig> = {
 
 // ─── Rain / Snow particle system ──────────────────────────────────────────────
 
-const PARTICLE_COUNT = 10000;
-
+/**
+ * Particle count is fixed for the life of the component: the buffers are
+ * allocated once. The caller remounts it with a `key` when the density
+ * setting changes.
+ */
 function PrecipitationSystem({
-  type, opacity,
+  type, opacity, count: PARTICLE_COUNT,
 }: {
   type: 'rain' | 'heavy_rain' | 'snow';
   opacity: number;
+  count: number;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
   const posArr = useRef<Float32Array>(new Float32Array(PARTICLE_COUNT * 3));
@@ -223,6 +228,7 @@ function PrecipitationSystem({
 interface Props {
   engine: GameEngine3D;
   weatherType: WeatherType;
+  graphics: ResolvedGraphics;
   onHUDUpdate: (data: HUDData) => void;
   onPhoneToggle: () => void;
   onMapToggle: () => void;
@@ -233,7 +239,7 @@ interface Props {
 // ─── Main scene ───────────────────────────────────────────────────────────────
 
 export default function GameScene({
-  engine, weatherType, onHUDUpdate, onPhoneToggle, onMapToggle,
+  engine, weatherType, graphics, onHUDUpdate, onPhoneToggle, onMapToggle,
   onTownHallToggle, onWeatherCycle,
 }: Props) {
   const playerRef     = useRef<PlayerCarHandle>(null);
@@ -246,6 +252,11 @@ export default function GameScene({
   const waypointRef   = useRef<THREE.Group>(null);
   const miniMapTick   = useRef(0);
   const focusInit     = useRef(false);
+
+  // CityGame re-renders ~10x a second for the HUD, so the frame loop reads
+  // settings through a ref rather than closing over the prop.
+  const gfxRef = useRef(graphics);
+  gfxRef.current = graphics;
 
   // Light refs for dynamic weather
   const ambientRef  = useRef<THREE.AmbientLight>(null);
@@ -290,6 +301,8 @@ export default function GameScene({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Typing in the pause menu must not also cycle the weather.
+      if (engine.paused) return;
       const h = hotkeysRef.current;
       if (e.code === 'KeyP') h.onPhoneToggle();
       if (e.code === 'KeyM') h.onMapToggle();
@@ -298,7 +311,7 @@ export default function GameScene({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [engine]);
 
   useEffect(() => {
     engine.setHUDCallback(onHUDUpdate);
@@ -462,12 +475,13 @@ export default function GameScene({
       }
     } else {
       // ── Third-person camera ──────────────────────────────────────────
-      // Restore default FOV if coming out of FPV
-      if ((state.camera as THREE.PerspectiveCamera).fov !== 60) {
-        (state.camera as THREE.PerspectiveCamera).fov = THREE.MathUtils.lerp(
-          (state.camera as THREE.PerspectiveCamera).fov, 60, 0.05,
-        );
-        (state.camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+      // Ease back to the configured FOV after FPV, or after a settings change.
+      const targetFov = gfxRef.current.fov;
+      const cam = state.camera as THREE.PerspectiveCamera;
+      if (Math.abs(cam.fov - targetFov) > 0.01) {
+        cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, 0.05);
+        if (Math.abs(cam.fov - targetFov) <= 0.01) cam.fov = targetFov;
+        cam.updateProjectionMatrix();
       }
 
       let focusX = px3, focusZ = pz3, focusY = 0;
@@ -614,8 +628,10 @@ export default function GameScene({
       <fog attach="fog" args={[cfg.fogColor, cfg.fogNear, cfg.fogFar]} />
 
       {/* ── Precipitation ────────────────────────────────────────── */}
-      {showPrecip && (
+      {showPrecip && graphics.particleCount > 0 && (
         <PrecipitationSystem
+          key={graphics.particleCount}
+          count={graphics.particleCount}
           type={cfg.particles as 'rain' | 'heavy_rain' | 'snow'}
           opacity={cfg.particleOpacity}
         />
@@ -640,7 +656,7 @@ export default function GameScene({
       <ScooterPool ref={scooterRef} />
 
       {/* ── Pedestrians (3 draw calls for the whole crowd) ───────── */}
-      <PedestrianMeshes ref={pedRef} castShadow={engine.perf.pedShadows} />
+      <PedestrianMeshes ref={pedRef} castShadow={graphics.perfPatch.pedShadows ?? engine.perf.pedShadows} />
 
       {/* ── Mission pickup markers ───────────────────────────────── */}
       <MissionMarkers ref={markerRef} />

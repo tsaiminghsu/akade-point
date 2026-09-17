@@ -53,7 +53,7 @@ export function defaultSave(): CitySave {
   };
 }
 
-function storage(): Storage | null {
+export function storage(): Storage | null {
   try {
     if (typeof localStorage === 'undefined') return null;
     return localStorage;

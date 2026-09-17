@@ -56,6 +56,7 @@ export class InputManager {
   private lookDY = 0;
   private wheelSteps = 0;
   private locked = false;
+  private releasedByUs = false;
   private dragging = false;
   lastLookMs = 0;
 
@@ -213,8 +214,23 @@ export class InputManager {
 
   releasePointerLock(): void {
     if (typeof document !== 'undefined' && document.pointerLockElement) {
+      this.releasedByUs = true;
       document.exitPointerLock();
     }
+  }
+
+  /**
+   * True when the lock we just lost was dropped by our own code rather than by
+   * the player pressing Esc. The browser swallows that first Esc, so losing the
+   * lock is the only signal the pause menu gets; this tells the two apart.
+   *
+   * Reading it clears it, so it does not matter whether this listener or the
+   * InputManager's own runs first.
+   */
+  consumeReleasedByUs(): boolean {
+    const released = this.releasedByUs;
+    this.releasedByUs = false;
+    return released;
   }
 
   isPointerLocked(): boolean {

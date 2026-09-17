@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -18,6 +18,19 @@ import CashCounter from './CashCounter';
 import { MissionPanel, MissionBriefModal, CenterBanner } from './MissionHUD';
 import { getCourse } from './raceCourses';
 import * as gameClock from './gameClock';
+import PauseMenu from './PauseMenu';
+import {
+  DEFAULT_CAPS,
+  GraphicsCaps,
+  GraphicsSettings,
+  Preset,
+  defaultGraphics,
+  detectTier,
+  loadGraphics,
+  presetSettings,
+  resolve,
+  writeGraphics,
+} from './graphicsSettings';
 
 // ─── Weather cycle ────────────────────────────────────────────────────────────
 const WEATHER_CYCLE: WeatherType[] = [
@@ -116,6 +129,14 @@ export default function CityGame() {
   const [weatherIdx,   setWeatherIdx]  = useState(0);
   const [isMobile,     setIsMobile]    = useState(false);
   const [pointerLocked, setPointerLocked] = useState(false);
+  const [paused,       setPaused]      = useState(false);
+
+  // ── Graphics settings ──────────────────────────────────────────────────────
+  // Starts at the defaults so the server and first client render agree; the
+  // stored settings and the detected GPU tier are applied after mount.
+  const [gfx,  setGfx]  = useState<GraphicsSettings>(defaultGraphics);
+  const [caps, setCaps] = useState<GraphicsCaps>(DEFAULT_CAPS);
+  const gfxLoaded = useRef(false);
 
   // ── Loading state ──────────────────────────────────────────────────────────
   const [loadProgress, setLoadProgress] = useState(0);
@@ -139,10 +160,26 @@ export default function CityGame() {
     (window as unknown as { cityEngine?: unknown }).cityEngine = engine.current;
   }, []);
 
-  // Smaller crowd and no pedestrian shadows on touch devices.
+  // Load stored graphics settings once, after mount.
+  useEffect(() => {
+    const stored = loadGraphics();
+    if (stored) setGfx(stored);
+    gfxLoaded.current = true;
+  }, []);
+
+  // Persist whatever the player settles on, but never the pre-load defaults.
+  useEffect(() => {
+    if (gfxLoaded.current) writeGraphics(gfx);
+  }, [gfx]);
+
+  const resolved = useMemo(() => resolve(gfx, { ...caps, isMobile }), [gfx, caps, isMobile]);
+
+  // The touch profile is only the baseline: the player's own settings are
+  // applied on top, in the same effect, or this would clobber them on mount.
   useEffect(() => {
     engine.current.setPerfProfile(isMobile ? 'low' : 'high');
-  }, [isMobile]);
+    engine.current.applyGraphics(resolved.perfPatch);
+  }, [isMobile, resolved]);
 
   // The engine debounces writes, so force one when the page goes away.
   useEffect(() => {
@@ -157,16 +194,47 @@ export default function CityGame() {
     };
   }, []);
 
+  // Any overlay needs the cursor back.
+  const otherOverlayOpen = showPhone || mapExpanded || showTownHall || showChallenges;
+  const anyOverlayOpen = otherOverlayOpen || paused;
+
   // Track pointer lock so the "click to look" hint can be shown/hidden.
-  // Event-driven rather than polled, so it costs nothing per frame.
+  //
+  // This also opens the pause menu: while the pointer is locked the browser
+  // consumes the first Esc to exit the lock, so the game never sees that
+  // keydown. Losing a lock we did not release ourselves means the player
+  // pressed Esc.
   useEffect(() => {
-    const onChange = () => setPointerLocked(!!document.pointerLockElement);
+    const onChange = () => {
+      const locked = !!document.pointerLockElement;
+      setPointerLocked(locked);
+      if (locked) return;
+      const byUs = engine.current.input.consumeReleasedByUs();
+      if (!byUs && !otherOverlayOpen) setPaused(true);
+    };
     document.addEventListener('pointerlockchange', onChange);
     return () => document.removeEventListener('pointerlockchange', onChange);
-  }, []);
+  }, [otherOverlayOpen]);
 
-  // Any overlay needs the cursor back.
-  const anyOverlayOpen = showPhone || mapExpanded || showTownHall || showChallenges;
+  // Esc with the pointer already free: nothing else is listening for it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Escape') return;
+      if (paused) { setPaused(false); return; }
+      if (otherOverlayOpen || document.pointerLockElement) return;
+      setPaused(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [paused, otherOverlayOpen]);
+
+  // Freezing the simulation is the engine's job; it also holds the game clock.
+  useEffect(() => {
+    engine.current.setPaused(paused);
+  }, [paused]);
+
+  // A pause that outlives this component would leave the clock stopped.
+  useEffect(() => () => engine.current.setPaused(false), []);
   useEffect(() => {
     if (anyOverlayOpen) engine.current.input.releasePointerLock();
   }, [anyOverlayOpen]);
@@ -242,8 +310,24 @@ export default function CityGame() {
     setMapExpanded(false);
     setShowChallenges(false);
     setShowTownHall(false);
+    setPaused(false);
   }, []);
   const onChallengeToggle = useCallback(() => setShowChallenges(c => !c), []);
+
+  // ── Graphics settings callbacks ────────────────────────────────────────────
+  const onGfxChange = useCallback((patch: Partial<GraphicsSettings>) => {
+    setGfx(prev => ({ ...prev, ...patch }));
+  }, []);
+  const onGfxPreset = useCallback((preset: Preset) => {
+    if (preset === 'custom') return;
+    setGfx(presetSettings(preset));
+  }, []);
+  const onGfxAutoDetect = useCallback(() => {
+    setGfx(presetSettings(detectTier(caps.renderer)));
+  }, [caps.renderer]);
+  const onResume = useCallback(() => setPaused(false), []);
+  // A full navigation also drops the WebGL context and its textures.
+  const onExitToLobby = useCallback(() => { window.location.href = '/games'; }, []);
 
   // ── Race callbacks ─────────────────────────────────────────────────────────
   const onStartRace = useCallback((courseId: string) => {
@@ -256,6 +340,28 @@ export default function CityGame() {
 
   function handleWaypointSet(wx: number, wy: number) {
     engine.current.setWaypoint(wx, wy);
+  }
+
+  /**
+   * Read what the GPU can take. With no stored settings this is also the only
+   * chance to pick a sensible starting preset — guessing from the renderer
+   * string beats dropping an integrated laptop straight into 4096 shadows.
+   */
+  function detectCaps(gl: THREE.WebGLRenderer) {
+    const ctx = gl.getContext();
+    let renderer = '';
+    try {
+      const ext = ctx.getExtension('WEBGL_debug_renderer_info');
+      if (ext) renderer = String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL) ?? '');
+    } catch {
+      // Some browsers hide this for fingerprinting reasons; medium is assumed.
+    }
+    setCaps({
+      isMobile,
+      maxTextureSize: ctx.getParameter(ctx.MAX_TEXTURE_SIZE) as number,
+      renderer,
+    });
+    if (!loadGraphics()) setGfx(presetSettings(detectTier(renderer)));
   }
 
   return (
@@ -271,9 +377,10 @@ export default function CityGame() {
 
       {/* ── 3D Canvas ── always mounted so rendering starts immediately ── */}
       <Canvas
-        shadows
+        shadows={resolved.shadowsEnabled}
+        dpr={resolved.dpr}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
-        camera={{ fov: 62, near: 0.3, far: 500, position: [0, 8, 14] }}
+        camera={{ fov: gfx.fov, near: 0.3, far: 500, position: [0, 8, 14] }}
         style={{ position: 'absolute', inset: 0 }}
         onCreated={({ gl, scene }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -282,12 +389,14 @@ export default function CityGame() {
           scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
           scene.environmentIntensity = 0.5;
           pmrem.dispose();
+          detectCaps(gl);
         }}
       >
         <FrameCounter onReady={handleCanvasReady} />
         <GameScene
           engine={engine.current}
           weatherType={weatherType}
+          graphics={resolved}
           onHUDUpdate={onHUDUpdate}
           onPhoneToggle={onPhoneToggle}
           onMapToggle={onMapToggle}
@@ -394,9 +503,48 @@ export default function CityGame() {
             backdropFilter: 'blur(4px)',
           }}
         >
-          點擊畫面以滑鼠環視 · Esc 釋放
+          點擊畫面以滑鼠環視 · Esc 釋放 · 再按 Esc 暫停
         </div>
       )}
+
+      {/* ── Pause / settings ── */}
+      {!loadVisible && !isMobile && !anyOverlayOpen && (
+        <button
+          onClick={() => setPaused(true)}
+          aria-label="暫停選單"
+          title="暫停選單 (Esc)"
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 46,
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            fontSize: 15,
+            cursor: 'pointer',
+            color: 'rgba(255,255,255,0.65)',
+            background: 'rgba(0,0,0,0.42)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          ⚙
+        </button>
+      )}
+
+      <PauseMenu
+        open={paused && !loadVisible}
+        settings={gfx}
+        gpuName={caps.renderer}
+        onChange={onGfxChange}
+        onPreset={onGfxPreset}
+        onAutoDetect={onGfxAutoDetect}
+        onClose={onResume}
+        onRestart={onRestart}
+        onExit={onExitToLobby}
+        isMobile={isMobile}
+      />
 
       {/* ── Mini-map ── */}
       {!loadVisible && (
