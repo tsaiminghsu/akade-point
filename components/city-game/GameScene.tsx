@@ -20,6 +20,7 @@ import { getCourse } from './raceCourses';
 import { LOOK_TARGET_Y } from './orbitCamera';
 import * as gameClock from './gameClock';
 import type { ResolvedGraphics } from './graphicsSettings';
+import ShadowRig from './ShadowRig';
 
 // Reusable temp objects (never recreate in hot loop)
 const tmpVec3  = new THREE.Vector3();
@@ -317,8 +318,15 @@ export default function GameScene({
     engine.setHUDCallback(onHUDUpdate);
   }, [engine, onHUDUpdate]);
 
+  // Dev-only handle: lets the console (and the verification scripts) reach the
+  // renderer, scene and camera through the same window.cityEngine object.
+  const { scene, gl, camera } = useThree();
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    (engine as unknown as { three?: unknown }).three = { scene, gl, camera };
+  }, [engine, scene, gl, camera]);
+
   // Mouse look is driven off the WebGL canvas: click to lock, Esc to release.
-  const { gl } = useThree();
   useEffect(() => {
     const el = gl.domElement;
     engine.input.attachPointer(el);
@@ -586,20 +594,20 @@ export default function GameScene({
       {/* ── Lighting ─────────────────────────────────────────────── */}
       <ambientLight ref={ambientRef} intensity={cfg.ambientIntensity} color={cfg.ambientColor} />
 
+      {/* Shadow camera bounds, aiming and texel snapping live in ShadowRig. */}
       <directionalLight
         ref={sunRef}
         position={cfg.sunPosition}
         intensity={cfg.sunIntensity}
         color={cfg.sunColor}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-near={1}
-        shadow-camera-far={400}
-        shadow-camera-left={-180}
-        shadow-camera-right={180}
-        shadow-camera-top={180}
-        shadow-camera-bottom={-180}
-        shadow-bias={-0.0003}
+      />
+      <ShadowRig
+        engine={engine}
+        sun={sunRef}
+        sunPosition={cfg.sunPosition as unknown as [number, number, number]}
+        half={graphics.shadowHalf}
+        mapSize={graphics.shadowMapSize}
+        enabled={graphics.shadowsEnabled}
       />
 
       <directionalLight
