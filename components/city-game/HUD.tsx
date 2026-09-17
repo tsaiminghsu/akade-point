@@ -31,6 +31,7 @@ export default function HUD({ data, onPhone, onChallenge, isMobile = false }: Pr
     speedKMH, playerState, vehicleType, orders, drone, zone, playerX, playerY,
     notifications, vehicleAltitude, nearVehicle,
     health, vehicleHp, wantedStars, wantedEvading, arrestProgress, screenFade, screenLabel,
+    autopilot,
   } = data;
 
   const activeOrders = orders.filter(o => o.status !== 'completed');
@@ -62,6 +63,18 @@ export default function HUD({ data, onPhone, onChallenge, isMobile = false }: Pr
             )}
           </div>
         )}
+        {autopilot?.active && (
+          <div
+            className="bg-black/60 backdrop-blur border rounded-lg px-3 py-1.5 text-xs font-mono"
+            style={{ borderColor: 'rgba(74,222,128,0.6)', animation: 'wantedBlink 1.6s ease-in-out infinite' }}
+          >
+            <div className="text-[10px] text-green-400/80 uppercase tracking-wider">🤖 自動駕駛</div>
+            <div className="text-green-300">
+              {autopilot.target === 'mission' ? '前往任務目標' : '前往路標'}
+              <span className="text-white/50 ml-2">{Math.round(autopilot.distance * 0.25)} m</span>
+            </div>
+          </div>
+        )}
         {playerState === 'inDrone' && (
           <div className="bg-black/60 backdrop-blur border border-cyan-500/30 rounded-lg px-3 py-1.5 text-xs font-mono">
             <div className="text-[10px] text-cyan-400/70 uppercase">無人機狀態</div>
@@ -91,6 +104,11 @@ export default function HUD({ data, onPhone, onChallenge, isMobile = false }: Pr
               <span><kbd className="text-white/60">Shift</kbd>跑 <kbd className="text-white/60">Space</kbd>跳</span>
             )}
             <span><kbd className="text-white/60">F</kbd> {enterHint}</span>
+            {playerState === 'inCar' && (
+              <span className={autopilot?.active ? 'text-green-400' : undefined}>
+                <kbd className="text-white/60">C</kbd> {autopilot?.active ? '解除自駕' : '自動駕駛'}
+              </span>
+            )}
             <button
               className="pointer-events-auto text-amber-400 hover:text-amber-300 cursor-pointer"
               onClick={onPhone}

@@ -356,6 +356,15 @@ export interface HUDData {
   canStartTaxi: boolean;
   banner: Banner | null;
   jobs: JobListLike[];
+  /** Self-driving status while in a car; null when not driving. */
+  autopilot: AutopilotHUD | null;
+}
+
+export interface AutopilotHUD {
+  active: boolean;
+  /** Straight-line distance to the destination, world px. */
+  distance: number;
+  target: 'user' | 'mission';
 }
 
 /**

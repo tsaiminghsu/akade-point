@@ -21,6 +21,8 @@ export interface InputState {
   // Missions
   interact: boolean;      // E — one-shot, ground only (E is drone throttle in the air)
   cancelMission: boolean; // X — one-shot, ground only (X is drone yaw in the air)
+  // Driving
+  autopilot: boolean;     // C — one-shot, toggle self-driving to the active waypoint
 }
 
 /** Movement axes: +y = forward (away from the camera), +x = right. */
@@ -267,7 +269,7 @@ export class InputManager {
   }
 
   triggerTouchAction(
-    name: 'enter' | 'phone' | 'mapToggle' | 'respawn' | 'fpvToggle' | 'jump' | 'interact' | 'cancelMission',
+    name: 'enter' | 'phone' | 'mapToggle' | 'respawn' | 'fpvToggle' | 'jump' | 'interact' | 'cancelMission' | 'autopilot',
   ): void {
     this.touchOneShots.add(name);
   }
@@ -325,6 +327,7 @@ export class InputManager {
       // E and X stay bound to drone throttle / yaw while airborne.
       interact:          !isAirborne && (this.wasJustPressed('KeyE') || this.touchOneShots.has('interact')),
       cancelMission:     !isAirborne && (this.wasJustPressed('KeyX') || this.touchOneShots.has('cancelMission')),
+      autopilot:         this.wasJustPressed('KeyC') || this.touchOneShots.has('autopilot'),
     };
   }
 }

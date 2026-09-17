@@ -94,6 +94,7 @@ const DEFAULT_HUD: HUDData = {
   canStartTaxi: false,
   banner: null,
   jobs: [],
+  autopilot: null,
 };
 
 // Singleton engine

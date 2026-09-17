@@ -54,6 +54,13 @@ import { Economy, FOOD_MENU, PRICES } from './economy';
 import { CitySave, clearSave, loadSave, writeSave } from './save';
 import { MissionManager } from './missionManager';
 import { Garage, createGarages, garageBlips, updateGarages } from './paynspray';
+import {
+  AutopilotState,
+  createAutopilot,
+  planAutopilot,
+  stepAutopilot,
+  tileKeyOf,
+} from './autopilot';
 
 const CAR_MAX_SPEED = 160;      // 2D px / sec
 const CAR_ACCELERATION = 280;   // 2D px / sec²
@@ -166,6 +173,9 @@ export class GameEngine3D {
   /** Pay-n-Spray garages. Fixed for the life of the world. */
   garages: Garage[] = [];
 
+  /** Self-driving state for the player's car. */
+  autopilot: AutopilotState = createAutopilot();
+
   private parkedBlocks = new Set<number>();
   private wreckIds: string[] = [];
   private lastPoliceHitMs = 0;
@@ -237,6 +247,7 @@ export class GameEngine3D {
     this.wreckIds = [];
     this.parkedBlocks.clear();
     this.route.clear();
+    this.autopilot = createAutopilot();
     this.drone = {
       active: false, altitude: 0, throttle: 0, pitch: 0,
       roll: 0, yaw: 0, battery: 100, signal: 100, vehicleId: null,
@@ -305,7 +316,96 @@ export class GameEngine3D {
     this.addNotification('🔄 已重新開始', '#00e5ff');
   }
 
-  /** Touch devices get a smaller crowd and no pedestrian shadows. */
+  // ── Autopilot ──────────────────────────────────────────────────────────────
+
+  /** Engage self-driving to the active waypoint, or disengage if already on. */
+  toggleAutopilot() {
+    if (this.autopilot.active) {
+      this.disengageAutopilot('自動駕駛已解除');
+      return;
+    }
+    const car = this.player.state === 'inCar' && this.player.currentVehicleId
+      ? this.vehicles.get(this.player.currentVehicleId)
+      : null;
+    if (!car) {
+      this.addNotification('自動駕駛只能在車上使用', '#ffcc00');
+      return;
+    }
+    if (!this.waypoint.active) {
+      this.addNotification('先在小地圖設定路標或接任務', '#ffcc00');
+      return;
+    }
+    planAutopilot(this.autopilot, this.world, car, this.waypoint);
+    this.autopilot.active = true;
+    this.autopilot.replans = 0;
+    this.addNotification('🤖 自動駕駛啟動', '#4ade80');
+  }
+
+  disengageAutopilot(reason: string | null = null) {
+    if (!this.autopilot.active) return;
+    this.autopilot.active = false;
+    this.autopilot.path = [];
+    if (reason) this.addNotification(reason, '#aaa');
+  }
+
+  /**
+   * While self-driving, synthesise the throttle/brake the car physics expects
+   * and apply the steering delta directly. Returns null to fall back to the
+   * player's own input (autopilot off, or just disengaged by a manual touch).
+   */
+  private autopilotInput(
+    dt: number,
+    input: ReturnType<InputManager['getState']>,
+  ): ReturnType<InputManager['getState']> | null {
+    const ap = this.autopilot;
+    if (!ap.active) return null;
+
+    if (input.up || input.down || input.left || input.right || input.brake) {
+      this.disengageAutopilot('手動接管，自動駕駛解除');
+      return null;
+    }
+    const car = this.player.currentVehicleId ? this.vehicles.get(this.player.currentVehicleId) : null;
+    if (!car) { this.disengageAutopilot(null); return null; }
+    if (!this.waypoint.active) {
+      this.disengageAutopilot('路標已清除，自動駕駛解除');
+      return null;
+    }
+
+    // Destination moved (next mission objective, or the player re-pointed the
+    // map) or the route was dropped by stuck/off-path detection: re-plan.
+    if (ap.path.length === 0 || tileKeyOf(this.waypoint) !== ap.destKey) {
+      const wasReplans = ap.replans;
+      planAutopilot(ap, this.world, car, this.waypoint);
+      ap.replans = wasReplans;
+    }
+
+    const drive = stepAutopilot(ap, car, {
+      vehicles: this.vehicles,
+      peds: this.pedestrians,
+      maxSpeed: CAR_MAX_SPEED,
+      steerRate: STEER_SPEED,
+      dt,
+    });
+
+    if (drive.lost) {
+      this.disengageAutopilot('找不到路線，請手動駕駛');
+      return null;
+    }
+
+    car.angle += drive.steer;
+
+    if (drive.arrived && this.waypoint.source !== 'mission') {
+      this.clearWaypoint('user');
+      this.disengageAutopilot(null);
+      this.addNotification('📍 已到達目的地', '#4ade80');
+      return { ...input, up: false, down: false, left: false, right: false, brake: true };
+    }
+    // Mission targets: hold here and wait; the next objective re-plans.
+
+    return { ...input, up: drive.up, down: false, left: false, right: false, brake: drive.brake };
+  }
+
+  /** Touch devices get a smaller crowd, shorter streaming and no pedestrian shadows. */
   setPerfProfile(profile: 'low' | 'high') {
     this.perf = { ...(profile === 'low' ? PERF_LOW : PERF_HIGH) };
   }
@@ -422,7 +522,7 @@ export class GameEngine3D {
       if (held) held.speed = 0;
       player.speed = 0;
     } else if (player.state === 'inCar') {
-      this.updateCarPhysics(dt, input);
+      this.updateCarPhysics(dt, this.autopilotInput(dt, input) ?? input);
     } else if (player.state === 'inHelicopter') {
       this.updateHelicopterPhysics(dt, input);
     } else if (player.state === 'inDrone') {
@@ -476,6 +576,9 @@ export class GameEngine3D {
 
     // Enter / exit vehicle
     if (input.enter) this.handleEnterExit();
+
+    // Self-driving toggle
+    if (input.autopilot) this.toggleAutopilot();
 
     // Mission interaction
     if (input.interact) this.handleInteract(nowMs);
@@ -873,6 +976,7 @@ export class GameEngine3D {
       }
     }
 
+    this.disengageAutopilot(null);
     player.state = 'onFoot';
     player.currentVehicleId = null;
     player.z = 0;
@@ -885,6 +989,7 @@ export class GameEngine3D {
   /** Start the Busted sequence. Safe to call repeatedly. */
   bust() {
     if (this.player.action?.kind === 'busted') return;
+    this.disengageAutopilot(null);
     this.player.action = { kind: 'busted', timer: 0, total: BUSTED_TOTAL };
     this.screenLabel = 'BUSTED';
     this.bustedRespawned = false;
@@ -1217,6 +1322,7 @@ export class GameEngine3D {
         // despawn ring recycles it once the player is far enough away.
         v.isParked = true;
       }
+      this.disengageAutopilot(null);
       player.state = 'onFoot';
       player.currentVehicleId = null;
       player.z = 0;
@@ -1409,6 +1515,7 @@ export class GameEngine3D {
   launchDrone() {
     if (this.drone.active) { this.addNotification('無人機已在飛', '#00e5ff'); return; }
     this.missions.onDistraction('離開車輛');
+    this.disengageAutopilot(null);
     const d = createDrone(this.player.x, this.player.y);
     d.angle = this.player.angle;
     // Start slightly above ground so it's immediately visible
@@ -1653,6 +1760,15 @@ export class GameEngine3D {
       canStartTaxi: this.canStartTaxi(),
       banner: this.banner,
       jobs: this.missions.getJobList(),
+      autopilot: player.state === 'inCar'
+        ? {
+            active: this.autopilot.active,
+            distance: this.waypoint.active
+              ? dist(player.x, player.y, this.waypoint.x, this.waypoint.y)
+              : 0,
+            target: this.waypoint.source === 'mission' ? 'mission' : 'user',
+          }
+        : null,
     };
     this.hudCallback(data);
   }

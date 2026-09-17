@@ -222,8 +222,20 @@ export default function MobileControls({
           </div>
         )}
 
-        {/* Brake (car) */}
-        {inCar && holdBtn('brake', '煞車', '🛑', { minWidth: 80 })}
+        {/* Brake + autopilot (car) */}
+        {inCar && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            {holdBtn('brake', '煞車', '🛑', { minWidth: 52 })}
+            {tapBtn(
+              'autopilot',
+              hud.autopilot?.active ? '解除' : '自駕',
+              hud.autopilot?.active ? '⏹' : '🤖',
+              hud.autopilot?.active
+                ? { minWidth: 52, background: 'rgba(74,222,128,0.35)', borderColor: 'rgba(74,222,128,0.7)' }
+                : { minWidth: 52 },
+            )}
+          </div>
+        )}
 
         {/* Enter / Exit */}
         {tapBtn('enter', enterLabel, enterEmoji, { minWidth: 80 })}
