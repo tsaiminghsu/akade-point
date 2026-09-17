@@ -8,7 +8,7 @@
 import type { RefObject } from 'react';
 import { useMinecraftStore } from '../stores';
 
-export default function StartScreen({ canvasRef }: { canvasRef: RefObject<HTMLCanvasElement> }) {
+export default function StartScreen({ canvasRef }: { canvasRef: RefObject<HTMLCanvasElement | null> }) {
   const locked = useMinecraftStore(s => s.locked);
   if (locked) return null;
 

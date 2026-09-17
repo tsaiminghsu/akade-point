@@ -40,7 +40,7 @@ const MOVE_THRESHOLD = 0.5;
 
 export interface UseMiniMapResult {
   /** Attach this ref to a <canvas> element. */
-  canvasRef: RefObject<HTMLCanvasElement>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
 }
 
 export function useMiniMap(world: World): UseMiniMapResult {

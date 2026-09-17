@@ -8,7 +8,7 @@ import { WIN_TIERS } from '@/lib/temple-of-desert-god/constants';
 export default function WinCelebration() {
   const { phase, displayWin, totalBet, bonusState, dismissBigWin } = useSlotStore();
   const isVisible = phase === 'BIG_WIN';
-  const dismissTimer = useRef<ReturnType<typeof setTimeout>>();
+  const dismissTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Determine win tier
   const ratio = totalBet > 0 ? displayWin / totalBet : 0;

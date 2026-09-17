@@ -201,9 +201,8 @@ function PrecipitationSystem({
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
+          args={[posArr.current, 3]}
           count={PARTICLE_COUNT}
-          array={posArr.current}
-          itemSize={3}
         />
       </bufferGeometry>
       <pointsMaterial

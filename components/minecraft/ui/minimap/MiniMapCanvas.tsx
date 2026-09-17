@@ -12,7 +12,7 @@
 import type { RefObject } from 'react';
 
 interface MiniMapCanvasProps {
-  canvasRef: RefObject<HTMLCanvasElement>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
 }
 
 export function MiniMapCanvas({ canvasRef }: MiniMapCanvasProps) {
