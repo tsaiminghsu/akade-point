@@ -6,6 +6,8 @@
  * the floating +$ / -$ figures.
  */
 
+import * as gameClock from './gameClock';
+
 export const START_CASH = 500;
 
 /** Fixed prices, in dollars. */
@@ -112,7 +114,7 @@ export class Economy {
     const entry: Transaction = { id: nextId(), amount, reason, at: Date.now() };
     this.log.push(entry);
     if (this.log.length > LOG_LIMIT) this.log.shift();
-    this.ticks.push({ id: entry.id, amount, at: performance.now() });
+    this.ticks.push({ id: entry.id, amount, at: gameClock.now() });
   }
 
   /** Read the pending HUD figures, dropping any that have expired. */

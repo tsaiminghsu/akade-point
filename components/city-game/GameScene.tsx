@@ -18,6 +18,7 @@ import MissionMarkers, { MissionMarkersHandle } from './MissionMarkers';
 import RaceGateMeshes from './RaceGateMeshes';
 import { getCourse } from './raceCourses';
 import { LOOK_TARGET_Y } from './orbitCamera';
+import * as gameClock from './gameClock';
 
 // Reusable temp objects (never recreate in hot loop)
 const tmpVec3  = new THREE.Vector3();
@@ -316,7 +317,7 @@ export default function GameScene({
 
   useFrame((state, delta) => {
     const dt  = Math.min(delta, 0.05);
-    const now = performance.now();
+    const now = gameClock.now();
 
     engine.update(dt, now);
 

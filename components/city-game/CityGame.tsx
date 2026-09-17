@@ -17,6 +17,7 @@ import ChallengesPanel from './ChallengesPanel';
 import CashCounter from './CashCounter';
 import { MissionPanel, MissionBriefModal, CenterBanner } from './MissionHUD';
 import { getCourse } from './raceCourses';
+import * as gameClock from './gameClock';
 
 // ─── Weather cycle ────────────────────────────────────────────────────────────
 const WEATHER_CYCLE: WeatherType[] = [
@@ -230,7 +231,7 @@ export default function CityGame() {
   const onTownHallToggle  = useCallback(() => setShowTownHall(t => !t), []);
   const onAcceptMission   = useCallback(() => engine.current.acceptMission(), []);
   const onDeclineMission  = useCallback(() => engine.current.declineMission(), []);
-  const onCancelMission   = useCallback(() => engine.current.missions.requestCancel(performance.now()), []);
+  const onCancelMission   = useCallback(() => engine.current.missions.requestCancel(gameClock.now()), []);
   const onSetJobRoute     = useCallback((defId: string) => {
     engine.current.setWaypointToMission(defId);
     setShowPhone(false);

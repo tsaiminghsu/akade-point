@@ -139,7 +139,7 @@ export interface Vehicle {
   wreckTimer?: number;
   /** Palette index the ejected driver inherits. */
   driverColorIdx?: number;
-  /** performance.now() of the last damaging impact (cooldown gate). */
+  /** gameClock.now() of the last damaging impact (cooldown gate). */
   lastHitTime?: number;
 }
 
@@ -239,7 +239,7 @@ export interface OrbitCamState {
   zoomIdx: 0 | 1 | 2;
   /** Smoothed, occlusion-adjusted boom length in 3D units. */
   dist: number;
-  /** performance.now() of the last look input. Drives vehicle auto-recenter. */
+  /** gameClock.now() of the last look input. Drives vehicle auto-recenter. */
   lastLookMs: number;
   /** Focus altitude in 3D units (helicopter / drone). */
   focusAlt: number;
@@ -285,7 +285,7 @@ export interface Banner {
   text: string;
   sub?: string;
   color: string;
-  /** performance.now() at which the banner expires. */
+  /** gameClock.now() at which the banner expires. */
   until: number;
 }
 
@@ -509,13 +509,13 @@ export interface RaceSession {
   currentGateIndex: number;   // index of next gate to pass
   currentLap: number;
   totalLaps: number;
-  startTime: number;          // performance.now() at race start
+  startTime: number;          // gameClock.now() at race start
   lapStartTime: number;
   elapsedTime: number;        // seconds since race start
   bestLap: number;            // seconds, 0 = not set yet
   lapTimes: number[];
   splitTimes: number[];       // elapsed time at each gate crossing (current lap)
-  lastGateTime: number;       // performance.now() when last gate was passed
+  lastGateTime: number;       // gameClock.now() when last gate was passed
   crashCount: number;
   lastPassedGateIndex: number; // for respawn (−1 = before start)
   fpvMode: boolean;

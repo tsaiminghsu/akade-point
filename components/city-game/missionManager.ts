@@ -36,6 +36,7 @@ import {
 } from './missionRuntime';
 import { nearestRoadTile } from './police';
 import type { PedestrianSystem } from './pedestrians';
+import * as gameClock from './gameClock';
 
 /**
  * Drives missions inside the engine: marker triggers, objective progression,
@@ -69,7 +70,7 @@ export interface MissionMarker {
   defId: string;
   x: number;
   y: number;
-  /** performance.now() before which the marker is greyed out. */
+  /** gameClock.now() before which the marker is greyed out. */
   availableAt: number;
   /** Edge-trigger guard so the brief does not reopen every frame. */
   playerInside: boolean;
@@ -240,7 +241,7 @@ export class MissionManager {
     if (!def) return;
 
     s.phase = 'active';
-    s.startedAt = performance.now();
+    s.startedAt = gameClock.now();
 
     // Put the required vehicle within reach of the marker.
     if (def.requiredVehicle) {
@@ -262,7 +263,7 @@ export class MissionManager {
     const s = this.session;
     if (!s || s.phase !== 'briefing') return;
     const marker = this.markers.find(m => m.defId === s.defId);
-    if (marker) marker.availableAt = performance.now() + DECLINE_SUPPRESS * 1000;
+    if (marker) marker.availableAt = gameClock.now() + DECLINE_SUPPRESS * 1000;
     this.session = null;
   }
 
@@ -283,7 +284,7 @@ export class MissionManager {
   }
 
   get cancelArmed(): boolean {
-    return performance.now() <= this.cancelArmedUntil;
+    return gameClock.now() <= this.cancelArmedUntil;
   }
 
   /** Start taxi work from inside any taxi, without visiting the marker. */
@@ -420,7 +421,7 @@ export class MissionManager {
       const def = getMission(s.defId);
       const marker = this.markers.find(m => m.defId === s.defId);
       if (marker && def && s.phase === 'success') {
-        marker.availableAt = performance.now() + def.cooldown * 1000;
+        marker.availableAt = gameClock.now() + def.cooldown * 1000;
       }
     }
     this.host.clearWaypoint('mission');
@@ -525,31 +526,31 @@ export class MissionManager {
     const s = this.session;
     if (!s || s.phase !== 'active') return;
     if (s.vehicleId === vehicleId) {
-      failMission(s, '車輛損毀', performance.now());
-      this.onFailure(performance.now());
+      failMission(s, '車輛損毀', gameClock.now());
+      this.onFailure(gameClock.now());
     }
   }
 
   onBusted(): void {
     const s = this.session;
     if (!s || s.phase !== 'active') return;
-    failMission(s, '遭到逮捕', performance.now());
-    this.onFailure(performance.now());
+    failMission(s, '遭到逮捕', gameClock.now());
+    this.onFailure(gameClock.now());
   }
 
   /** Launching a drone or starting a race abandons a vehicle-bound job. */
   onDistraction(reason: string): void {
     const s = this.session;
     if (!s || s.phase !== 'active') return;
-    failMission(s, reason, performance.now());
-    this.onFailure(performance.now());
+    failMission(s, reason, gameClock.now());
+    this.onFailure(gameClock.now());
   }
 
   // ── React-facing data ─────────────────────────────────────────────────────
 
   nearMarker(): { defId: string; title: string; icon: string } | null {
     if (this.session) return null;
-    const now = performance.now();
+    const now = gameClock.now();
     for (const marker of this.markers) {
       if (!marker.playerInside || now < marker.availableAt) continue;
       const def = getMission(marker.defId);
@@ -560,7 +561,7 @@ export class MissionManager {
 
   getBlips(): MinimapBlip[] {
     const out: MinimapBlip[] = [];
-    const now = performance.now();
+    const now = gameClock.now();
 
     for (const marker of this.markers) {
       if (this.session) break;
@@ -619,7 +620,7 @@ export class MissionManager {
   }
 
   getJobList(): JobListItem[] {
-    const now = performance.now();
+    const now = gameClock.now();
     return MISSIONS.map(def => {
       const marker = this.markers.find(m => m.defId === def.id);
       const cooldownLeft = marker ? Math.max(0, (marker.availableAt - now) / 1000) : 0;
@@ -649,7 +650,7 @@ export class MissionManager {
 
   /** Markers for the 3D renderer. */
   getMarkerRenderData(): Array<MissionMarker & { color: string; available: boolean }> {
-    const now = performance.now();
+    const now = gameClock.now();
     return this.markers.map(m => {
       const def = getMission(m.defId);
       return {

@@ -23,7 +23,7 @@ export interface Garage {
   id: number;
   x: number;
   y: number;
-  /** performance.now() before which this garage is closed to the player. */
+  /** gameClock.now() before which this garage is closed to the player. */
   readyAt: number;
 }
 

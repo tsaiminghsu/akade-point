@@ -61,6 +61,7 @@ import {
   stepAutopilot,
   tileKeyOf,
 } from './autopilot';
+import * as gameClock from './gameClock';
 
 const CAR_MAX_SPEED = 160;      // 2D px / sec
 const CAR_ACCELERATION = 280;   // 2D px / sec²
@@ -176,6 +177,9 @@ export class GameEngine3D {
   /** Self-driving state for the player's car. */
   autopilot: AutopilotState = createAutopilot();
 
+  /** Set by the pause menu. While true `update()` is a no-op. */
+  paused = false;
+
   private parkedBlocks = new Set<number>();
   private wreckIds: string[] = [];
   private lastPoliceHitMs = 0;
@@ -220,7 +224,7 @@ export class GameEngine3D {
     this.registerBlipProvider('police', () => this.police.getBlips(this.vehicles));
     this.registerBlipProvider('missions', () => this.missions.getBlips());
     this.garages = createGarages(this.world);
-    this.registerBlipProvider('garages', () => garageBlips(this.garages, performance.now()));
+    this.registerBlipProvider('garages', () => garageBlips(this.garages, gameClock.now()));
 
     this.initDynamicState();
   }
@@ -440,7 +444,7 @@ export class GameEngine3D {
   }
 
   showBanner(text: string, sub: string, color: string, ms: number) {
-    this.banner = { id: `b${Date.now()}`, text, sub, color, until: performance.now() + ms };
+    this.banner = { id: `b${Date.now()}`, text, sub, color, until: gameClock.now() + ms };
   }
 
   /** Debounced save; call freely. */
@@ -493,7 +497,29 @@ export class GameEngine3D {
     this.setWaypoint(at.x, at.y, 'user');
   }
 
+  /**
+   * Freeze the simulation. The render loop keeps running so the pause menu
+   * shows a live scene behind it.
+   */
+  setPaused(paused: boolean): void {
+    if (this.paused === paused) return;
+    this.paused = paused;
+    if (paused) {
+      gameClock.pause();
+    } else {
+      gameClock.resume();
+      // Anything pressed while the menu was open would otherwise fire now.
+      this.input.flush();
+    }
+  }
+
   update(dt: number, nowMs: number): void {
+    if (this.paused) {
+      // flush() normally runs at the bottom of this method. Skipping it would
+      // latch one-shots (C, F, E) and fire them all on resume.
+      this.input.flush();
+      return;
+    }
     this.tick++;
     const { player, vehicles, orders, drone } = this;
     const isDriving = player.state === 'inCar' || player.state === 'inHelicopter';
@@ -1096,7 +1122,7 @@ export class GameEngine3D {
     } else {
       // Head-on into a building: dent the car proportionally to the impact.
       const impactSpeed = Math.abs(car.speed);
-      const now = performance.now();
+      const now = gameClock.now();
       if (impactSpeed > WALL_DAMAGE_MIN_SPEED && now - (car.lastHitTime ?? 0) > WALL_DAMAGE_COOLDOWN) {
         car.lastHitTime = now;
         car.hp = Math.max(0, car.hp - (impactSpeed - 40) * 0.25);
@@ -1439,8 +1465,8 @@ export class GameEngine3D {
   }
 
   addNotification(text: string, color = '#fff') {
-    // Use performance.now() to match the expiry check in update()
-    this.notifications.push({ id: notifId(), text, expiresAt: performance.now() + 3500, color });
+    // Same clock as the expiry check in update(), so pausing holds them on screen.
+    this.notifications.push({ id: notifId(), text, expiresAt: gameClock.now() + 3500, color });
     if (this.notifications.length > 5) this.notifications.shift();
   }
 
@@ -1754,7 +1780,7 @@ export class GameEngine3D {
       screenLabel: this.screenLabel,
       nearVehicle: this.nearestVehicleInfo(),
       cash: this.economy.cash,
-      cashTicker: this.economy.drainTicks(performance.now()),
+      cashTicker: this.economy.drainTicks(gameClock.now()),
       mission: this.missions.getHUD(),
       nearMarker: this.missions.nearMarker(),
       canStartTaxi: this.canStartTaxi(),

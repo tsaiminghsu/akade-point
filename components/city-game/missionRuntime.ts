@@ -47,7 +47,7 @@ export interface MissionSession {
   passenger: Passenger | null;
   failReason: string | null;
   resultText: string;
-  /** performance.now() when the run ended, for the result hold. */
+  /** gameClock.now() when the run ended, for the result hold. */
   endedAt: number;
 }
 
