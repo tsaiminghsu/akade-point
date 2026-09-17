@@ -19,6 +19,7 @@ import { MissionPanel, MissionBriefModal, CenterBanner } from './MissionHUD';
 import { getCourse } from './raceCourses';
 import * as gameClock from './gameClock';
 import PauseMenu from './PauseMenu';
+import PostFX from './PostFX';
 import {
   DEFAULT_CAPS,
   GraphicsCaps,
@@ -130,6 +131,7 @@ export default function CityGame() {
   const [isMobile,     setIsMobile]    = useState(false);
   const [pointerLocked, setPointerLocked] = useState(false);
   const [paused,       setPaused]      = useState(false);
+  const [fps,          setFps]         = useState(0);
 
   // ── Graphics settings ──────────────────────────────────────────────────────
   // Starts at the defaults so the server and first client render agree; the
@@ -227,6 +229,14 @@ export default function CityGame() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [paused, otherOverlayOpen]);
+
+  // PostFX measures the real render rate and reports it here.
+  useEffect(() => {
+    if (!resolved.showFps) { setFps(0); return; }
+    const onFps = (e: Event) => setFps((e as CustomEvent).detail.fps as number);
+    window.addEventListener('city:fps', onFps as EventListener);
+    return () => window.removeEventListener('city:fps', onFps as EventListener);
+  }, [resolved.showFps]);
 
   // Freezing the simulation is the engine's job; it also holds the game clock.
   useEffect(() => {
@@ -393,6 +403,11 @@ export default function CityGame() {
         }}
       >
         <FrameCounter onReady={handleCanvasReady} />
+        <PostFX
+          engine={engine.current}
+          graphics={resolved}
+          wet={weatherType === 'rain' || weatherType === 'storm'}
+        />
         <GameScene
           engine={engine.current}
           weatherType={weatherType}
@@ -504,6 +519,28 @@ export default function CityGame() {
           }}
         >
           點擊畫面以滑鼠環視 · Esc 釋放 · 再按 Esc 暫停
+        </div>
+      )}
+
+      {/* ── FPS readout ── */}
+      {!loadVisible && resolved.showFps && (
+        <div
+          className="absolute pointer-events-none select-none"
+          style={{
+            top: 12,
+            right: isMobile ? 12 : 56,
+            zIndex: 46,
+            padding: '3px 9px',
+            borderRadius: 8,
+            fontSize: 11,
+            fontFamily: 'monospace',
+            color: fps && fps < 30 ? '#f87171' : 'rgba(255,255,255,0.75)',
+            background: 'rgba(0,0,0,0.42)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          {fps} FPS
         </div>
       )}
 

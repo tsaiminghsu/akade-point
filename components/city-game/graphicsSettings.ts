@@ -230,6 +230,8 @@ export interface ResolvedGraphics {
   perfPatch: Partial<PerfProfile>;
   /** Changing this string rebuilds the post-processing chain. */
   postFxKey: string;
+  /** False means render straight to the screen, with no composer at all. */
+  usesComposer: boolean;
   ssr: boolean;
   ssrQuality: SsrQuality;
   ao: AoMode;
@@ -289,6 +291,10 @@ export function resolve(s: GraphicsSettings, caps: GraphicsCaps = DEFAULT_CAPS):
       s.bloom ? `bloom-${s.bloomStrength.toFixed(2)}` : 'nobloom',
       antiAliasing,
     ].join('|'),
+    // MSAA alone is handled by the canvas' own antialias flag, so it does not
+    // on its own justify the cost of an offscreen buffer.
+    usesComposer: ssr || s.ao !== 'off' || s.bloom
+      || antiAliasing === 'fxaa' || antiAliasing === 'smaa',
     ssr,
     ssrQuality: s.ssrQuality,
     ao: s.ao,
