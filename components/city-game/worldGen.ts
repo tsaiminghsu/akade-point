@@ -2,6 +2,10 @@ import {
   GRID_SIZE,
   TILE_SIZE,
   WORLD_SIZE,
+  WORLD_CENTER_TILE,
+  CHUNKS_PER_SIDE,
+  chunkKey,
+  chunkOfTile,
   Tile,
   TileType,
   BuildingType,
@@ -9,9 +13,10 @@ import {
   WorldData,
   ParkingBlock,
 } from './types';
+import { buildChunkIndex } from './chunks';
 
 // Seeded pseudo-random number generator (mulberry32)
-function makePRNG(seed: number) {
+export function makePRNG(seed: number) {
   let s = seed >>> 0;
   return () => {
     s += 0x6d2b79f5;
@@ -22,7 +27,7 @@ function makePRNG(seed: number) {
   };
 }
 
-const SHOP_NAMES = [
+export const SHOP_NAMES = [
   '7-ELEVEN', '全家便利', '萊爾富', 'OK超商',
   '麥當勞', '肯德基', '摩斯漢堡', '星巴克',
   '全聯超市', '頂好超市', '大潤發',
@@ -42,7 +47,7 @@ const ZONE_NAMES: Record<string, string> = {
 };
 
 // Road interval: major road every 8 tiles
-const BLOCK_INTERVAL = 8;
+export const BLOCK_INTERVAL = 8;
 
 
 function isRoadTile(gx: number, gy: number): boolean {
@@ -59,11 +64,33 @@ function getBlockId(gx: number, gy: number): number {
   return Math.floor(gx / BLOCK_INTERVAL) * 1000 + Math.floor(gy / BLOCK_INTERVAL);
 }
 
+/**
+ * Every block draws from its own PRNG stream, so a block's layout is a pure
+ * function of (seed, bx, by). Changing GRID_SIZE or the generation order of
+ * other blocks never reshuffles it, and a district can be regenerated on its
+ * own for debugging.
+ */
+function blockSeed(seed: number, bx: number, by: number): number {
+  return (Math.imul(seed, 0x9e3779b1) ^ Math.imul(bx + 1, 73856093) ^ Math.imul(by + 1, 19349663)) >>> 0;
+}
+
 export function generateWorld(seed = 42): WorldData {
-  const rand = makePRNG(seed);
   const grid: Tile[][] = Array.from({ length: GRID_SIZE }, () =>
     Array.from({ length: GRID_SIZE }, () => ({ type: TileType.EMPTY }))
   );
+
+  const blockRngs = new Map<number, () => number>();
+  const rngFor = (bx: number, by: number): (() => number) => {
+    const id = bx * 1000 + by;
+    let r = blockRngs.get(id);
+    if (!r) {
+      r = makePRNG(blockSeed(seed, bx, by));
+      blockRngs.set(id, r);
+    }
+    return r;
+  };
+  const rngForTile = (gx: number, gy: number) =>
+    rngFor(Math.floor(gx / BLOCK_INTERVAL), Math.floor(gy / BLOCK_INTERVAL));
 
   // Track collections
   const helipads: Point[] = [];
@@ -76,10 +103,11 @@ export function generateWorld(seed = 42): WorldData {
 
   // Block type assignments (keyed by blockId)
   const blockTypes = new Map<number, string>();
-  for (let bx = 0; bx <= Math.floor(GRID_SIZE / BLOCK_INTERVAL); bx++) {
-    for (let by = 0; by <= Math.floor(GRID_SIZE / BLOCK_INTERVAL); by++) {
+  const blocksPerSide = Math.floor(GRID_SIZE / BLOCK_INTERVAL);
+  for (let bx = 0; bx <= blocksPerSide; bx++) {
+    for (let by = 0; by <= blocksPerSide; by++) {
       const id = bx * 1000 + by;
-      const r = rand();
+      const r = rngFor(bx, by)();
       if (r < 0.4) blockTypes.set(id, 'commercial');
       else if (r < 0.75) blockTypes.set(id, 'residential');
       else if (r < 0.85) blockTypes.set(id, 'park');
@@ -87,15 +115,15 @@ export function generateWorld(seed = 42): WorldData {
     }
   }
 
-  // Helipad block (fixed position near center-right)
+  // Helipad block: two blocks east of the town hall
   const heliBx = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2) + 2;
   const heliBy = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2);
   blockTypes.set(heliBx * 1000 + heliBy, 'commercial');
 
   // Small parks immediately surrounding the town hall (dist-1 blocks only)
   // Dist-2+ blocks keep their natural commercial/residential character (buildings)
-  const thBx = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2); // 5
-  const thBy = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2); // 5
+  const thBx = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2);
+  const thBy = Math.floor(GRID_SIZE / BLOCK_INTERVAL / 2);
   const civicParks: [number, number][] = [
     [thBx - 1, thBy - 1], // NW of plaza  (dist 1)
     [thBx - 1, thBy],     // W  of building (dist 1)
@@ -107,11 +135,13 @@ export function generateWorld(seed = 42): WorldData {
     if (bx >= 0 && by >= 0) blockTypes.set(bx * 1000 + by, 'park');
   }
 
-  // Shop assignment tracker (one shop per block face on road)
+  // Shop assignment: ~35% of commercial blocks carry shops
   const shopBlocks = new Set<number>();
-  // Assign ~30% of commercial blocks to have shops
   blockTypes.forEach((type, id) => {
-    if (type === 'commercial' && rand() < 0.35) shopBlocks.add(id);
+    if (type !== 'commercial') return;
+    const bx = Math.floor(id / 1000);
+    const by = id % 1000;
+    if (rngFor(bx, by)() < 0.35) shopBlocks.add(id);
   });
 
   // Sub-building tracking: which tiles in a block have been used for large buildings
@@ -150,11 +180,12 @@ export function generateWorld(seed = 42): WorldData {
 
         const blockId = getBlockId(gx, gy);
         const blockType = blockTypes.get(blockId) ?? 'residential';
+        const rand = rngForTile(gx, gy);
 
         if (blockType === 'park') {
           grid[gy][gx] = { type: TileType.PARK };
         } else if (blockType === 'parking') {
-          grid[gy][gx] = { type: TileType.PARKING };
+          grid[gy][gx] = { type: TileType.PARKING, blockId };
           const list = parkingTilesByBlock.get(blockId);
           const pt = { x: gx * TILE_SIZE + TILE_SIZE / 2, y: gy * TILE_SIZE + TILE_SIZE / 2 };
           if (list) list.push(pt); else parkingTilesByBlock.set(blockId, [pt]);
@@ -242,15 +273,15 @@ export function generateWorld(seed = 42): WorldData {
   }
 
   // ─── Town Hall: two-block civic campus at world centre ────────────────────
-  // Layout (tile coords, thCenter = 40,40):
-  //   Building block  (south): tx=41-47, ty=42-46  → TOWN_HALL (solid)
-  //   Lobby entrance           tx=43-45, ty=42-44  → TOWN_HALL_INTERIOR (walkable)
-  //   Plaza / forecourt:       tx=42-46, ty=34-38  → TOWN_HALL_PLAZA (walkable)
-  //   Road at ty=40 is preserved as ROAD_H — vehicles and players cross in front of building.
-  const thCenterGx = Math.floor(GRID_SIZE / 2); // 40
-  const thCenterGy = Math.floor(GRID_SIZE / 2); // 40
+  // Layout relative to the centre tile C = WORLD_CENTER_TILE:
+  //   Building block  (south): tx=C+1..C+7, ty=C+2..C+6  → TOWN_HALL (solid)
+  //   Lobby entrance           tx=C+3..C+5, ty=C+2..C+4  → TOWN_HALL_INTERIOR (walkable)
+  //   Plaza / forecourt:       tx=C+2..C+6, ty=C-6..C-2  → TOWN_HALL_PLAZA (walkable)
+  //   Road at ty=C is preserved as ROAD_H — vehicles and players cross in front of building.
+  const thCenterGx = WORLD_CENTER_TILE;
+  const thCenterGy = WORLD_CENTER_TILE;
 
-  // 1. Building body: full tile range of south block (ty=42-46, tx=41-47)
+  // 1. Building body
   for (let dy = 2; dy <= 6; dy++) {
     for (let dx = 1; dx <= 7; dx++) {
       const tx = thCenterGx + dx;
@@ -268,7 +299,7 @@ export function generateWorld(seed = 42): WorldData {
     }
   }
 
-  // 2. Lobby entrance: walkable interior tiles (ty=42-44, tx=43-45)
+  // 2. Lobby entrance: walkable interior tiles
   for (let dy = 2; dy <= 4; dy++) {
     for (let dx = 3; dx <= 5; dx++) {
       const tx = thCenterGx + dx;
@@ -284,7 +315,7 @@ export function generateWorld(seed = 42): WorldData {
     }
   }
 
-  // 3. Plaza forecourt: inner tiles of north block (ty=34-38, tx=42-46)
+  // 3. Plaza forecourt: inner tiles of north block
   for (let dy = -6; dy <= -2; dy++) {
     for (let dx = 2; dx <= 6; dx++) {
       const tx = thCenterGx + dx;
@@ -297,12 +328,12 @@ export function generateWorld(seed = 42): WorldData {
   }
 
   const townHallPos: Point = {
-    x: (thCenterGx + 4) * TILE_SIZE + TILE_SIZE / 2, // tile 44 → 1780
-    y: (thCenterGy + 4) * TILE_SIZE + TILE_SIZE / 2, // tile 44 → 1780
+    x: (thCenterGx + 4) * TILE_SIZE + TILE_SIZE / 2,
+    y: (thCenterGy + 4) * TILE_SIZE + TILE_SIZE / 2,
   };
 
   // Busted respawn: townHallPos itself is a solid TOWN_HALL tile, so use the
-  // walkable lobby (TOWN_HALL_INTERIOR spans tx 43-45, ty 42-44).
+  // walkable lobby (TOWN_HALL_INTERIOR spans tx C+3..C+5, ty C+2..C+4).
   const respawnPos: Point = gridToWorld(thCenterGx + 4, thCenterGy + 3);
 
   const parkingBlocks: ParkingBlock[] = [];
@@ -314,9 +345,19 @@ export function generateWorld(seed = 42): WorldData {
     parkingBlocks.push({ id, center: { x: sx / tiles.length, y: sy / tiles.length }, tiles });
   });
 
+  // Chunk index and road buckets, baked after the town hall overwrites so the
+  // baked geometry matches the final grid.
+  const chunks = buildChunkIndex(grid);
+  const roadTilesByChunk: Point[][] = Array.from({ length: CHUNKS_PER_SIDE * CHUNKS_PER_SIDE }, () => []);
+  for (const t of roadTiles) {
+    const { cx, cy } = chunkOfTile(Math.floor(t.x / TILE_SIZE), Math.floor(t.y / TILE_SIZE));
+    roadTilesByChunk[chunkKey(cx, cy)].push(t);
+  }
+
   return {
     grid, helipads, shopPositions, roadTiles, spawnPoints, townHallPos,
     sidewalkTiles, parkingBlocks, respawnPos,
+    chunks, roadTilesByChunk,
   };
 }
 
@@ -365,7 +406,76 @@ export function isDrivable(grid: Tile[][], wx: number, wy: number): boolean {
   );
 }
 
-// BFS pathfinding on road tiles
+/** Nearest drivable tile centre to a point, searched in expanding rings (≤ 4 tiles). */
+export function nearestRoadTile(world: WorldData, p: Point): Point {
+  const gx = Math.floor(p.x / TILE_SIZE);
+  const gy = Math.floor(p.y / TILE_SIZE);
+  for (let r = 0; r <= 4; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const nx = gx + dx;
+        const ny = gy + dy;
+        if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+        const wx = nx * TILE_SIZE + TILE_SIZE / 2;
+        const wy = ny * TILE_SIZE + TILE_SIZE / 2;
+        if (isDrivable(world.grid, wx, wy)) return { x: wx, y: wy };
+      }
+    }
+  }
+  return { x: p.x, y: p.y };
+}
+
+/** Altitude units per floor: FLOOR_HEIGHT_3D (1.4) / (TILE_3D / TILE_SIZE) (0.1). */
+export const ALT_PER_FLOOR = 14;
+/** Extra clearance above a roof before it stops being solid. */
+export const ALT_ROOF_BUFFER = 5;
+
+/**
+ * Altitude-aware solidity. Out of bounds is solid. A building stops being
+ * solid once you are above its roof plus a small buffer.
+ */
+export function isSolidAtAltitude(grid: Tile[][], wx: number, wy: number, altitude: number): boolean {
+  const gx = Math.floor(wx / TILE_SIZE);
+  const gy = Math.floor(wy / TILE_SIZE);
+  if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return true;
+  const tile = grid[gy]?.[gx];
+  if (!tile) return false;
+  if (tile.type === TileType.BUILDING) {
+    return altitude < (tile.floors ?? 1) * ALT_PER_FLOOR + ALT_ROOF_BUFFER;
+  }
+  if (tile.type === TileType.HELIPAD) {
+    return altitude < (tile.floors ?? 15) * ALT_PER_FLOOR + ALT_ROOF_BUFFER;
+  }
+  if (tile.type === TileType.TOWN_HALL) {
+    return altitude < (tile.floors ?? 8) * ALT_PER_FLOOR + ALT_ROOF_BUFFER;
+  }
+  return false;
+}
+
+// ── BFS pathfinding on road tiles ────────────────────────────────────────────
+// Module-level typed arrays sized to the grid and reused across calls, with a
+// generation stamp instead of clearing: a 160x160 grid is 25 600 tiles and a
+// fresh Set/Map per search would churn the GC every time an NPC re-routes.
+const BFS_N = GRID_SIZE * GRID_SIZE;
+const bfsStamp = new Int32Array(BFS_N);
+const bfsParent = new Int32Array(BFS_N);
+const bfsQueue = new Int32Array(BFS_N);
+let bfsGeneration = 0;
+
+function isPassable(t: Tile): boolean {
+  return t.type === TileType.ROAD_H
+    || t.type === TileType.ROAD_V
+    || t.type === TileType.INTERSECTION
+    || t.type === TileType.SIDEWALK
+    || t.type === TileType.PARKING;
+}
+
+/**
+ * Shortest road path between two world points, as tile centres (excluding the
+ * start tile). Returns `[]` when start and end share a tile, and the raw
+ * destination point when unreachable (a straight-line fallback).
+ */
 export function findRoadPath(
   grid: Tile[][],
   startWx: number,
@@ -378,45 +488,37 @@ export function findRoadPath(
   const ex = Math.floor(endWx / TILE_SIZE);
   const ey = Math.floor(endWy / TILE_SIZE);
 
-  const key = (x: number, y: number) => x * 1000 + y;
-  const visited = new Set<number>();
-  const parent = new Map<number, { px: number; py: number }>();
-  const queue: Array<{ x: number; y: number }> = [{ x: sx, y: sy }];
-  visited.add(key(sx, sy));
+  if (sx < 0 || sx >= GRID_SIZE || sy < 0 || sy >= GRID_SIZE) return [{ x: endWx, y: endWy }];
+  if (ex < 0 || ex >= GRID_SIZE || ey < 0 || ey >= GRID_SIZE) return [{ x: endWx, y: endWy }];
 
-  const dirs = [
-    { dx: 1, dy: 0 },
-    { dx: -1, dy: 0 },
-    { dx: 0, dy: 1 },
-    { dx: 0, dy: -1 },
-  ];
+  const gen = ++bfsGeneration;
+  const startKey = sy * GRID_SIZE + sx;
+  const endKey = ey * GRID_SIZE + ex;
 
-  let found = false;
-  // Head index instead of Array.shift(): shift() is O(n) per pop, which shows
-  // up once police units re-plan every second.
+  bfsStamp[startKey] = gen;
+  bfsParent[startKey] = -1;
+  bfsQueue[0] = startKey;
   let head = 0;
-  while (head < queue.length) {
-    const cur = queue[head++];
-    if (cur.x === ex && cur.y === ey) { found = true; break; }
+  let tail = 1;
+  let found = startKey === endKey;
 
-    for (const { dx, dy } of dirs) {
-      const nx = cur.x + dx;
-      const ny = cur.y + dy;
+  while (!found && head < tail) {
+    const cur = bfsQueue[head++];
+    const cx = cur % GRID_SIZE;
+    const cy = (cur - cx) / GRID_SIZE;
+
+    // 4-neighbourhood, unrolled so no per-step allocation happens.
+    for (let d = 0; d < 4; d++) {
+      const nx = d === 0 ? cx + 1 : d === 1 ? cx - 1 : cx;
+      const ny = d === 2 ? cy + 1 : d === 3 ? cy - 1 : cy;
       if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
-      if (visited.has(key(nx, ny))) continue;
-      const tile = grid[ny][nx];
-      const isDest = (nx === ex && ny === ey);
-      if (
-        !isDest &&
-        tile.type !== TileType.ROAD_H &&
-        tile.type !== TileType.ROAD_V &&
-        tile.type !== TileType.INTERSECTION &&
-        tile.type !== TileType.SIDEWALK &&
-        tile.type !== TileType.PARKING
-      ) continue;
-      visited.add(key(nx, ny));
-      parent.set(key(nx, ny), { px: cur.x, py: cur.y });
-      queue.push({ x: nx, y: ny });
+      const nk = ny * GRID_SIZE + nx;
+      if (bfsStamp[nk] === gen) continue;
+      if (nk !== endKey && !isPassable(grid[ny][nx])) continue;
+      bfsStamp[nk] = gen;
+      bfsParent[nk] = cur;
+      bfsQueue[tail++] = nk;
+      if (nk === endKey) { found = true; break; }
     }
   }
 
@@ -425,17 +527,16 @@ export function findRoadPath(
     return [{ x: endWx, y: endWy }];
   }
 
-  // Reconstruct path
+  // Reconstruct path (push then reverse: unshift would be O(n^2)).
   const path: Point[] = [];
-  let cx = ex;
-  let cy = ey;
-  while (cx !== sx || cy !== sy) {
-    path.unshift({ x: cx * TILE_SIZE + TILE_SIZE / 2, y: cy * TILE_SIZE + TILE_SIZE / 2 });
-    const p = parent.get(key(cx, cy));
-    if (!p) break;
-    cx = p.px;
-    cy = p.py;
+  let k = endKey;
+  while (k !== startKey && k >= 0) {
+    const gx = k % GRID_SIZE;
+    const gy = (k - gx) / GRID_SIZE;
+    path.push({ x: gx * TILE_SIZE + TILE_SIZE / 2, y: gy * TILE_SIZE + TILE_SIZE / 2 });
+    k = bfsParent[k];
   }
+  path.reverse();
   return path;
 }
 

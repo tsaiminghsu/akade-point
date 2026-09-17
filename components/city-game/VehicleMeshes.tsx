@@ -266,7 +266,8 @@ export function HelicopterMesh({ groupRef, color }: { groupRef: React.Ref<THREE.
 // written imperatively, which keeps the cost flat as police cars and parked
 // cars are added later.
 
-const FLEET_CAPACITY = 64;
+// 40 traffic + 5 police + 24 parked + 6 wrecks + service/job vehicles.
+const FLEET_CAPACITY = 96;
 
 // Scratch objects — never allocate inside sync().
 const fmMat = new THREE.Matrix4();

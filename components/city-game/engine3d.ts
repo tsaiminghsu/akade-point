@@ -30,11 +30,12 @@ import {
   createDrone,
   updateTraffic,
   updateParkedCars,
+  ensureTraffic,
   updateServiceVehicle,
   updateDrone,
   nextVehicleId,
 } from './traffic';
-import { generateWorld, getZoneName } from './worldGen';
+import { generateWorld, getZoneName, isSolidAtAltitude } from './worldGen';
 import { createRaceSession, tickRace } from './race';
 import { getCourse } from './raceCourses';
 import {
@@ -65,7 +66,36 @@ const FOOT_TURN_RATE = 12;      // rad / sec — how fast the character faces it
 const JUMP_VEL = 55;            // px / sec — apex ~9.5px (0.95 three.js units)
 const GRAVITY = 160;            // px / sec^2 — ~0.7s hang time
 const ENTER_VEHICLE_RADIUS = 35;
-const NPC_COUNT = 22;
+/** Default live traffic count. Density is player-relative, so this is per ring, not per map. */
+export const NPC_COUNT = 22;
+
+/** Population, effect and streaming budgets. Mutated by the graphics settings. */
+export interface PerfProfile {
+  maxPeds: number;
+  maxPolice: number;
+  pedShadows: boolean;
+  /** Live NPC traffic cars kept around the player. */
+  npcCars: number;
+  /** Parked cars kept around the player. */
+  parkedCars: number;
+  /** Static geometry streaming radius, 3D units. */
+  drawDistance: number;
+  /** Radius within which static geometry casts shadows, 3D units. */
+  shadowDistance: number;
+  /** Street lamps that get a real point light. */
+  lampLights: number;
+}
+
+export const PERF_HIGH: PerfProfile = {
+  maxPeds: 96, maxPolice: 5, pedShadows: true,
+  npcCars: NPC_COUNT, parkedCars: 16,
+  drawDistance: 176, shadowDistance: 96, lampLights: 6,
+};
+export const PERF_LOW: PerfProfile = {
+  maxPeds: 64, maxPolice: 3, pedShadows: false,
+  npcCars: 16, parkedCars: 8,
+  drawDistance: 112, shadowDistance: 64, lampLights: 6,
+};
 
 const EMPTY_BLIPS: MinimapBlip[] = [];
 
@@ -143,8 +173,8 @@ export class GameEngine3D {
   private persistTimer = 0;
   private persistDirty = false;
 
-  /** Population / effect budgets. Lowered on touch devices. */
-  perf = { maxPeds: 96, maxPolice: 5, pedShadows: true };
+  /** Population / effect / streaming budgets. See PerfProfile. */
+  perf: PerfProfile = { ...PERF_HIGH };
 
   private blipProviders = new Map<string, () => MinimapBlip[]>();
   private hudCallback: HUDCallback3D | null = null;
@@ -248,7 +278,7 @@ export class GameEngine3D {
     this.player.currentVehicleId = pCar.id;
 
     // NPC cars
-    for (let i = 0; i < NPC_COUNT; i++) {
+    for (let i = 0; i < this.perf.npcCars; i++) {
       const npc = createNPCCar(this.world, i);
       this.vehicles.set(npc.id, npc);
     }
@@ -277,9 +307,22 @@ export class GameEngine3D {
 
   /** Touch devices get a smaller crowd and no pedestrian shadows. */
   setPerfProfile(profile: 'low' | 'high') {
-    this.perf = profile === 'low'
-      ? { maxPeds: 64, maxPolice: 3, pedShadows: false }
-      : { maxPeds: 96, maxPolice: 5, pedShadows: true };
+    this.perf = { ...(profile === 'low' ? PERF_LOW : PERF_HIGH) };
+  }
+
+  /** Partial override from the graphics settings. Takes effect over the next seconds. */
+  applyGraphics(patch: Partial<PerfProfile>) {
+    Object.assign(this.perf, patch);
+  }
+
+  /** Live traffic cars currently in the world. */
+  trafficCount(): number {
+    let n = 0;
+    for (const v of this.vehicles.values()) {
+      if (v.type === VehicleType.NPC_CAR && v.occupant === 'npc' && v.hp > 0
+        && !v.isParked && !v.isService && v.npcState !== 'hijacked') n++;
+    }
+    return n;
   }
 
   setHUDCallback(cb: HUDCallback3D) { this.hudCallback = cb; }
@@ -445,8 +488,15 @@ export class GameEngine3D {
       this.pedestrians, this.player.state === 'onFoot',
     );
 
+    // Replenish traffic once a second (wrecks, thefts and despawns shrink it).
+    if (this.tick % 60 === 0) {
+      ensureTraffic(vehicles, this.world, this.player, this.perf.npcCars);
+    }
+
     // Parked / abandoned cars near the player
-    updateParkedCars(vehicles, this.world, player, player.currentVehicleId, this.parkedBlocks);
+    updateParkedCars(
+      vehicles, this.world, player, player.currentVehicleId, this.parkedBlocks, this.perf.parkedCars,
+    );
 
     // Police pursuit (moves units, may complete an arrest)
     const playerVeh = player.currentVehicleId ? vehicles.get(player.currentVehicleId) : null;
@@ -1279,24 +1329,7 @@ export class GameEngine3D {
   // Altitude-aware solid check for drones. Returns false if the drone is physically
   // above the building's roof (altitude > floors * 14 + 5 safety buffer).
   isSolidAtAlt(wx: number, wy: number, altitude: number): boolean {
-    const gx = Math.floor(wx / TILE_SIZE);
-    const gy = Math.floor(wy / TILE_SIZE);
-    if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return true;
-    const tile = this.world.grid[gy]?.[gx];
-    if (!tile) return false;
-    // 14 altitude units per floor (FLOOR_HEIGHT_3D=1.4 / (TILE_3D/TILE_SIZE)=0.1)
-    const ALT_PER_FLOOR = 14;
-    const BUFFER = 5;
-    if (tile.type === TileType.BUILDING) {
-      return altitude < (tile.floors ?? 1) * ALT_PER_FLOOR + BUFFER;
-    }
-    if (tile.type === TileType.HELIPAD) {
-      return altitude < (tile.floors ?? 15) * ALT_PER_FLOOR + BUFFER;
-    }
-    if (tile.type === TileType.TOWN_HALL) {
-      return altitude < (tile.floors ?? 8) * ALT_PER_FLOOR + BUFFER;
-    }
-    return false;
+    return isSolidAtAltitude(this.world.grid, wx, wy, altitude);
   }
 
   addNotification(text: string, color = '#fff') {

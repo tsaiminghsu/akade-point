@@ -1,18 +1,21 @@
 import {
-  Point,
   Vehicle,
   WorldData,
   MinimapBlip,
   TILE_SIZE,
   GRID_SIZE,
 } from './types';
-import { findRoadPath, isDrivable } from './worldGen';
+import { findRoadPath, nearestRoadTile } from './worldGen';
+import { pickRoadBeyond } from './chunks';
 import {
   applyTrafficLanes,
   moveVehicleTowardWaypoint,
   createPoliceCar,
   pickSpawnAwayFromPlayer,
 } from './traffic';
+
+// Historically defined here; the road query now lives with the world helpers.
+export { nearestRoadTile } from './worldGen';
 
 /**
  * Police pursuit.
@@ -21,9 +24,9 @@ import {
  * arrest the player if they are stopped or on foot nearby. There are no
  * weapons: the only outcome is Busted.
  *
- * Path re-planning is the expensive part (BFS over an 80x80 grid), so it is
- * budgeted to at most one re-plan per frame across all units, staggered on
- * spawn, and skipped entirely when the goal tile has not changed.
+ * Path re-planning is the expensive part (BFS over the 160x160 grid), so it
+ * is budgeted to at most one re-plan per frame across all units, staggered
+ * on spawn, and skipped entirely when the goal tile has not changed.
  */
 
 export type PoliceState = 'pursue' | 'ram' | 'arrest' | 'retreat';
@@ -82,26 +85,6 @@ export interface PoliceContext {
 
 function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(bx - ax, by - ay);
-}
-
-/** Nearest drivable tile centre to a point, searched in expanding rings. */
-export function nearestRoadTile(world: WorldData, p: Point): Point {
-  const gx = Math.floor(p.x / TILE_SIZE);
-  const gy = Math.floor(p.y / TILE_SIZE);
-  for (let r = 0; r <= 4; r++) {
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const nx = gx + dx;
-        const ny = gy + dy;
-        if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
-        const wx = nx * TILE_SIZE + TILE_SIZE / 2;
-        const wy = ny * TILE_SIZE + TILE_SIZE / 2;
-        if (isDrivable(world.grid, wx, wy)) return { x: wx, y: wy };
-      }
-    }
-  }
-  return { x: p.x, y: p.y };
 }
 
 export class PoliceSystem {
@@ -327,7 +310,7 @@ export class PoliceSystem {
   /** Re-route towards the player. Returns true when a BFS was actually run. */
   private replan(u: PoliceUnit, v: Vehicle, ctx: PoliceContext): boolean {
     const goal = nearestRoadTile(ctx.world, ctx.player);
-    const key = Math.floor(goal.x / TILE_SIZE) * 1000 + Math.floor(goal.y / TILE_SIZE);
+    const key = Math.floor(goal.y / TILE_SIZE) * GRID_SIZE + Math.floor(goal.x / TILE_SIZE);
     if (key === u.lastGoalKey && v.waypointIndex < v.waypoints.length) return false;
 
     const path = findRoadPath(ctx.world.grid, v.x, v.y, goal.x, goal.y);
@@ -379,9 +362,7 @@ export class PoliceSystem {
   }
 
   private routeAway(v: Vehicle, world: WorldData, player: { x: number; y: number }): void {
-    const far = world.roadTiles.filter(t => dist(t.x, t.y, player.x, player.y) > RETREAT_DIST);
-    const pool = far.length > 0 ? far : world.roadTiles;
-    const dest = pool[Math.floor(Math.random() * pool.length)];
+    const dest = pickRoadBeyond(world, player.x, player.y, RETREAT_DIST);
     if (!dest) return;
     v.waypoints = applyTrafficLanes(
       findRoadPath(world.grid, v.x, v.y, dest.x, dest.y),

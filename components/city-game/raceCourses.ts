@@ -1,4 +1,5 @@
 import type { RaceCourse, RaceGate } from './types';
+import { TILE_SIZE, WORLD_CENTER_TILE } from './types';
 
 const PI = Math.PI;
 
@@ -20,27 +21,39 @@ function gate(
   };
 }
 
-// All gate positions are at road tile coordinates so they are never on BUILDING tiles.
-// Road columns (ROAD_V at all y): x = 1280, 1600, 1920, 2240, 2560
-// Road rows  (ROAD_H at all x):   y = 320, 640, 960, 1280, 1600, 1920
-// Town Hall plaza (TOWN_HALL_PLAZA, not solid): x=1680–1840, y=1360–1520
+/**
+ * Gates are placed as tile offsets from the city centre. Every road offset is
+ * a multiple of 8 (the block interval) so it lands on a road at any grid
+ * size, and every plaza offset lies inside the Town Hall forecourt rectangle
+ * (dx +2..+6, dy -6..-2). Positions use the tile corner (tile * TILE_SIZE),
+ * matching the original hand-placed coordinates exactly.
+ */
+function gateAt(
+  order: number,
+  dgx: number, dgy: number, altitude: number, yaw: number,
+  width: number, height: number,
+  opts: Partial<Omit<RaceGate, 'id' | 'order' | 'x' | 'y' | 'altitude' | 'yaw' | 'width' | 'height'>> = {},
+): RaceGate {
+  const c = WORLD_CENTER_TILE;
+  return gate(order, (c + dgx) * TILE_SIZE, (c + dgy) * TILE_SIZE, altitude, yaw, width, height, opts);
+}
 
 // ── Course 1: East Loop ────────────────────────────────────────────────────────
-// Counter-clockwise rectangle in the eastern district.
-// N on x=2240 → E on y=640 → S on x=2560 → W on y=1920 → N back.
+// Counter-clockwise rectangle in the eastern district: two road columns
+// (+16 and +24 tiles) joined by two road rows (-24 and +8 tiles).
 // All gates at road intersections, altitude 15. 10 gates, 2 laps.
 
 const eastLoopGates: RaceGate[] = [
-  gate(0,  2240, 1600, 15, 0,         6, 4, { isCheckpoint: true, isFinishGate: true, color: '#ffffff' }),
-  gate(1,  2240, 1280, 15, 0,         6, 4),  // N on x=2240
-  gate(2,  2240,  960, 15, 0,         6, 4),  // N
-  gate(3,  2240,  640, 15, 0,         6, 4),  // N — last, player turns E after
-  gate(4,  2560,  640, 15, PI / 2,    6, 4),  // E on y=640, drone crosses x=2560 going E
-  gate(5,  2560,  960, 15, PI,        6, 4),  // S on x=2560
-  gate(6,  2560, 1280, 15, PI,        6, 4),  // S
-  gate(7,  2560, 1600, 15, PI,        6, 4),  // S
-  gate(8,  2560, 1920, 15, PI * 1.5,  6, 4),  // W on y=1920, drone crosses x=2560 going W
-  gate(9,  2240, 1920, 15, PI * 1.5,  6, 4),  // W — last, player turns N to reach SF
+  gateAt(0,  16,   0, 15, 0,        6, 4, { isCheckpoint: true, isFinishGate: true, color: '#ffffff' }),
+  gateAt(1,  16,  -8, 15, 0,        6, 4),  // N on the inner column
+  gateAt(2,  16, -16, 15, 0,        6, 4),  // N
+  gateAt(3,  16, -24, 15, 0,        6, 4),  // N — last, player turns E after
+  gateAt(4,  24, -24, 15, PI / 2,   6, 4),  // E on the top row
+  gateAt(5,  24, -16, 15, PI,       6, 4),  // S on the outer column
+  gateAt(6,  24,  -8, 15, PI,       6, 4),  // S
+  gateAt(7,  24,   0, 15, PI,       6, 4),  // S
+  gateAt(8,  24,   8, 15, PI * 1.5, 6, 4),  // W on the bottom row
+  gateAt(9,  16,   8, 15, PI * 1.5, 6, 4),  // W — last, player turns N to reach SF
 ];
 
 export const EAST_LOOP: RaceCourse = {
@@ -55,25 +68,19 @@ export const EAST_LOOP: RaceCourse = {
 };
 
 // ── Course 2: Civic Slalom ─────────────────────────────────────────────────────
-// North-then-South slalom through the Town Hall plaza.
-// TOWN_HALL_PLAZA tiles (1680–1840, 1360–1520) are guaranteed non-solid.
-// Road endpoints at y=1280 and y=1600 (road rows).
-// 8 gates, 2 laps.
-//
-// North leg: enter from y=1600, fly N (decreasing y) through plaza to y=1280, U-turn.
-// South leg: fly S (increasing y) back through plaza to y=1600.
+// North-then-South slalom through the Town Hall plaza (dx +2..+6, dy -6..-2,
+// never solid). Road endpoints on the centre row (dy 0) and the row above
+// (dy -8). 8 gates, 2 laps.
 
-// SF at a road intersection (1920, 1600) — x=1920 road col, y=1600 road row.
-// Respawn position = 100px south = (1920, 1700) — x=1920 is ROAD_V at all y → safe.
 const civicSlalomGates: RaceGate[] = [
-  gate(0, 1920, 1600, 20, 0,     5, 3.5, { isCheckpoint: true, isFinishGate: true, color: '#ffffff' }),
-  gate(1, 1680, 1520, 22, 0,     5, 3.5),  // jink L — plaza tile (gx=42, gy=38)
-  gate(2, 1840, 1440, 22, 0,     5, 3.5),  // jink R — plaza tile (gx=46, gy=36)
-  gate(3, 1680, 1360, 22, 0,     5, 3.5),  // jink L — plaza tile (gx=42, gy=34)
-  gate(4, 1920, 1280, 22, 0,     5, 3.5, { isCheckpoint: true, color: '#ff9100' }),  // x=1920 road col, y=1280 road row — U-turn end
-  gate(5, 1840, 1360, 22, PI,    5, 3.5),  // S leg jink R
-  gate(6, 1680, 1440, 22, PI,    5, 3.5),  // S leg jink L
-  gate(7, 1840, 1520, 22, PI,    5, 3.5),  // S leg jink R — back to SF
+  gateAt(0, 8,  0, 20, 0,  5, 3.5, { isCheckpoint: true, isFinishGate: true, color: '#ffffff' }),
+  gateAt(1, 2, -2, 22, 0,  5, 3.5),  // jink L — plaza
+  gateAt(2, 6, -4, 22, 0,  5, 3.5),  // jink R — plaza
+  gateAt(3, 2, -6, 22, 0,  5, 3.5),  // jink L — plaza
+  gateAt(4, 8, -8, 22, 0,  5, 3.5, { isCheckpoint: true, color: '#ff9100' }),  // U-turn end on a road intersection
+  gateAt(5, 6, -6, 22, PI, 5, 3.5),  // S leg jink R
+  gateAt(6, 2, -4, 22, PI, 5, 3.5),  // S leg jink L
+  gateAt(7, 6, -2, 22, PI, 5, 3.5),  // S leg jink R — back to SF
 ];
 
 export const CIVIC_SLALOM: RaceCourse = {
@@ -88,27 +95,22 @@ export const CIVIC_SLALOM: RaceCourse = {
 };
 
 // ── Course 3: High Rise Gauntlet ───────────────────────────────────────────────
-// Dramatic vertical climb-and-dive on road columns.
-// All gates on road intersections (x=1280/1600/1920/2240, y=320/640/960/1280).
-// Altitude ranges from 15 (street) to 100 (high). 12 gates, 1 lap.
-//
-// Route: climb N on x=1600 → turn E at peak on y=320 → descend S on x=1920
-//        → street E on y=960 → N on x=2240 → W at altitude on y=640
-//        → descend W on y=640 → S at x=1280 → back to SF.
+// Dramatic vertical climb-and-dive on road columns (dx -8, 0, +8, +16) and
+// rows (dy -32, -24, -16). Altitude 15 (street) to 100. 12 gates, 1 lap.
 
 const highRiseGates: RaceGate[] = [
-  gate(0,  1600,  960, 15, 0,         8, 6, { isCheckpoint: true, isFinishGate: true, color: '#ffffff' }),
-  gate(1,  1600,  640, 55, 0,         7, 5),  // N, climbing on x=1600
-  gate(2,  1600,  320, 100, 0,        6, 5),  // apex — x=1600 road col, y=320 road row
-  gate(3,  1920,  320, 100, PI / 2,   6, 5, { isCheckpoint: true, color: '#e040fb' }),  // E turn at peak
-  gate(4,  1920,  640,  55, PI,       6, 5),  // S, descending on x=1920
-  gate(5,  1920,  960,  15, PI,       7, 5),  // back to street on x=1920
-  gate(6,  2240,  960,  15, PI / 2,   8, 5),  // E on y=960 road row
-  gate(7,  2240,  640,  55, 0,        7, 5),  // N, climbing on x=2240
-  gate(8,  1920,  640,  90, PI * 1.5, 6, 5),  // W at altitude on y=640 road row
-  gate(9,  1600,  640,  55, PI * 1.5, 7, 5),  // W, descending on y=640
-  gate(10, 1280,  640,  25, PI * 1.5, 7, 5),  // W to x=1280 road col
-  gate(11, 1280,  960,  15, PI,       8, 5),  // S on x=1280, back toward SF
+  gateAt(0,   0, -16,  15, 0,        8, 6, { isCheckpoint: true, isFinishGate: true, color: '#ffffff' }),
+  gateAt(1,   0, -24,  55, 0,        7, 5),  // N, climbing
+  gateAt(2,   0, -32, 100, 0,        6, 5),  // apex
+  gateAt(3,   8, -32, 100, PI / 2,   6, 5, { isCheckpoint: true, color: '#e040fb' }),  // E turn at peak
+  gateAt(4,   8, -24,  55, PI,       6, 5),  // S, descending
+  gateAt(5,   8, -16,  15, PI,       7, 5),  // back to street
+  gateAt(6,  16, -16,  15, PI / 2,   8, 5),  // E along the row
+  gateAt(7,  16, -24,  55, 0,        7, 5),  // N, climbing
+  gateAt(8,   8, -24,  90, PI * 1.5, 6, 5),  // W at altitude
+  gateAt(9,   0, -24,  55, PI * 1.5, 7, 5),  // W, descending
+  gateAt(10, -8, -24,  25, PI * 1.5, 7, 5),  // W to the outer column
+  gateAt(11, -8, -16,  15, PI,       8, 5),  // S, back toward SF
 ];
 
 export const HIGH_RISE_GAUNTLET: RaceCourse = {

@@ -6,7 +6,7 @@ import * as THREE from 'three';
 
 import { GameEngine3D } from './engine3d';
 import { HUDData } from './types';
-import { toX3D, toZ3D, VehicleType, TILE_3D, TILE_SIZE, Vehicle } from './types';
+import { toX3D, toZ3D, VehicleType, TILE_3D, TILE_SIZE, WORLD_CENTER_TILE, Vehicle } from './types';
 import CityScene from './CityMesh';
 import {
   PlayerCar, PlayerCarHandle, HelicopterMesh,
@@ -260,8 +260,8 @@ export default function GameScene({
   const lightningActive = useRef(false);
   const lightningCountdown = useRef(0);
 
-  const [playerGrid, setPlayerGrid] = useState({ x: 40, y: 40 });
-  const playerGridRef = useRef({ x: 40, y: 40 });
+  const [playerGrid, setPlayerGrid] = useState({ x: WORLD_CENTER_TILE, y: WORLD_CENTER_TILE });
+  const playerGridRef = useRef({ x: WORLD_CENTER_TILE, y: WORLD_CENTER_TILE });
 
   // Which mesh represents the player, and in what colour. This is React state
   // rather than a prop read during render because GameScene deliberately does
@@ -526,11 +526,13 @@ export default function GameScene({
     state.scene.environmentIntensity = (state.scene.environmentIntensity ?? 0.5) +
       (targetEnvIntensity - (state.scene.environmentIntensity ?? 0.5)) * L;
 
-    // Fog mutation
+    // Fog mutation. Far is clamped just inside the streaming radius so
+    // buildings pop in behind the fog instead of in plain view.
     const fog = state.scene.fog as THREE.Fog | null;
     if (fog) {
-      fog.near = lw.fogNear;
-      fog.far  = lw.fogFar;
+      const far = Math.min(lw.fogFar, engine.perf.drawDistance - 16);
+      fog.far  = far;
+      fog.near = Math.min(lw.fogNear, far - 40);
       fog.color.set(tw.fogColor);
     }
 
@@ -620,7 +622,7 @@ export default function GameScene({
       )}
 
       {/* ── City ─────────────────────────────────────────────────── */}
-      <CityScene world={engine.world} playerGridX={playerGrid.x} playerGridY={playerGrid.y} />
+      <CityScene world={engine.world} source={engine} playerGridX={playerGrid.x} playerGridY={playerGrid.y} />
 
       {/* ── Player vehicle or on-foot character ─────────────────── */}
       <PlayerCar

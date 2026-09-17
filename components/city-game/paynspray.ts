@@ -11,7 +11,7 @@ import { nearestRoadTile } from './police';
  */
 
 /** How many garages exist in the city. */
-const GARAGE_COUNT = 3;
+const GARAGE_COUNT = 6;
 /** Trigger radius, world px. */
 export const GARAGE_RADIUS = 55;
 /** The player must be at or below this speed (px/s) to pull in. */

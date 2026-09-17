@@ -1,11 +1,34 @@
 export const TILE_SIZE = 40;
-export const GRID_SIZE = 80;
-export const WORLD_SIZE = TILE_SIZE * GRID_SIZE; // 3200
+export const GRID_SIZE = 160;
+export const WORLD_SIZE = TILE_SIZE * GRID_SIZE; // 6400
+/** Tile index of the city centre. Must stay a multiple of 8 so it is an intersection. */
+export const WORLD_CENTER_TILE = Math.floor(GRID_SIZE / 2); // 80
 
 // 3D rendering constants
 export const TILE_3D = 4;                              // Three.js units per tile
 export const FLOOR_HEIGHT_3D = 1.4;                   // Three.js units per floor
-export const WORLD_3D_HALF = (GRID_SIZE * TILE_3D) / 2; // Center offset = 160
+export const WORLD_3D_HALF = (GRID_SIZE * TILE_3D) / 2; // Center offset = 320
+
+// ── Chunks ───────────────────────────────────────────────────────────────────
+// Static geometry and ground textures are streamed per chunk. A chunk is two
+// blocks on a side, so chunk edges always fall on roads.
+export const CHUNK_TILES = 16;
+export const CHUNKS_PER_SIDE = Math.ceil(GRID_SIZE / CHUNK_TILES); // 10
+export const CHUNK_3D = CHUNK_TILES * TILE_3D;                     // 64 units
+export const CHUNK_PX = CHUNK_TILES * TILE_SIZE;                   // 640 px
+
+export function chunkKey(cx: number, cy: number): number {
+  return cy * CHUNKS_PER_SIDE + cx;
+}
+export function chunkOfTile(gx: number, gy: number): { cx: number; cy: number } {
+  return { cx: Math.floor(gx / CHUNK_TILES), cy: Math.floor(gy / CHUNK_TILES) };
+}
+/** Chunk containing a world-px point. Clamped so edge queries stay in range. */
+export function chunkOf(wx: number, wy: number): { cx: number; cy: number } {
+  const cx = Math.min(CHUNKS_PER_SIDE - 1, Math.max(0, Math.floor(wx / CHUNK_PX)));
+  const cy = Math.min(CHUNKS_PER_SIDE - 1, Math.max(0, Math.floor(wy / CHUNK_PX)));
+  return { cx, cy };
+}
 
 export function toX3D(wx: number): number {
   return wx * (TILE_3D / TILE_SIZE) - WORLD_3D_HALF;
@@ -375,6 +398,50 @@ export interface ParkingBlock {
   tiles: Point[];
 }
 
+// ── Chunk index ──────────────────────────────────────────────────────────────
+
+/**
+ * One instanced-mesh layer of a chunk, pre-baked at world generation.
+ * `mats` holds column-major 4x4 matrices (16 floats per instance) and
+ * `colors` holds RGB triplets (3 per instance), ready to be copied straight
+ * into an InstancedMesh buffer with `Float32Array.set`.
+ */
+export interface InstanceLayer {
+  count: number;
+  mats: Float32Array;
+  colors: Float32Array;
+}
+
+export type ChunkLayerName =
+  | 'sky' | 'off' | 'com' | 'hou'
+  | 'roofBase' | 'roofPeak'
+  | 'houseWin' | 'houseDoor'
+  | 'treeTrunk' | 'treeLeaf'
+  | 'lampPole' | 'lampHead';
+
+export interface ChunkIndex {
+  cx: number;
+  cy: number;
+  key: number;
+  /** Axis-aligned bounds in 3D units (x/z) — used for distance tests. */
+  minX3: number;
+  maxX3: number;
+  minZ3: number;
+  maxZ3: number;
+  /** Bounds in world px. */
+  minPx: number;
+  maxPx: number;
+  minPy: number;
+  maxPy: number;
+  layers: Record<ChunkLayerName, InstanceLayer>;
+  /** x3,z3 pairs of every street lamp, for the nearest-N point lights. */
+  lampPositions: Float32Array;
+  roadTiles: Point[];
+  sidewalkTiles: Point[];
+  parkTiles: Point[];
+  parkingBlockIds: number[];
+}
+
 export interface WorldData {
   grid: Tile[][];
   helipads: Point[];
@@ -388,6 +455,10 @@ export interface WorldData {
   parkingBlocks: ParkingBlock[];
   /** Walkable Town Hall lobby tile used for the Busted respawn. */
   respawnPos: Point;
+  /** Per-chunk baked instance layers and spatial buckets. Built once. */
+  chunks: ChunkIndex[];
+  /** `roadTiles` bucketed by chunk key, for ring queries. */
+  roadTilesByChunk: Point[][];
 }
 
 // ── Race Mode Types ────────────────────────────────────────────────────────────
@@ -398,8 +469,8 @@ export type RacePhase = 'idle' | 'countdown' | 'racing' | 'crashed' | 'finished'
 export interface RaceGate {
   id: string;
   order: number;
-  x: number;           // world x (0–3200)
-  y: number;           // world y (0–3200)
+  x: number;           // world x (0–WORLD_SIZE)
+  y: number;           // world y (0–WORLD_SIZE)
   altitude: number;    // altitude units (0–200)
   yaw: number;         // radians — heading direction drone should fly through
   width: number;       // 3D units — opening width

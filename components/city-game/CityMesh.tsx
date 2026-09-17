@@ -1,8 +1,14 @@
 'use client';
 import { useMemo, useRef, useEffect, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { WorldData, TileType, BuildingType, TILE_SIZE, GRID_SIZE, TILE_3D, FLOOR_HEIGHT_3D, WORLD_3D_HALF } from './types';
+import {
+  WorldData, ChunkIndex, ChunkLayerName,
+  TILE_SIZE, GRID_SIZE, TILE_3D, WORLD_3D_HALF, CHUNK_3D,
+  toX3D, toZ3D,
+} from './types';
+import { LAYER_NAMES, capacityFor, chunkDistSq3D } from './chunks';
+import { renderChunkCanvas } from './groundTiles';
 
 // ─── Realistic building facade textures ──────────────────────────────────────
 
@@ -169,125 +175,174 @@ function createFacadeEmissiveTex(type: FacadeType): THREE.CanvasTexture {
   return tex;
 }
 
-// ─── Ground texture ──────────────────────────────────────────────────────────
+// ─── Chunk streaming ──────────────────────────────────────────────────────────
+// Static geometry and the ground are streamed per chunk around the player.
+// Instance buffers are sized by `capacityFor(MAX_DRAW_DISTANCE)` — the worst
+// case visible window — never by the whole map, so a bigger city costs
+// nothing until you drive into it.
 
-function tileColor(type: TileType, buildingType?: BuildingType): string {
-  switch (type) {
-    case TileType.ROAD_H:
-    case TileType.ROAD_V:
-    case TileType.INTERSECTION: return '#606078';
-    case TileType.SIDEWALK: return '#747488';
-    case TileType.PARK: return '#22442d';
-    case TileType.PARKING: return '#3d3d52';
-    case TileType.BUILDING: return buildingType === BuildingType.HOUSE ? '#3d2e27' : '#252538';
-    case TileType.HELIPAD: return '#553f00';
-    default: return '#1d1d2d';
-  }
+/** Largest streaming radius the settings may ask for, 3D units. */
+export const MAX_DRAW_DISTANCE = 256;
+/** Rebuild the visible set after the player moves this far, 3D units. */
+const REBUILD_STEP = 16;
+/** Chunks stay loaded until this far beyond drawDistance (hysteresis). */
+const UNLOAD_MARGIN = 16;
+
+/** What the streaming components read from the engine each frame. */
+export interface CityStreamSource {
+  player: { x: number; y: number };
+  perf: { drawDistance: number; shadowDistance: number; lampLights: number };
 }
 
-function facadeVertexColor(floors: number, seed: number, btype?: BuildingType): [number, number, number] {
-  if (btype === BuildingType.HOUSE) {
-    const v: [number,number,number][] = [
-      [1.00, 0.88, 0.72], // warm tan brick
-      [0.95, 0.72, 0.62], // red-brown brick
-      [0.88, 0.88, 0.85], // light stone
-      [1.00, 0.96, 0.80], // cream sandstone
-    ];
-    return v[seed % 4];
-  }
-  if (floors >= 15) {
-    // Skyscrapers: slight blue/teal/silver tint variation
-    const t = (seed % 8) / 8;
-    return [0.80 + t * 0.12, 0.90 + t * 0.06, 1.00] as [number,number,number];
-  }
-  if (floors >= 8) {
-    // Office: blue-gray range
-    const t = (seed % 6) / 6;
-    return [0.82 + t * 0.10, 0.88 + t * 0.08, 0.96 + t * 0.04] as [number,number,number];
-  }
-  // Commercial: warm-to-cool concrete range
-  const t = (seed % 5) / 5;
-  return [0.88 + t * 0.08, 0.84 + t * 0.10, 0.80 + t * 0.12] as [number,number,number];
+const tmpMat4 = new THREE.Matrix4();
+const tmpPos = new THREE.Vector3();
+const tmpQuat = new THREE.Quaternion();
+const WHITE = new THREE.Color(1, 1, 1);
+
+// ─── Ground: per-chunk planes with LRU-cached canvas textures ─────────────────
+
+const GROUND_TEX_SIZE = 512;         // 32 px per tile
+const GROUND_LRU = 49;               // ~7x7 chunks resident
+const GROUND_BUILDS_PER_FRAME = 2;
+
+interface GroundEntry {
+  mesh: THREE.Mesh;
+  tex: THREE.CanvasTexture;
+  mat: THREE.MeshStandardMaterial;
+  lastUsed: number;
 }
 
-// ─── Ground Plane (CanvasTexture) ─────────────────────────────────────────────
+export function ChunkedGround({ world, source }: { world: WorldData; source: CityStreamSource }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const entries = useRef(new Map<number, GroundEntry>());
+  const lastPos = useRef({ x: Infinity, z: Infinity, d: 0 });
+  const pending = useRef<ChunkIndex[]>([]);
+  const frame = useRef(0);
+  const { gl } = useThree();
 
-export function CityGround({ world }: { world: WorldData }) {
-  const texture = useMemo(() => {
-    const TEX = 1024;
-    const canvas = document.createElement('canvas');
-    canvas.width = TEX; canvas.height = TEX;
-    const ctx = canvas.getContext('2d')!;
-    const step = TEX / GRID_SIZE;
+  const geom = useMemo(() => {
+    const g = new THREE.PlaneGeometry(CHUNK_3D, CHUNK_3D, 1, 1);
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, []);
 
-    for (let gy = 0; gy < GRID_SIZE; gy++) {
-      for (let gx = 0; gx < GRID_SIZE; gx++) {
-        const tile = world.grid[gy][gx];
-        ctx.fillStyle = tileColor(tile.type, tile.buildingType);
-        ctx.fillRect(gx * step, gy * step, step + 0.5, step + 0.5);
+  useEffect(() => () => {
+    for (const e of entries.current.values()) { e.tex.dispose(); e.mat.dispose(); }
+    entries.current.clear();
+    geom.dispose();
+  }, [geom]);
 
-        // Road center line dashes
-        if (tile.type === TileType.ROAD_H) {
-          ctx.fillStyle = 'rgba(255,220,0,0.35)';
-          ctx.fillRect(gx * step, gy * step + step * 0.47, step, step * 0.06);
-        } else if (tile.type === TileType.ROAD_V) {
-          ctx.fillStyle = 'rgba(255,220,0,0.35)';
-          ctx.fillRect(gx * step + step * 0.47, gy * step, step * 0.06, step);
+  const build = (c: ChunkIndex, now: number): GroundEntry => {
+    const canvas = renderChunkCanvas(world, c.cx, c.cy, GROUND_TEX_SIZE);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = true;
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex, roughness: 0.95, metalness: 0,
+      emissive: new THREE.Color('#252545'), emissiveIntensity: 0.8,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set((c.minX3 + c.maxX3) / 2, -0.01, (c.minZ3 + c.maxZ3) / 2);
+    mesh.receiveShadow = true;
+    mesh.userData.ssrWet = true;
+    return { mesh, tex, mat, lastUsed: now };
+  };
+
+  useFrame(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    frame.current++;
+    const now = frame.current;
+    const px3 = toX3D(source.player.x);
+    const pz3 = toZ3D(source.player.y);
+    const D = source.perf.drawDistance;
+
+    const moved = Math.hypot(px3 - lastPos.current.x, pz3 - lastPos.current.z);
+    if (moved >= REBUILD_STEP || D !== lastPos.current.d) {
+      lastPos.current = { x: px3, z: pz3, d: D };
+      const keep = D + UNLOAD_MARGIN;
+      const keep2 = keep * keep;
+      const d2 = D * D;
+      const map = entries.current;
+      const queue: { c: ChunkIndex; dist: number }[] = [];
+
+      for (const c of world.chunks) {
+        const dist = chunkDistSq3D(c, px3, pz3);
+        const e = map.get(c.key);
+        if (e) {
+          if (dist <= keep2) { e.lastUsed = now; e.mesh.visible = true; }
+          else e.mesh.visible = false;
+        } else if (dist <= d2) {
+          queue.push({ c, dist });
         }
-
-        // Helipad H marker
-        if (tile.type === TileType.HELIPAD) {
-          ctx.fillStyle = 'rgba(255,220,0,0.7)';
-          ctx.font = `bold ${Math.round(step * 0.7)}px monospace`;
-          ctx.textAlign = 'center';
-          ctx.fillText('H', gx * step + step / 2, gy * step + step * 0.8);
-        }
-
-        // Shop sign colour strip
-        if (tile.shopName) {
-          ctx.fillStyle = 'rgba(255,100,0,0.5)';
-          ctx.fillRect(gx * step, gy * step + step - step * 0.18, step, step * 0.18);
+      }
+      queue.sort((a, b) => a.dist - b.dist);
+      // The first load around the spawn point is synchronous so the player
+      // never sees a hole; later chunks trickle in a couple per frame.
+      pending.current = queue.map(q => q.c);
+      if (map.size === 0) {
+        for (const c of pending.current.splice(0, 9)) {
+          const e = build(c, now);
+          map.set(c.key, e);
+          group.add(e.mesh);
         }
       }
     }
 
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    tex.anisotropy = 4;
-    return tex;
-  }, [world]);
+    const map = entries.current;
+    for (let i = 0; i < GROUND_BUILDS_PER_FRAME && pending.current.length > 0; i++) {
+      const c = pending.current.shift()!;
+      if (map.has(c.key)) continue;
+      const e = build(c, now);
+      map.set(c.key, e);
+      group.add(e.mesh);
+    }
 
-  const worldSz = GRID_SIZE * TILE_3D;
+    // Evict least-recently-used hidden chunks beyond the budget.
+    if (map.size > GROUND_LRU) {
+      const victims = [...map.entries()]
+        .filter(([, e]) => !e.mesh.visible)
+        .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+      for (const [key, e] of victims) {
+        if (map.size <= GROUND_LRU) break;
+        group.remove(e.mesh);
+        e.tex.dispose();
+        e.mat.dispose();
+        map.delete(key);
+      }
+    }
+  });
 
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
-      <planeGeometry args={[worldSz, worldSz, 1, 1]} />
-      <meshStandardMaterial map={texture} roughness={0.95} metalness={0.0}
-        emissive="#252545" emissiveIntensity={0.80} />
-    </mesh>
-  );
+  return <group ref={groupRef} />;
 }
 
-// ─── Buildings (split by category for per-type facade materials) ──────────────
+// ─── Streamed instanced city ──────────────────────────────────────────────────
 
-const MAX_SKYSCRAPER = 1200;
-const MAX_OFFICE     = 2000;
-const MAX_COMMERCIAL = 2500;
-const MAX_HOUSE      = 1800;
+export function ChunkedCity({ world, source }: { world: WorldData; source: CityStreamSource }) {
+  const refs = useRef({} as Record<ChunkLayerName, THREE.InstancedMesh | null>);
+  const setRef = (name: ChunkLayerName) => (m: THREE.InstancedMesh | null) => {
+    refs.current[name] = m;
+    if (!m) return;
+    // Initialized here (ref callback, synchronous at mount) rather than in a
+    // useEffect: fiber 9's frame loop can tick before effects run, and this
+    // instanceColor is read unconditionally on the very first frame.
+    m.frustumCulled = false;
+    if (!m.instanceColor) {
+      m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(caps[name] * 3).fill(1), 3);
+    }
+    m.count = 0;
+    m.onBeforeShadow = () => { m.count = shadowCounts.current[name] ?? 0; };
+    m.onAfterShadow = () => { m.count = totals.current[name] ?? 0; };
+  };
 
-const tmpMat4 = new THREE.Matrix4();
-const tmpPos = new THREE.Vector3();
-const tmpScale = new THREE.Vector3();
-const tmpQuat = new THREE.Quaternion();
-const tmpColor = new THREE.Color();
-const WHITE = new THREE.Color(1, 1, 1);
-
-export function CityBuildings({ world }: { world: WorldData }) {
-  const skyRef = useRef<THREE.InstancedMesh>(null);
-  const offRef = useRef<THREE.InstancedMesh>(null);
-  const comRef = useRef<THREE.InstancedMesh>(null);
-  const houRef = useRef<THREE.InstancedMesh>(null);
+  const caps = useMemo(() => {
+    const out = {} as Record<ChunkLayerName, number>;
+    for (const name of LAYER_NAMES) out[name] = capacityFor(world.chunks, name, MAX_DRAW_DISTANCE);
+    return out;
+  }, [world]);
 
   const textures = useMemo(() => ({
     sky: { map: createFacadeColorTex('skyscraper'), em: createFacadeEmissiveTex('skyscraper') },
@@ -303,58 +358,86 @@ export function CityBuildings({ world }: { world: WorldData }) {
     textures.hou.map.repeat.set(2, 2);  textures.hou.em.repeat.set(2, 2);
   }, [textures]);
 
+  const shadowCounts = useRef({} as Record<ChunkLayerName, number>);
+  const totals = useRef({} as Record<ChunkLayerName, number>);
+  const visMask = useRef(new Uint8Array(world.chunks.length));
+  const lastPos = useRef({ x: Infinity, z: Infinity, d: 0, sd: 0 });
+  const [nearbyLamps, setNearbyLamps] = useState<[number, number][]>([]);
+  const lampKey = useRef('');
+
+  // Allocate colour buffers up front and wire the shadow-radius trick: while
+  // the shadow map renders, each layer temporarily draws only the instances
+  // that belong to chunks inside shadowDistance (they are filled near-to-far).
   useEffect(() => {
-    const meshes = { sky: skyRef.current, off: offRef.current, com: comRef.current, hou: houRef.current };
-    if (!meshes.sky || !meshes.off || !meshes.com || !meshes.hou) return;
+    lastPos.current = { x: Infinity, z: Infinity, d: 0, sd: 0 };
+  }, [caps, world]);
 
-    const counts = { sky: 0, off: 0, com: 0, hou: 0 };
-    const maxes  = { sky: MAX_SKYSCRAPER, off: MAX_OFFICE, com: MAX_COMMERCIAL, hou: MAX_HOUSE };
+  useFrame(() => {
+    const px3 = toX3D(source.player.x);
+    const pz3 = toZ3D(source.player.y);
+    const D = source.perf.drawDistance;
+    const SD = source.perf.shadowDistance;
+    const moved = Math.hypot(px3 - lastPos.current.x, pz3 - lastPos.current.z);
+    if (moved < REBUILD_STEP && D === lastPos.current.d && SD === lastPos.current.sd) return;
+    lastPos.current = { x: px3, z: pz3, d: D, sd: SD };
 
-    for (let gy = 0; gy < GRID_SIZE; gy++) {
-      for (let gx = 0; gx < GRID_SIZE; gx++) {
-        const tile = world.grid[gy][gx];
-        if (tile.type !== TileType.BUILDING && tile.type !== TileType.HELIPAD) continue;
+    const d2 = D * D;
+    const keep2 = (D + UNLOAD_MARGIN) * (D + UNLOAD_MARGIN);
+    const sd2 = SD * SD;
+    const mask = visMask.current;
+    const visible: { c: ChunkIndex; dist: number }[] = [];
+    for (let i = 0; i < world.chunks.length; i++) {
+      const c = world.chunks[i];
+      const dist = chunkDistSq3D(c, px3, pz3);
+      const vis = dist <= (mask[i] ? keep2 : d2);
+      mask[i] = vis ? 1 : 0;
+      if (vis) visible.push({ c, dist });
+    }
+    visible.sort((a, b) => a.dist - b.dist);
 
-        const floors = tile.floors ?? 1;
-        const h = Math.max(0.5, floors * FLOOR_HEIGHT_3D);
-        const cx = gx * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const cz = gy * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const seed = tile.colorSeed ?? 0;
+    for (const name of LAYER_NAMES) {
+      const m = refs.current[name];
+      if (!m) continue;
+      const mats = m.instanceMatrix.array as Float32Array;
+      const cols = m.instanceColor!.array as Float32Array;
+      const cap = caps[name];
+      let offset = 0;
+      let shadow = 0;
+      for (const { c, dist } of visible) {
+        const L = c.layers[name];
+        if (L.count === 0) continue;
+        if (offset + L.count > cap) break;
+        mats.set(L.mats, offset * 16);
+        cols.set(L.colors, offset * 3);
+        offset += L.count;
+        if (dist <= sd2) shadow = offset;
+      }
+      totals.current[name] = offset;
+      shadowCounts.current[name] = shadow;
+      m.count = offset;
+      m.instanceMatrix.needsUpdate = true;
+      m.instanceColor!.needsUpdate = true;
+    }
 
-        let cat: 'sky' | 'off' | 'com' | 'hou';
-        let fp: number;
-
-        if (tile.buildingType === BuildingType.HOUSE) {
-          cat = 'hou'; fp = TILE_3D * 0.72;
-        } else if (floors >= 15) {
-          cat = 'sky'; fp = TILE_3D * 0.88;
-        } else if (floors >= 8) {
-          cat = 'off'; fp = TILE_3D * 0.88;
-        } else {
-          cat = 'com'; fp = TILE_3D * 0.88;
-        }
-
-        if (counts[cat] >= maxes[cat]) continue;
-
-        tmpPos.set(cx, h / 2, cz);
-        tmpScale.set(fp, h, fp);
-        tmpMat4.compose(tmpPos, tmpQuat, tmpScale);
-        meshes[cat]!.setMatrixAt(counts[cat], tmpMat4);
-
-        const [r, g, b] = facadeVertexColor(floors, seed, tile.buildingType);
-        tmpColor.setRGB(r, g, b);
-        meshes[cat]!.setColorAt(counts[cat], tmpColor);
-        counts[cat]++;
+    // Nearest lamps get real point lights. Their count stays fixed so the
+    // shaders are not recompiled every time the player crosses a street.
+    const lamps: [number, number, number][] = [];
+    for (const { c } of visible) {
+      const lp = c.lampPositions;
+      for (let i = 0; i < lp.length; i += 2) {
+        const dx = lp[i] - px3;
+        const dz = lp[i + 1] - pz3;
+        lamps.push([lp[i], lp[i + 1], dx * dx + dz * dz]);
       }
     }
-
-    for (const cat of ['sky', 'off', 'com', 'hou'] as const) {
-      const m = meshes[cat]!;
-      m.count = counts[cat];
-      m.instanceMatrix.needsUpdate = true;
-      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    lamps.sort((a, b) => a[2] - b[2]);
+    const picked = lamps.slice(0, source.perf.lampLights).map(l => [l[0], l[1]] as [number, number]);
+    const key = picked.map(p => `${p[0]},${p[1]}`).join('|');
+    if (key !== lampKey.current) {
+      lampKey.current = key;
+      setNearbyLamps(picked);
     }
-  }, [world]);
+  });
 
   return (
     <>
@@ -366,359 +449,72 @@ export function CityBuildings({ world }: { world: WorldData }) {
         whole building — facade texture included — renders black.
         instanceColor is applied on its own via USE_INSTANCING_COLOR.
       */}
-      <instancedMesh ref={skyRef} args={[undefined, undefined, MAX_SKYSCRAPER]} castShadow receiveShadow>
+      <instancedMesh ref={setRef('sky')} args={[undefined, undefined, caps.sky]} castShadow receiveShadow
+        userData={{ ssrTarget: true }}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.sky.map} emissiveMap={textures.sky.em}
           emissive={WHITE} emissiveIntensity={1.0} roughness={0.20} metalness={0.35} />
       </instancedMesh>
-
-      <instancedMesh ref={offRef} args={[undefined, undefined, MAX_OFFICE]} castShadow receiveShadow>
+      <instancedMesh ref={setRef('off')} args={[undefined, undefined, caps.off]} castShadow receiveShadow
+        userData={{ ssrTarget: true }}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.off.map} emissiveMap={textures.off.em}
           emissive={WHITE} emissiveIntensity={0.85} roughness={0.55} metalness={0.15} />
       </instancedMesh>
-
-      <instancedMesh ref={comRef} args={[undefined, undefined, MAX_COMMERCIAL]} castShadow receiveShadow>
+      <instancedMesh ref={setRef('com')} args={[undefined, undefined, caps.com]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.com.map} emissiveMap={textures.com.em}
           emissive={WHITE} emissiveIntensity={0.65} roughness={0.75} metalness={0.05} />
       </instancedMesh>
-
-      <instancedMesh ref={houRef} args={[undefined, undefined, MAX_HOUSE]} castShadow receiveShadow>
+      <instancedMesh ref={setRef('hou')} args={[undefined, undefined, caps.hou]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial map={textures.hou.map} emissiveMap={textures.hou.em}
           emissive={WHITE} emissiveIntensity={0.75} roughness={0.85} metalness={0.0} />
       </instancedMesh>
-    </>
-  );
-}
 
-// ─── Minecraft Roofs (block caps on buildings) ───────────────────────────────
-
-const MAX_ROOF_BASE = 3500;
-const MAX_ROOF_PEAK = 2000;
-
-function roofBaseColor(floors: number, seed: number, btype?: BuildingType): THREE.Color {
-  if (btype === BuildingType.HOUSE) {
-    return seed % 2 === 0 ? new THREE.Color('#5c2a18') : new THREE.Color('#3d2810');
-  }
-  if (floors >= 15) return new THREE.Color('#0a1820');
-  if (floors >= 8)  return new THREE.Color('#1a2030');
-  if (floors >= 4)  return new THREE.Color('#2a2830');
-  return new THREE.Color('#222230');
-}
-
-export function MinecraftRoofs({ world }: { world: WorldData }) {
-  const baseRef = useRef<THREE.InstancedMesh>(null);
-  const peakRef = useRef<THREE.InstancedMesh>(null);
-
-  useEffect(() => {
-    const baseMesh = baseRef.current;
-    const peakMesh = peakRef.current;
-    if (!baseMesh || !peakMesh) return;
-
-    let bIdx = 0, pIdx = 0;
-    const bScale = new THREE.Vector3();
-    const pScale = new THREE.Vector3();
-
-    for (let gy = 0; gy < GRID_SIZE && bIdx < MAX_ROOF_BASE; gy++) {
-      for (let gx = 0; gx < GRID_SIZE && bIdx < MAX_ROOF_BASE; gx++) {
-        const tile = world.grid[gy][gx];
-        if (tile.type !== TileType.BUILDING && tile.type !== TileType.HELIPAD) continue;
-
-        const floors = tile.floors ?? 1;
-        const h = Math.max(0.5, floors * FLOOR_HEIGHT_3D);
-        const cx = gx * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const cz = gy * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const footprint = tile.buildingType === BuildingType.HOUSE ? TILE_3D * 0.72 : TILE_3D * 0.88;
-        const seed = tile.colorSeed ?? 0;
-
-        // Base roof cap: slight overhang, 0.5 tall
-        tmpPos.set(cx, h + 0.25, cz);
-        bScale.set(footprint * 1.08, 0.5, footprint * 1.08);
-        tmpMat4.compose(tmpPos, tmpQuat, bScale);
-        baseMesh.setMatrixAt(bIdx, tmpMat4);
-        baseMesh.setColorAt(bIdx, roofBaseColor(floors, seed, tile.buildingType));
-        bIdx++;
-
-        // Peak cap: houses only — stepped second layer
-        if (tile.buildingType === BuildingType.HOUSE && pIdx < MAX_ROOF_PEAK) {
-          tmpPos.set(cx, h + 0.75, cz);
-          pScale.set(footprint * 0.62, 0.5, footprint * 0.62);
-          tmpMat4.compose(tmpPos, tmpQuat, pScale);
-          peakMesh.setMatrixAt(pIdx, tmpMat4);
-          peakMesh.setColorAt(pIdx, new THREE.Color(seed % 2 === 0 ? '#3d1a0a' : '#251808'));
-          pIdx++;
-        }
-      }
-    }
-
-    baseMesh.count = bIdx;
-    baseMesh.instanceMatrix.needsUpdate = true;
-    if (baseMesh.instanceColor) baseMesh.instanceColor.needsUpdate = true;
-
-    peakMesh.count = pIdx;
-    peakMesh.instanceMatrix.needsUpdate = true;
-    if (peakMesh.instanceColor) peakMesh.instanceColor.needsUpdate = true;
-  }, [world]);
-
-  return (
-    <>
-      <instancedMesh ref={baseRef} args={[undefined, undefined, MAX_ROOF_BASE]} castShadow={false} receiveShadow={false}>
+      {/* Roof caps */}
+      <instancedMesh ref={setRef('roofBase')} args={[undefined, undefined, caps.roofBase]} castShadow={false} receiveShadow={false}>
         <boxGeometry args={[1, 1, 1]} />
-        {/* See the note on CityBuildings: vertexColors would zero instanceColor. */}
         <meshStandardMaterial roughness={0.9} metalness={0.05}
           emissive={new THREE.Color(0.05, 0.04, 0.04)} emissiveIntensity={1} />
       </instancedMesh>
-      <instancedMesh ref={peakRef} args={[undefined, undefined, MAX_ROOF_PEAK]} castShadow={false} receiveShadow={false}>
+      <instancedMesh ref={setRef('roofPeak')} args={[undefined, undefined, caps.roofPeak]} castShadow={false} receiveShadow={false}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial roughness={0.92} metalness={0.03}
           emissive={new THREE.Color(0.04, 0.03, 0.03)} emissiveIntensity={1} />
       </instancedMesh>
-    </>
-  );
-}
 
-// ─── BuildingWindows: replaced by emissiveMap in CityBuildings materials ─────
-// Window lighting is now baked into the facade emissive texture per building
-// category (skyscraper/office/commercial/house), removing the large per-face
-// emissive plane that caused the "glowing stripe" appearance.
-export function BuildingWindows() {
-  return null;
-}
-
-// ─── House Details (individual windows + door for 1-floor houses) ────────────
-
-const MAX_HOUSE_WINDOWS = 2000;
-const MAX_HOUSE_DOORS   = 500;
-
-export function HouseDetails({ world }: { world: WorldData }) {
-  const winRef  = useRef<THREE.InstancedMesh>(null);
-  const doorRef = useRef<THREE.InstancedMesh>(null);
-
-  useEffect(() => {
-    const winMesh  = winRef.current;
-    const doorMesh = doorRef.current;
-    if (!winMesh || !doorMesh) return;
-
-    let wIdx = 0, dIdx = 0;
-    const winQuat  = new THREE.Quaternion(); // south face, no rotation needed
-    const wScale   = new THREE.Vector3(0.5, 0.5, 0.01);
-    const dScale   = new THREE.Vector3(0.42, 0.70, 0.01);
-
-    for (let gy = 0; gy < GRID_SIZE; gy++) {
-      for (let gx = 0; gx < GRID_SIZE; gx++) {
-        const tile = world.grid[gy][gx];
-        if (tile.type !== TileType.BUILDING) continue;
-        if (tile.buildingType !== BuildingType.HOUSE) continue;
-        const floors = tile.floors ?? 1;
-        if (floors !== 1) continue; // only 1-floor houses; 2F+ use BuildingWindows
-
-        const h = Math.max(0.5, floors * FLOOR_HEIGHT_3D);
-        const cx = gx * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const cz = gy * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const fp = TILE_3D * 0.72;
-        const faceZ = cz + fp / 2 + 0.015; // south face
-
-        // Two windows: left and right of center
-        for (const xOff of [-fp * 0.25, fp * 0.25]) {
-          if (wIdx >= MAX_HOUSE_WINDOWS) break;
-          tmpPos.set(cx + xOff, h * 0.62, faceZ);
-          tmpMat4.compose(tmpPos, winQuat, wScale);
-          winMesh.setMatrixAt(wIdx, tmpMat4);
-          wIdx++;
-        }
-
-        // Door: centered, lower half
-        if (dIdx < MAX_HOUSE_DOORS) {
-          tmpPos.set(cx, h * 0.35, faceZ);
-          tmpMat4.compose(tmpPos, winQuat, dScale);
-          doorMesh.setMatrixAt(dIdx, tmpMat4);
-          dIdx++;
-        }
-      }
-    }
-
-    winMesh.count  = wIdx;
-    doorMesh.count = dIdx;
-    winMesh.instanceMatrix.needsUpdate  = true;
-    doorMesh.instanceMatrix.needsUpdate = true;
-  }, [world]);
-
-  return (
-    <>
-      <instancedMesh ref={winRef} args={[undefined, undefined, MAX_HOUSE_WINDOWS]}>
+      {/* One-floor house windows and doors */}
+      <instancedMesh ref={setRef('houseWin')} args={[undefined, undefined, caps.houseWin]}>
         <planeGeometry args={[1, 1]} />
-        <meshStandardMaterial
-          color="#ffee88"
-          emissive="#ffcc44"
-          emissiveIntensity={2.5}
-          transparent
-          opacity={0.92}
-          depthWrite={false}
-        />
+        <meshStandardMaterial color="#ffee88" emissive="#ffcc44" emissiveIntensity={2.5}
+          transparent opacity={0.92} depthWrite={false} />
       </instancedMesh>
-      <instancedMesh ref={doorRef} args={[undefined, undefined, MAX_HOUSE_DOORS]}>
+      <instancedMesh ref={setRef('houseDoor')} args={[undefined, undefined, caps.houseDoor]}>
         <planeGeometry args={[1, 1]} />
-        <meshStandardMaterial
-          color="#3d1f0a"
-          emissive="#2a1508"
-          emissiveIntensity={0.4}
-          transparent
-          opacity={0.95}
-          depthWrite={false}
-        />
+        <meshStandardMaterial color="#3d1f0a" emissive="#2a1508" emissiveIntensity={0.4}
+          transparent opacity={0.95} depthWrite={false} />
       </instancedMesh>
-    </>
-  );
-}
 
-// ─── Trees (instanced) ────────────────────────────────────────────────────────
-
-const MAX_TREES = 800;
-
-export function CityTrees({ world, playerGridX, playerGridY }: { world: WorldData; playerGridX: number; playerGridY: number }) {
-  const trunkRef = useRef<THREE.InstancedMesh>(null);
-  const leafRef  = useRef<THREE.InstancedMesh>(null);
-  const R = 25;
-
-  useEffect(() => {
-    const trunk = trunkRef.current;
-    const leaf  = leafRef.current;
-    if (!trunk || !leaf) return;
-
-    let idx = 0;
-    const tScale = new THREE.Vector3();
-    const lScale = new THREE.Vector3();
-
-    for (let gy = Math.max(0, playerGridY - R); gy < Math.min(GRID_SIZE, playerGridY + R + 1) && idx < MAX_TREES; gy++) {
-      for (let gx = Math.max(0, playerGridX - R); gx < Math.min(GRID_SIZE, playerGridX + R + 1) && idx < MAX_TREES; gx++) {
-        const tile = world.grid[gy][gx];
-        if (tile.type !== TileType.PARK) continue;
-        if ((gx + gy * 3) % 3 !== 0) continue; // thin out
-
-        const seed = tile.colorSeed ?? (gx * 7 + gy * 13);
-        const off = (seed % 5) * 0.3 - 0.6;
-        const cx = gx * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF + off;
-        const cz = gy * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF + off;
-
-        const tH = 1.2 + (seed % 5) * 0.3;
-        const lH = 1.5 + (seed % 4) * 0.4;
-        const lR = 0.9 + (seed % 3) * 0.3;
-
-        // Trunk
-        tmpPos.set(cx, tH / 2, cz);
-        tScale.set(0.18, tH, 0.18);
-        tmpMat4.compose(tmpPos, tmpQuat, tScale);
-        trunk.setMatrixAt(idx, tmpMat4);
-
-        // Leaf canopy
-        tmpPos.set(cx, tH + lH / 2, cz);
-        lScale.set(lR * 2, lH, lR * 2);
-        tmpMat4.compose(tmpPos, tmpQuat, lScale);
-        leaf.setMatrixAt(idx, tmpMat4);
-
-        idx++;
-      }
-    }
-
-    trunk.count = leaf.count = idx;
-    trunk.instanceMatrix.needsUpdate = true;
-    leaf.instanceMatrix.needsUpdate  = true;
-  }, [world, playerGridX, playerGridY]);
-
-  return (
-    <>
-      <instancedMesh ref={trunkRef} args={[undefined, undefined, MAX_TREES]} castShadow>
+      {/* Trees */}
+      <instancedMesh ref={setRef('treeTrunk')} args={[undefined, undefined, caps.treeTrunk]} castShadow>
         <cylinderGeometry args={[1, 1, 1, 6]} />
         <meshStandardMaterial color="#3d2b1a" roughness={1} />
       </instancedMesh>
-      <instancedMesh ref={leafRef} args={[undefined, undefined, MAX_TREES]} castShadow>
+      <instancedMesh ref={setRef('treeLeaf')} args={[undefined, undefined, caps.treeLeaf]} castShadow>
         <coneGeometry args={[1, 1, 7]} />
         <meshStandardMaterial color="#1a4a20" roughness={0.9} />
       </instancedMesh>
-    </>
-  );
-}
 
-// ─── Street Lights ────────────────────────────────────────────────────────────
-
-const MAX_LIGHTS = 300;
-const MAX_LAMP_POINT_LIGHTS = 6;
-
-export function StreetLights({ world, playerGridX, playerGridY }: { world: WorldData; playerGridX: number; playerGridY: number }) {
-  const poleRef = useRef<THREE.InstancedMesh>(null);
-  const headRef = useRef<THREE.InstancedMesh>(null);
-  const [nearbyLamps, setNearbyLamps] = useState<[number, number][]>([]);
-  const R = 25;
-
-  useEffect(() => {
-    const poleMesh = poleRef.current;
-    const headMesh = headRef.current;
-    if (!poleMesh || !headMesh) return;
-
-    let idx = 0;
-    const pScale = new THREE.Vector3(0.12, 3.5, 0.12);
-    const hScale = new THREE.Vector3(0.55, 0.28, 0.55);
-    const allPositions: [number, number, number][] = [];
-
-    const startGy = Math.floor(Math.max(0, playerGridY - R) / 4) * 4;
-    const startGx = Math.floor(Math.max(0, playerGridX - R) / 4) * 4;
-
-    const playerX3 = playerGridX * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-    const playerZ3 = playerGridY * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-
-    for (let gy = startGy; gy < Math.min(GRID_SIZE, playerGridY + R + 1) && idx < MAX_LIGHTS; gy += 4) {
-      for (let gx = startGx; gx < Math.min(GRID_SIZE, playerGridX + R + 1) && idx < MAX_LIGHTS; gx += 4) {
-        const tile = world.grid[gy]?.[gx];
-        if (!tile) continue;
-        if (tile.type !== TileType.SIDEWALK && tile.type !== TileType.INTERSECTION) continue;
-
-        const cx = gx * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-        const cz = gy * TILE_3D + TILE_3D / 2 - WORLD_3D_HALF;
-
-        // Pole
-        tmpPos.set(cx, 1.75, cz);
-        tmpMat4.compose(tmpPos, tmpQuat, pScale);
-        poleMesh.setMatrixAt(idx, tmpMat4);
-
-        // Lamp head (box at top of pole)
-        tmpPos.set(cx, 3.65, cz);
-        tmpMat4.compose(tmpPos, tmpQuat, hScale);
-        headMesh.setMatrixAt(idx, tmpMat4);
-
-        const dx = cx - playerX3;
-        const dz = cz - playerZ3;
-        allPositions.push([cx, cz, dx * dx + dz * dz]);
-        idx++;
-      }
-    }
-
-    poleMesh.count = idx;
-    headMesh.count = idx;
-    poleMesh.instanceMatrix.needsUpdate = true;
-    headMesh.instanceMatrix.needsUpdate = true;
-
-    // Pick nearest N lamps for point lights
-    allPositions.sort((a, b) => a[2] - b[2]);
-    setNearbyLamps(allPositions.slice(0, MAX_LAMP_POINT_LIGHTS).map(p => [p[0], p[1]]));
-  }, [world, playerGridX, playerGridY]);
-
-  return (
-    <>
-      <instancedMesh ref={poleRef} args={[undefined, undefined, MAX_LIGHTS]} castShadow>
+      {/* Street lights */}
+      <instancedMesh ref={setRef('lampPole')} args={[undefined, undefined, caps.lampPole]} castShadow>
         <cylinderGeometry args={[1, 1, 1, 5]} />
         <meshStandardMaterial color="#444455" roughness={0.5} metalness={0.2} />
       </instancedMesh>
-      <instancedMesh ref={headRef} args={[undefined, undefined, MAX_LIGHTS]} castShadow={false}>
+      <instancedMesh ref={setRef('lampHead')} args={[undefined, undefined, caps.lampHead]} castShadow={false}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial
-          color="#ffe090"
-          emissive="#ffaa33"
-          emissiveIntensity={2.5}
-          roughness={0.4}
-          metalness={0.2}
-        />
+        <meshStandardMaterial color="#ffe090" emissive="#ffaa33" emissiveIntensity={2.5}
+          roughness={0.4} metalness={0.2} />
       </instancedMesh>
       {nearbyLamps.map(([x, z], i) => (
         <pointLight key={i} position={[x, 3.8, z]}
@@ -728,6 +524,11 @@ export function StreetLights({ world, playerGridX, playerGridY }: { world: World
   );
 }
 
+// ─── BuildingWindows: replaced by emissiveMap in the facade materials ────────
+export function BuildingWindows() {
+  return null;
+}
+
 // ─── Town Hall 3D ─────────────────────────────────────────────────────────────
 // Neoclassical civic building facing north (−Z direction).
 // Group centre = townHallPos tile (44,44) → 3D (18, 0, 18).
@@ -735,7 +536,7 @@ export function StreetLights({ world, playerGridX, playerGridY }: { world: World
 // Plaza tiles:    ty=34-38 (rel Z −42 to −22), same X block.
 // Closed road:    ty=40    (rel Z −18 to −14) → TOWN_HALL_PLAZA.
 
-export function TownHall3D({ world }: { world: WorldData }) {
+export function TownHall3D({ world, lightsOn = true }: { world: WorldData; lightsOn?: boolean }) {
   const pos = world.townHallPos;
   const cx = pos.x * (TILE_3D / TILE_SIZE) - WORLD_3D_HALF;
   const cz = pos.y * (TILE_3D / TILE_SIZE) - WORLD_3D_HALF;
@@ -1166,18 +967,24 @@ export function TownHall3D({ world }: { world: WorldData }) {
       </mesh>
 
       {/* ── Lighting ──────────────────────────────────────────────────────── */}
-      {/* Entrance warm glow */}
-      <pointLight position={[0, 5, -12]} color="#ffe8aa" intensity={3.5} distance={18} decay={2} />
-      {/* Interior chandelier */}
-      <pointLight position={[0, 6.5, -4]} color="#ffe8cc" intensity={3.2} distance={12} decay={2} />
-      {/* Interior wall sconces */}
-      <pointLight position={[-4.5, 4, -6]} color="#ffddaa" intensity={1.6} distance={8} decay={2} />
-      <pointLight position={[4.5, 4, -6]} color="#ffddaa" intensity={1.6} distance={8} decay={2} />
-      {/* Dome accent */}
-      <pointLight position={[0, 32, 0]} color="#a0c8ff" intensity={3.5} distance={35} decay={2} />
-      {/* Plaza lamps — matched to moved lamp posts at Z=−28 */}
-      <pointLight position={[-8, 7, -28]} color="#ffcc66" intensity={2.5} distance={15} decay={2} />
-      <pointLight position={[8, 7, -28]} color="#ffcc66" intensity={2.5} distance={15} decay={2} />
+      {/* Only mounted while the player is nearby: point lights are a per-scene
+          shader cost, and these are invisible from the far side of the map. */}
+      {lightsOn && (
+        <>
+          {/* Entrance warm glow */}
+          <pointLight position={[0, 5, -12]} color="#ffe8aa" intensity={3.5} distance={18} decay={2} />
+          {/* Interior chandelier */}
+          <pointLight position={[0, 6.5, -4]} color="#ffe8cc" intensity={3.2} distance={12} decay={2} />
+          {/* Interior wall sconces */}
+          <pointLight position={[-4.5, 4, -6]} color="#ffddaa" intensity={1.6} distance={8} decay={2} />
+          <pointLight position={[4.5, 4, -6]} color="#ffddaa" intensity={1.6} distance={8} decay={2} />
+          {/* Dome accent */}
+          <pointLight position={[0, 32, 0]} color="#a0c8ff" intensity={3.5} distance={35} decay={2} />
+          {/* Plaza lamps — matched to moved lamp posts at Z=−28 */}
+          <pointLight position={[-8, 7, -28]} color="#ffcc66" intensity={2.5} distance={15} decay={2} />
+          <pointLight position={[8, 7, -28]} color="#ffcc66" intensity={2.5} distance={15} decay={2} />
+        </>
+      )}
     </group>
   );
 }
@@ -1188,13 +995,42 @@ export function BoundaryWalls() {
   const wallHeight = 18;
   const halfHeight = wallHeight / 2;
   const thickness = 2;
-  const size = GRID_SIZE * TILE_3D; // 320
+  const size = GRID_SIZE * TILE_3D;
 
   // Pillar positions along one side
-  const pillarIntervals = Array.from({ length: Math.floor(size / 16) + 1 }, (_, i) => -size / 2 + i * 16);
+  const pillarIntervals = useMemo(
+    () => Array.from({ length: Math.floor(size / 16) + 1 }, (_, i) => -size / 2 + i * 16),
+    [size],
+  );
+  const pillarCount = pillarIntervals.length * 4;
+  const pillarRef = useRef<THREE.InstancedMesh>(null);
+
+  // All four sides of pillars in one instanced draw call (they would be
+  // ~160 separate meshes on a 160-tile map).
+  useEffect(() => {
+    const m = pillarRef.current;
+    if (!m) return;
+    let i = 0;
+    const inset = thickness / 2 + 0.2;
+    const y = halfHeight + 0.5;
+    const along = new THREE.Vector3(1.2, wallHeight + 1.0, 1.0);
+    const across = new THREE.Vector3(1.0, wallHeight + 1.0, 1.2);
+    for (const p of pillarIntervals) {
+      tmpPos.set(p, y, -size / 2 + inset); tmpMat4.compose(tmpPos, tmpQuat, along);  m.setMatrixAt(i++, tmpMat4);
+      tmpPos.set(p, y,  size / 2 - inset); tmpMat4.compose(tmpPos, tmpQuat, along);  m.setMatrixAt(i++, tmpMat4);
+      tmpPos.set(-size / 2 + inset, y, p); tmpMat4.compose(tmpPos, tmpQuat, across); m.setMatrixAt(i++, tmpMat4);
+      tmpPos.set( size / 2 - inset, y, p); tmpMat4.compose(tmpPos, tmpQuat, across); m.setMatrixAt(i++, tmpMat4);
+    }
+    m.count = i;
+    m.instanceMatrix.needsUpdate = true;
+  }, [pillarIntervals, size, halfHeight, wallHeight, thickness]);
 
   return (
     <group>
+      <instancedMesh ref={pillarRef} args={[undefined, undefined, pillarCount]} castShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#2a2e40" roughness={0.5} metalness={0.3} />
+      </instancedMesh>
       {/* North Wall */}
       <mesh position={[0, halfHeight, -size / 2]} castShadow receiveShadow>
         <boxGeometry args={[size + thickness, wallHeight, thickness]} />
@@ -1205,14 +1041,6 @@ export function BoundaryWalls() {
         <boxGeometry args={[size, 0.3, 0.1]} />
         <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.8} roughness={0.1} />
       </mesh>
-      {/* North Wall Pillars */}
-      {pillarIntervals.map((x, i) => (
-        <mesh key={`np-${i}`} position={[x, halfHeight + 0.5, -size / 2 + thickness / 2 + 0.2]} castShadow>
-          <boxGeometry args={[1.2, wallHeight + 1.0, 1.0]} />
-          <meshStandardMaterial color="#2a2e40" roughness={0.5} metalness={0.3} />
-        </mesh>
-      ))}
-
       {/* South Wall */}
       <mesh position={[0, halfHeight, size / 2]} castShadow receiveShadow>
         <boxGeometry args={[size + thickness, wallHeight, thickness]} />
@@ -1223,14 +1051,6 @@ export function BoundaryWalls() {
         <boxGeometry args={[size, 0.3, 0.1]} />
         <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.8} roughness={0.1} />
       </mesh>
-      {/* South Wall Pillars */}
-      {pillarIntervals.map((x, i) => (
-        <mesh key={`sp-${i}`} position={[x, halfHeight + 0.5, size / 2 - thickness / 2 - 0.2]} castShadow>
-          <boxGeometry args={[1.2, wallHeight + 1.0, 1.0]} />
-          <meshStandardMaterial color="#2a2e40" roughness={0.5} metalness={0.3} />
-        </mesh>
-      ))}
-
       {/* West Wall */}
       <mesh position={[-size / 2, halfHeight, 0]} castShadow receiveShadow>
         <boxGeometry args={[thickness, wallHeight, size + thickness]} />
@@ -1241,14 +1061,6 @@ export function BoundaryWalls() {
         <boxGeometry args={[0.1, 0.3, size]} />
         <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.8} roughness={0.1} />
       </mesh>
-      {/* West Wall Pillars */}
-      {pillarIntervals.map((z, i) => (
-        <mesh key={`wp-${i}`} position={[-size / 2 + thickness / 2 + 0.2, halfHeight + 0.5, z]} castShadow>
-          <boxGeometry args={[1.0, wallHeight + 1.0, 1.2]} />
-          <meshStandardMaterial color="#2a2e40" roughness={0.5} metalness={0.3} />
-        </mesh>
-      ))}
-
       {/* East Wall */}
       <mesh position={[size / 2, halfHeight, 0]} castShadow receiveShadow>
         <boxGeometry args={[thickness, wallHeight, size + thickness]} />
@@ -1259,13 +1071,6 @@ export function BoundaryWalls() {
         <boxGeometry args={[0.1, 0.3, size]} />
         <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.8} roughness={0.1} />
       </mesh>
-      {/* East Wall Pillars */}
-      {pillarIntervals.map((z, i) => (
-        <mesh key={`ep-${i}`} position={[size / 2 - thickness / 2 - 0.2, halfHeight + 0.5, z]} castShadow>
-          <boxGeometry args={[1.0, wallHeight + 1.0, 1.2]} />
-          <meshStandardMaterial color="#2a2e40" roughness={0.5} metalness={0.3} />
-        </mesh>
-      ))}
     </group>
   );
 }
@@ -1292,8 +1097,9 @@ export function PolicePatrol() {
       const g = ref.current;
       if (!g) return;
 
-      // Make them fly in different circles/paths around the city center
-      const radius = 50 + idx * 45;
+      // Make them fly in different circles/paths around the city center,
+      // scaled to the map so they still cover it on a bigger grid.
+      const radius = WORLD_3D_HALF * (0.31 + idx * 0.28);
       const speed = 0.12 + idx * 0.03;
       const direction = idx % 2 === 0 ? 1 : -1;
       
@@ -1405,17 +1211,35 @@ export function PolicePatrol() {
 
 // ─── Combined City Scene ──────────────────────────────────────────────────────
 
-export default function CityScene({ world, playerGridX, playerGridY }: { world: WorldData; playerGridX: number; playerGridY: number }) {
+/** Town Hall point lights mount within this many tiles (Chebyshev) of the player. */
+const TOWN_HALL_LIGHT_TILES = 48;
+const TOWN_HALL_LIGHT_HYSTERESIS = 8;
+
+export default function CityScene({
+  world, source, playerGridX, playerGridY,
+}: {
+  world: WorldData;
+  source: CityStreamSource;
+  playerGridX: number;
+  playerGridY: number;
+}) {
+  const thGx = Math.floor(world.townHallPos.x / TILE_SIZE);
+  const thGy = Math.floor(world.townHallPos.y / TILE_SIZE);
+  const [nearTownHall, setNearTownHall] = useState(true);
+
+  useEffect(() => {
+    const d = Math.max(Math.abs(playerGridX - thGx), Math.abs(playerGridY - thGy));
+    setNearTownHall(prev => (prev
+      ? d <= TOWN_HALL_LIGHT_TILES + TOWN_HALL_LIGHT_HYSTERESIS
+      : d <= TOWN_HALL_LIGHT_TILES));
+  }, [playerGridX, playerGridY, thGx, thGy]);
+
   return (
     <group>
-      <CityGround world={world} />
-      <CityBuildings world={world} />
-      <MinecraftRoofs world={world} />
+      <ChunkedGround world={world} source={source} />
+      <ChunkedCity world={world} source={source} />
       <BuildingWindows />
-      <HouseDetails world={world} />
-      <CityTrees world={world} playerGridX={playerGridX} playerGridY={playerGridY} />
-      <StreetLights world={world} playerGridX={playerGridX} playerGridY={playerGridY} />
-      <TownHall3D world={world} />
+      <TownHall3D world={world} lightsOn={nearTownHall} />
       <BoundaryWalls />
       <PolicePatrol />
     </group>

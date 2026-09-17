@@ -1,17 +1,17 @@
-import { Point, Tile, Waypoint, TILE_SIZE } from './types';
+import { Point, Tile, Waypoint, TILE_SIZE, GRID_SIZE } from './types';
 import { findRoadPath } from './worldGen';
 
 /**
  * GPS route to the active waypoint.
  *
- * `findRoadPath` is a BFS over the whole 80x80 grid, so it must not run per
- * frame. The route is recomputed only when the destination changes or the
- * player leaves the corridor of tiles the current route covers; otherwise the
+ * `findRoadPath` is a BFS over the whole grid, so it must not run per frame.
+ * The route is recomputed only when the destination changes or the player
+ * leaves the corridor of tiles the current route covers; otherwise the
  * already-visited leading points are simply trimmed.
  */
 
 function tileKey(p: { x: number; y: number }): number {
-  return Math.floor(p.x / TILE_SIZE) * 1000 + Math.floor(p.y / TILE_SIZE);
+  return Math.floor(p.y / TILE_SIZE) * GRID_SIZE + Math.floor(p.x / TILE_SIZE);
 }
 
 export class RouteCache {

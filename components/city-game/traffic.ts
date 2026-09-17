@@ -1,15 +1,22 @@
 import { Vehicle, VehicleType, Point, WorldData, TILE_SIZE, GRID_SIZE } from './types';
-import { findRoadPath } from './worldGen';
+import { findRoadPath, nearestRoadTile } from './worldGen';
+import { pickSpawnInRing } from './chunks';
 import type { PedestrianSystem } from './pedestrians';
 
 const LANE_OFFSET = 9;
-const TRAFFIC_DESPAWN_DISTANCE = 760;
+export const TRAFFIC_DESPAWN_DISTANCE = 760;
 /** Parked cars appear within this radius and are recycled beyond PARKED_DESPAWN. */
 const PARKED_SPAWN_RADIUS = 700;
 const PARKED_DESPAWN = 900;
-const MAX_PARKED = 16;
-const TRAFFIC_RESPAWN_MIN = 380;
-const TRAFFIC_RESPAWN_MAX = 680;
+export const DEFAULT_MAX_PARKED = 16;
+export const TRAFFIC_RESPAWN_MIN = 380;
+export const TRAFFIC_RESPAWN_MAX = 680;
+/** Random driving destinations are drawn from this ring around the car. */
+const ROUTE_DEST_MIN = 320;
+const ROUTE_DEST_MAX = 1200;
+/** BFS re-routes allowed per updateTraffic call; the rest retry next frame. */
+const REROUTE_BUDGET = 3;
+let rerouteBudget = REROUTE_BUDGET;
 
 const NPC_COLORS = [
   '#c0392b', '#2980b9', '#27ae60', '#8e44ad',
@@ -53,18 +60,35 @@ export function applyTrafficLanes(path: Point[], start: Point): Point[] {
   });
 }
 
-function buildLanePath(world: WorldData, start: Point, dest: Point): Point[] {
+/** BFS road path from `start` to `dest`, shifted onto the right-hand lane. */
+export function buildLanePath(world: WorldData, start: Point, dest: Point): Point[] {
   const centerPath = findRoadPath(world.grid, start.x, start.y, dest.x, dest.y);
   return applyTrafficLanes(centerPath, start);
 }
 
-function routeVehicleToRandomRoad(v: Vehicle, world: WorldData): void {
-  const dest = world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)] ??
-    { x: 400, y: 400 };
+/**
+ * Give a car a fresh destination a few blocks away. Nearby destinations keep
+ * the BFS short and stop cars planning cross-map trips they never finish
+ * before they are recycled. Returns false when this frame's re-route budget
+ * is spent; the caller should retry next frame.
+ */
+function routeVehicleToRandomRoad(v: Vehicle, world: WorldData): boolean {
+  if (rerouteBudget <= 0) return false;
+  rerouteBudget--;
+  const dest = pickSpawnInRing(world, v.x, v.y, ROUTE_DEST_MIN, ROUTE_DEST_MAX)
+    ?? world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)]
+    ?? nearestRoadTile(world, world.respawnPos);
   v.waypoints = buildLanePath(world, { x: v.x, y: v.y }, dest);
   v.waypointIndex = 0;
   const first = v.waypoints[0];
   if (first) v.angle = angleToTarget(v, first);
+  return true;
+}
+
+/** Park a car for a frame while it waits for re-route budget. */
+function deferReroute(v: Vehicle): void {
+  v.npcState = 'stopped';
+  v.waitTimer = 0.05;
 }
 
 function isClearOfVehicles(
@@ -82,6 +106,11 @@ function isClearOfVehicles(
   return true;
 }
 
+/**
+ * Random road tile in a ring around the player, avoiding the forward view
+ * cone. Backed by the chunk road buckets, so it scans a handful of chunks
+ * instead of the whole road network.
+ */
 export function pickSpawnAwayFromPlayer(
   world: WorldData,
   playerX?: number,
@@ -93,38 +122,16 @@ export function pickSpawnAwayFromPlayer(
   if (playerX === undefined || playerY === undefined) {
     return world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)];
   }
-
-  const fx = playerAngle === undefined ? 0 : Math.sin(playerAngle);
-  const fy = playerAngle === undefined ? 0 : -Math.cos(playerAngle);
-
-  const candidates = world.roadTiles.filter(t => {
-    const dx = t.x - playerX;
-    const dy = t.y - playerY;
-    const d = Math.hypot(dx, dy);
-    if (d < minDistance || d > maxDistance) return false;
-    if (playerAngle === undefined || d === 0) return true;
-
-    const forwardDot = (dx / d) * fx + (dy / d) * fy;
-    return forwardDot < 0.2;
+  return pickSpawnInRing(world, playerX, playerY, minDistance, maxDistance, {
+    forwardAngle: playerAngle,
   });
-
-  const pool = candidates.length > 0
-    ? candidates
-    : world.roadTiles.filter(t => {
-        const d = Math.hypot(t.x - playerX, t.y - playerY);
-        return d > minDistance && d < maxDistance;
-      });
-
-  return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
-  const spawn = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)] ??
-    { x: 200, y: 200 };
-
-  // Pick a random road destination
-  const dest = world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)] ??
-    { x: 400, y: 400 };
+/** An NPC car standing at `spawn`, already routed to a nearby destination. */
+export function createNPCCarAt(world: WorldData, spawn: Point, colorIndex: number): Vehicle {
+  const dest = pickSpawnInRing(world, spawn.x, spawn.y, ROUTE_DEST_MIN, ROUTE_DEST_MAX)
+    ?? world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)]
+    ?? nearestRoadTile(world, world.respawnPos);
 
   const centerPath = findRoadPath(world.grid, spawn.x, spawn.y, dest.x, dest.y);
   const waypoints = applyTrafficLanes(centerPath, spawn);
@@ -149,6 +156,12 @@ export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
     hp: 100,
     driverColorIdx: colorIndex % NPC_COLORS.length,
   };
+}
+
+export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
+  const spawn = world.spawnPoints[Math.floor(Math.random() * world.spawnPoints.length)]
+    ?? nearestRoadTile(world, world.respawnPos);
+  return createNPCCarAt(world, spawn, colorIndex);
 }
 
 /**
@@ -182,11 +195,12 @@ export function createTaxi(world: WorldData, playerX?: number, playerY?: number,
     spawn = world.roadTiles[Math.floor(Math.random() * world.roadTiles.length)];
   }
 
+  const at = spawn ?? nearestRoadTile(world, world.respawnPos);
   return {
     id: nextVehicleId(),
     type: VehicleType.TAXI,
-    x: spawn?.x ?? 320,
-    y: spawn?.y ?? 320,
+    x: at.x,
+    y: at.y,
     angle: 0,
     speed: 0,
     maxSpeed: 2.2,
@@ -206,13 +220,9 @@ export function createTaxi(world: WorldData, playerX?: number, playerY?: number,
 export function createDeliveryScooter(world: WorldData, shopPos?: Point, playerX?: number, playerY?: number, playerAngle?: number): Vehicle {
   let spawn: Point | undefined;
 
-  // Shop positions are building tiles — find the nearest road tile to spawn on instead
+  // Shop positions are building tile corners — spawn on the nearest road instead.
   if (shopPos && world.roadTiles.length > 0) {
-    spawn = world.roadTiles.reduce((best, t) => {
-      const d = Math.hypot(t.x - shopPos.x, t.y - shopPos.y);
-      const bd = Math.hypot(best.x - shopPos.x, best.y - shopPos.y);
-      return d < bd ? t : best;
-    });
+    spawn = nearestRoadTile(world, { x: shopPos.x + TILE_SIZE / 2, y: shopPos.y + TILE_SIZE / 2 });
   }
 
   // No shop provided: find a road tile at a reasonable distance from player
@@ -221,7 +231,7 @@ export function createDeliveryScooter(world: WorldData, shopPos?: Point, playerX
   }
 
   if (!spawn) {
-    spawn = world.roadTiles[0] ?? { x: 160, y: 160 };
+    spawn = nearestRoadTile(world, world.respawnPos);
   }
 
   return {
@@ -245,7 +255,7 @@ export function createDeliveryScooter(world: WorldData, shopPos?: Point, playerX
 }
 
 export function createHelicopter(world: WorldData): Vehicle {
-  const helipad = world.helipads[0] ?? { x: TILE_SIZE * 40, y: TILE_SIZE * 40 };
+  const helipad = world.helipads[0] ?? world.respawnPos;
   return {
     id: nextVehicleId(),
     type: VehicleType.HELICOPTER,
@@ -289,7 +299,7 @@ export function createDrone(playerX: number, playerY: number): Vehicle {
 
 // Returns the distance to the nearest vehicle directly ahead (within lookAhead units).
 // Returns lookAhead if nothing is blocking.
-function getForwardBlockDistance(
+export function getForwardBlockDistance(
   v: Vehicle,
   vehicles: Map<string, Vehicle>,
   lookAhead = 90
@@ -319,7 +329,7 @@ function getForwardBlockDistance(
  * Distance to a single point if it lies in the vehicle's forward cone,
  * otherwise `lookAhead`. Used so cars brake for the on-foot player.
  */
-function forwardPointDistance(v: Vehicle, x: number, y: number, lookAhead: number): number {
+export function forwardPointDistance(v: Vehicle, x: number, y: number, lookAhead: number): number {
   const fx = Math.sin(v.angle);
   const fy = -Math.cos(v.angle);
   const dx = x - v.x;
@@ -383,6 +393,8 @@ export function updateTraffic(
   peds?: PedestrianSystem,
   playerOnFoot?: boolean,
 ): void {
+  rerouteBudget = REROUTE_BUDGET;
+
   vehicles.forEach((v) => {
     if (v.occupant === 'player') return;
     if (v.isService) return; // Services managed separately
@@ -398,7 +410,7 @@ export function updateTraffic(
       const dy = v.y - playerY;
       const distToPlayer = Math.sqrt(dx * dx + dy * dy);
       
-      if (distToPlayer > TRAFFIC_DESPAWN_DISTANCE) {
+      if (distToPlayer > TRAFFIC_DESPAWN_DISTANCE && rerouteBudget > 0) {
         const spawn = pickSpawnAwayFromPlayer(world, playerX, playerY, playerAngle);
         if (spawn && isClearOfVehicles(spawn, vehicles, v.id)) {
           v.x = spawn.x;
@@ -417,7 +429,10 @@ export function updateTraffic(
 
     // Re-route if finished waypoints
     if (v.waypointIndex >= v.waypoints.length) {
-      routeVehicleToRandomRoad(v, world);
+      if (!routeVehicleToRandomRoad(v, world)) {
+        deferReroute(v);
+        return;
+      }
 
       // Occasional stop at intersection
       if (Math.random() < 0.1) {
@@ -447,8 +462,11 @@ export function updateTraffic(
               v.speed = 0;
             }
           }
-          routeVehicleToRandomRoad(v, world);
-          v.npcState = 'driving';
+          if (routeVehicleToRandomRoad(v, world)) {
+            v.npcState = 'driving';
+          } else {
+            deferReroute(v);
+          }
         }
       }
       v.stuckCheckX = v.x;
@@ -493,6 +511,60 @@ export function updateTraffic(
   });
 }
 
+/** A live AI-driven traffic car (not parked, wrecked, stolen or a service). */
+export function isLiveNpcCar(v: Vehicle): boolean {
+  return v.type === VehicleType.NPC_CAR
+    && v.occupant === 'npc'
+    && v.hp > 0
+    && !v.isParked
+    && !v.isService
+    && v.npcState !== 'hijacked';
+}
+
+/**
+ * Keep the number of live traffic cars at `target`. Wrecks, thefts and
+ * despawns used to shrink the fleet for the rest of the session; this tops it
+ * up (at most `maxSpawns` per call, in the ring behind the player) and trims
+ * the farthest cars when the target is lowered. New cars are collected and
+ * inserted after the iteration, never during it.
+ */
+export function ensureTraffic(
+  vehicles: Map<string, Vehicle>,
+  world: WorldData,
+  player: { x: number; y: number; angle: number },
+  target: number,
+  maxSpawns = 2,
+): number {
+  let live = 0;
+  let farthest: Vehicle | null = null;
+  let farthestD = 0;
+  for (const v of vehicles.values()) {
+    if (!isLiveNpcCar(v)) continue;
+    live++;
+    const d = Math.hypot(v.x - player.x, v.y - player.y);
+    if (d > farthestD) { farthestD = d; farthest = v; }
+  }
+
+  if (live > target) {
+    if (farthest && farthestD > TRAFFIC_DESPAWN_DISTANCE) {
+      vehicles.delete(farthest.id);
+      live--;
+    }
+    return live;
+  }
+
+  const spawned: Vehicle[] = [];
+  let attempts = 0;
+  while (live + spawned.length < target && spawned.length < maxSpawns && attempts < 6) {
+    attempts++;
+    const spawn = pickSpawnAwayFromPlayer(world, player.x, player.y, player.angle);
+    if (!spawn || !isClearOfVehicles(spawn, vehicles, '')) continue;
+    spawned.push(createNPCCarAt(world, spawn, Math.floor(Math.random() * NPC_COLORS.length)));
+  }
+  for (const v of spawned) vehicles.set(v.id, v);
+  return live + spawned.length;
+}
+
 /**
  * Populate nearby PARKING blocks with unattended cars, and recycle parked or
  * abandoned cars once the player is far away.
@@ -505,6 +577,7 @@ export function updateParkedCars(
   player: { x: number; y: number },
   currentVehicleId: string | null,
   spawnedBlocks: Set<number>,
+  maxParked = DEFAULT_MAX_PARKED,
 ): void {
   let parkedCount = 0;
   const toDelete: string[] = [];
@@ -529,10 +602,10 @@ export function updateParkedCars(
     }
   }
 
-  if (parkedCount >= MAX_PARKED) return;
+  if (parkedCount >= maxParked) return;
 
   for (const block of world.parkingBlocks) {
-    if (parkedCount >= MAX_PARKED) break;
+    if (parkedCount >= maxParked) break;
     if (spawnedBlocks.has(block.id)) continue;
     if (Math.hypot(block.center.x - player.x, block.center.y - player.y) > PARKED_SPAWN_RADIUS) continue;
 
@@ -540,7 +613,7 @@ export function updateParkedCars(
     const n = 2 + Math.floor(Math.random() * 2);
     // Cars in a lot all face the same way, which reads as deliberate parking.
     const angle = Math.random() < 0.5 ? 0 : Math.PI / 2;
-    for (let i = 0; i < n && parkedCount < MAX_PARKED; i++) {
+    for (let i = 0; i < n && parkedCount < maxParked; i++) {
       const tile = block.tiles[Math.floor(Math.random() * block.tiles.length)];
       if (!tile) continue;
       if (!isClearOfVehicles(tile, vehicles, '', 24)) continue;

@@ -84,13 +84,17 @@ function pick<T>(arr: T[], rng: () => number): T {
 /** Road tile nearest to a shop entrance, so markers never sit inside a wall. */
 function shopRoad(world: WorldData, index: number): Point {
   const shop = world.shopPositions[index % Math.max(1, world.shopPositions.length)]
-    ?? { x: TILE_SIZE * 20, y: TILE_SIZE * 20 };
+    ?? { x: world.respawnPos.x - TILE_SIZE / 2, y: world.respawnPos.y - TILE_SIZE / 2 };
   // shopPositions are tile corners, so nudge to the tile centre first.
   return nearestRoadTile(world, { x: shop.x + TILE_SIZE / 2, y: shop.y + TILE_SIZE / 2 });
 }
 
-/** All HOUSE tiles, used as delivery destinations. */
+const houseTileCache = new WeakMap<WorldData, Point[]>();
+
+/** All HOUSE tiles, used as delivery destinations. Scanned once per world. */
 function houseTiles(world: WorldData): Point[] {
+  const cached = houseTileCache.get(world);
+  if (cached) return cached;
   const out: Point[] = [];
   for (let gy = 0; gy < GRID_SIZE; gy += 2) {
     for (let gx = 0; gx < GRID_SIZE; gx += 2) {
@@ -100,6 +104,7 @@ function houseTiles(world: WorldData): Point[] {
       }
     }
   }
+  houseTileCache.set(world, out);
   return out;
 }
 
