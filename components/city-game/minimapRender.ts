@@ -38,6 +38,7 @@ const COLORS = {
   helipad: '#443300',
   townHall: '#5a4a2a',
   plaza: '#6a5a3a',
+  droneField: '#1f5a63',
   route: '#c084fc',
   player: '#ffdc00',
 } as const;
@@ -84,6 +85,8 @@ export function getMiniMapBase(world: WorldData): HTMLCanvasElement | null {
           fill = COLORS.townHall; break;
         case TileType.TOWN_HALL_PLAZA:
           fill = COLORS.plaza; break;
+        case TileType.DRONE_FIELD:
+          fill = COLORS.droneField; break;
         case TileType.BUILDING: {
           // Taller buildings read lighter, which gives the map some relief.
           const floors = tile.floors ?? 1;

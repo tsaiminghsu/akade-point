@@ -10,6 +10,15 @@ import {
   ALT_ROOF_BUFFER,
 } from '../worldGen';
 import {
+  ARENA_TILE_X0,
+  ARENA_TILE_X1,
+  ARENA_TILE_Y0,
+  ARENA_TILE_Y1,
+  DRONE_PAD,
+  inArenaTile,
+  isInsideArena,
+} from '../droneArena';
+import {
   GRID_SIZE,
   TILE_SIZE,
   WORLD_CENTER_TILE,
@@ -26,10 +35,64 @@ function tileAt(gx: number, gy: number) {
 }
 
 describe('world layout at the current grid size', () => {
-  it('lays a road every 8 tiles', () => {
+  it('lays a road every 8 tiles, minus the ones the drone arena swallowed', () => {
     const perAxis = Math.ceil(GRID_SIZE / 8);
-    const expected = perAxis * GRID_SIZE * 2 - perAxis * perAxis;
-    expect(world.roadTiles).toHaveLength(expected);
+    const fullGrid = perAxis * GRID_SIZE * 2 - perAxis * perAxis;
+    // Derived rather than hardcoded: the point of this test is to catch an
+    // accidental layout change, so moving the arena must not need a new
+    // magic number here.
+    let swallowed = 0;
+    for (let gy = ARENA_TILE_Y0; gy <= ARENA_TILE_Y1; gy++) {
+      for (let gx = ARENA_TILE_X0; gx <= ARENA_TILE_X1; gx++) {
+        if (gx % 8 === 0 || gy % 8 === 0) swallowed++;
+      }
+    }
+    expect(swallowed).toBeGreaterThan(0);
+    expect(world.roadTiles).toHaveLength(fullGrid - swallowed);
+  });
+
+  it('paves the drone arena as one unbroken field', () => {
+    for (let gy = ARENA_TILE_Y0; gy <= ARENA_TILE_Y1; gy++) {
+      for (let gx = ARENA_TILE_X0; gx <= ARENA_TILE_X1; gx++) {
+        expect(tileAt(gx, gy).type).toBe(TileType.DRONE_FIELD);
+      }
+    }
+  });
+
+  it('keeps the roads around the arena so it stays reachable by car', () => {
+    const ring = [
+      [ARENA_TILE_X0 - 1, ARENA_TILE_Y0 + 4],
+      [ARENA_TILE_X1 + 1, ARENA_TILE_Y0 + 4],
+      [ARENA_TILE_X0 + 4, ARENA_TILE_Y0 - 1],
+      [ARENA_TILE_X0 + 4, ARENA_TILE_Y1 + 1],
+    ];
+    for (const [gx, gy] of ring) {
+      expect(isDrivable(world.grid, gx * TILE_SIZE + 20, gy * TILE_SIZE + 20)).toBe(true);
+    }
+  });
+
+  it('leaves no derived point pointing into the arena', () => {
+    // Missions draw objectives from roadTiles and shopPositions, so a stale
+    // entry here would drop a delivery in the middle of the flying field.
+    const pools: [string, { x: number; y: number }[]][] = [
+      ['roadTiles', world.roadTiles],
+      ['spawnPoints', world.spawnPoints],
+      ['sidewalkTiles', world.sidewalkTiles],
+      ['shopPositions', world.shopPositions],
+    ];
+    for (const [name, pool] of pools) {
+      const inside = pool.filter(p => inArenaTile(Math.floor(p.x / TILE_SIZE), Math.floor(p.y / TILE_SIZE)));
+      expect(`${name}: ${inside.length}`).toBe(`${name}: 0`);
+    }
+    for (const block of world.parkingBlocks) {
+      expect(isInsideArena(block.center.x, block.center.y)).toBe(false);
+    }
+  });
+
+  it('puts the drone pad inside the arena on walkable ground', () => {
+    expect(isInsideArena(world.dronePad.x, world.dronePad.y)).toBe(true);
+    expect(world.dronePad).toEqual(DRONE_PAD);
+    expect(isWalkable(world.grid, world.dronePad.x, world.dronePad.y)).toBe(true);
   });
 
   it('keeps the centre tile on an intersection', () => {

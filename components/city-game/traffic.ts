@@ -1,6 +1,7 @@
 import { Vehicle, VehicleType, Point, WorldData, TILE_SIZE, GRID_SIZE } from './types';
 import { findRoadPath, nearestRoadTile } from './worldGen';
 import { pickSpawnInRing } from './chunks';
+import { clampToArena, type DroneBounds } from './droneArena';
 import type { PedestrianSystem } from './pedestrians';
 
 const LANE_OFFSET = 9;
@@ -706,8 +707,15 @@ export function updateDrone(
   yawRight: boolean,
   playerX: number,
   playerY: number,
-  dt: number
-): { signalLost: boolean } {
+  dt: number,
+  /**
+   * Arena bounds while free-flying, or null during a race. When set, the field
+   * is treated as having its own ground station: the signal-loss return home is
+   * suppressed, because the pilot stays wherever they launched from and would
+   * otherwise yank the drone back the moment it crossed the field.
+   */
+  confine?: DroneBounds | null,
+): { signalLost: boolean; hitWall?: boolean } {
   const dx = v.x - playerX;
   const dy = v.y - playerY;
   const distFromPlayer = Math.sqrt(dx * dx + dy * dy);
@@ -718,7 +726,7 @@ export function updateDrone(
   const moveSpeed = 180 * dt;
 
   // Signal loss > 500 units → RTL
-  if (distFromPlayer > 500) {
+  if (!confine && distFromPlayer > 500) {
     // RTL: fly back toward player at a stable altitude
     const ang = Math.atan2(playerY - v.y, playerX - v.x);
     const rtlSpeed = 150; // pixels per second
@@ -737,7 +745,8 @@ export function updateDrone(
 
   // Altitude
   const alt = v.altitude ?? 0;
-  if (throttleUp) v.altitude = Math.min(200, alt + 80 * dt);
+  const ceiling = confine ? confine.ceiling : 200;
+  if (throttleUp) v.altitude = Math.min(ceiling, alt + 80 * dt);
   else if (throttleDown) v.altitude = Math.max(0, alt - 60 * dt);
   else v.altitude = alt + (0 - alt) * 0.01; // hover drift
 
@@ -765,9 +774,18 @@ export function updateDrone(
   if (yawLeft) v.angle -= 2 * dt;
   if (yawRight) v.angle += 2 * dt;
 
-  // Clamp to world
-  v.x = Math.max(0, Math.min(GRID_SIZE * TILE_SIZE, v.x));
-  v.y = Math.max(0, Math.min(GRID_SIZE * TILE_SIZE, v.y));
+  // Clamp to the arena while free-flying, to the world otherwise.
+  let hitWall = false;
+  if (confine) {
+    const clamped = clampToArena(v.x, v.y, confine);
+    v.x = clamped.x;
+    v.y = clamped.y;
+    v.altitude = Math.min(confine.ceiling, v.altitude ?? 0);
+    hitWall = clamped.hit;
+  } else {
+    v.x = Math.max(0, Math.min(GRID_SIZE * TILE_SIZE, v.x));
+    v.y = Math.max(0, Math.min(GRID_SIZE * TILE_SIZE, v.y));
+  }
 
-  return { signalLost: false };
+  return { signalLost: false, hitWall };
 }

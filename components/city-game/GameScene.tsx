@@ -21,6 +21,7 @@ import { LOOK_TARGET_Y } from './orbitCamera';
 import * as gameClock from './gameClock';
 import type { ResolvedGraphics } from './graphicsSettings';
 import ShadowRig from './ShadowRig';
+import DroneArenaMesh from './DroneArenaMesh';
 
 // Reusable temp objects (never recreate in hot loop)
 const tmpVec3  = new THREE.Vector3();
@@ -644,6 +645,9 @@ export default function GameScene({
           opacity={cfg.particleOpacity}
         />
       )}
+
+      {/* ── Drone arena boundary ─────────────────────────────────── */}
+      <DroneArenaMesh />
 
       {/* ── City ─────────────────────────────────────────────────── */}
       <CityScene world={engine.world} source={engine} playerGridX={playerGrid.x} playerGridY={playerGrid.y} />

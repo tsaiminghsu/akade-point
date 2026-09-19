@@ -26,6 +26,7 @@ export function tileColor(type: TileType, buildingType?: BuildingType): string {
     case TileType.PARKING: return '#3d3d52';
     case TileType.BUILDING: return buildingType === BuildingType.HOUSE ? '#3d2e27' : '#252538';
     case TileType.HELIPAD: return '#553f00';
+    case TileType.DRONE_FIELD: return '#1b3a3f';
     default: return '#1d1d2d';
   }
 }

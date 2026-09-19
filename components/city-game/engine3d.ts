@@ -62,6 +62,7 @@ import {
   tileKeyOf,
 } from './autopilot';
 import * as gameClock from './gameClock';
+import { DRONE_PAD, droneConfinement, isInsideArena } from './droneArena';
 
 const CAR_MAX_SPEED = 160;      // 2D px / sec
 const CAR_ACCELERATION = 280;   // 2D px / sec²
@@ -179,6 +180,8 @@ export class GameEngine3D {
 
   /** Set by the pause menu. While true `update()` is a no-op. */
   paused = false;
+
+  private lastArenaWallTick = -999;
 
   private parkedBlocks = new Set<number>();
   private wreckIds: string[] = [];
@@ -688,8 +691,12 @@ export class GameEngine3D {
     if (drone.active && drone.vehicleId) {
       const dv = vehicles.get(drone.vehicleId);
       if (dv) {
+        // The arena has its own ground station, so the link stays solid no
+        // matter where the pilot is standing. Outside it, range still matters.
         const d = dist(dv.x, dv.y, player.x, player.y);
-        drone.signal = Math.max(0, 100 - (d / 500) * 100);
+        drone.signal = isInsideArena(dv.x, dv.y)
+          ? 100
+          : Math.max(0, 100 - (d / 500) * 100);
         drone.battery = Math.max(0, drone.battery - dt * 0.08);
         drone.altitude = dv.altitude ?? 0;
         if (drone.battery <= 0) {
@@ -1190,7 +1197,9 @@ export class GameEngine3D {
         input.up, input.down, input.left, input.right,
         input.droneYawLeft, input.droneYawRight,
         player.x, player.y, dt,
+        droneConfinement(this.raceSession),
       );
+      if (result.hitWall) this.noteArenaWall();
       if (result.signalLost && drone.signal < 5) {
         const alreadyNotified = this.notifications.some(n => n.text === '⚠️ 訊號失聯，自動返航');
         if (!alreadyNotified) this.addNotification('⚠️ 訊號失聯，自動返航', '#ff4444');
@@ -1542,7 +1551,10 @@ export class GameEngine3D {
     if (this.drone.active) { this.addNotification('無人機已在飛', '#00e5ff'); return; }
     this.missions.onDistraction('離開車輛');
     this.disengageAutopilot(null);
-    const d = createDrone(this.player.x, this.player.y);
+    // Free flight is confined to the arena, so the drone always starts there
+    // rather than beside the player. The camera follows it across the map.
+    const pad = this.world.dronePad;
+    const d = createDrone(pad.x, pad.y);
     d.angle = this.player.angle;
     // Start slightly above ground so it's immediately visible
     d.altitude = 8;
@@ -1550,7 +1562,7 @@ export class GameEngine3D {
     this.vehicles.set(d.id, d);
     this.drone = { active: true, altitude: 8, throttle: 0, pitch: 0, roll: 0, yaw: 0, battery: 100, signal: 100, vehicleId: d.id };
     this.player.state = 'inDrone';
-    this.addNotification('🚁 無人機起飛！', '#00e5ff');
+    this.addNotification('🚁 無人機於場地起飛！', '#00e5ff');
   }
 
   landDrone() {
@@ -1621,6 +1633,31 @@ export class GameEngine3D {
     this.drone.pitch = 0;
     this.drone.roll  = 0;
     this.addNotification('退出賽道模式', '#aaa');
+    this.returnDroneToPad();
+  }
+
+  /**
+   * A race leaves the drone wherever the course ended, which is outside the
+   * arena walls that come back up the moment the session is gone. Fly it home
+   * instead of stranding it out of bounds.
+   */
+  private returnDroneToPad() {
+    if (!this.drone.active || !this.drone.vehicleId) return;
+    const dv = this.vehicles.get(this.drone.vehicleId);
+    if (!dv || isInsideArena(dv.x, dv.y)) return;
+    dv.x = DRONE_PAD.x;
+    dv.y = DRONE_PAD.y;
+    dv.altitude = 8;
+    dv.targetAltitude = 8;
+    this.drone.altitude = 8;
+    this.addNotification('🚁 無人機返回場地', '#00e5ff');
+  }
+
+  /** Throttled nudge so a player pressing into an arena wall knows why. */
+  private noteArenaWall() {
+    if (this.tick - this.lastArenaWallTick < 180) return;
+    this.lastArenaWallTick = this.tick;
+    this.addNotification('已到達場地邊界', '#ffcc00');
   }
 
   respawnAtLastGate() {

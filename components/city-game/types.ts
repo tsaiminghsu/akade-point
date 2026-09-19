@@ -56,6 +56,7 @@ export enum TileType {
   TOWN_HALL = 'TOWN_HALL',
   TOWN_HALL_PLAZA = 'TOWN_HALL_PLAZA',   // civic grounds — walkable, not drivable
   TOWN_HALL_INTERIOR = 'TOWN_HALL_INTERIOR', // lobby — walkable, enclosed
+  DRONE_FIELD = 'DRONE_FIELD',           // drone arena floor — walkable, no props
 }
 
 export enum BuildingType {
@@ -468,6 +469,8 @@ export interface WorldData {
   chunks: ChunkIndex[];
   /** `roadTiles` bucketed by chunk key, for ring queries. */
   roadTilesByChunk: Point[][];
+  /** Where the drone takes off inside the arena. */
+  dronePad: Point;
 }
 
 // ── Race Mode Types ────────────────────────────────────────────────────────────

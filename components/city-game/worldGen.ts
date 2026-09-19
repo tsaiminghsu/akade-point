@@ -14,6 +14,7 @@ import {
   ParkingBlock,
 } from './types';
 import { buildChunkIndex } from './chunks';
+import { DRONE_PAD, inArenaTile } from './droneArena';
 
 // Seeded pseudo-random number generator (mulberry32)
 export function makePRNG(seed: number) {
@@ -150,6 +151,15 @@ export function generateWorld(seed = 42): WorldData {
   // Generate per-tile
   for (let gy = 0; gy < GRID_SIZE; gy++) {
     for (let gx = 0; gx < GRID_SIZE; gx++) {
+      // The drone arena swallows its blocks whole, interior roads included.
+      // Bailing out here rather than filtering later is what keeps roadTiles,
+      // spawnPoints, sidewalkTiles and shopPositions free of stale points
+      // aimed into the field — missions draw their objectives from those.
+      if (inArenaTile(gx, gy)) {
+        grid[gy][gx] = { type: TileType.DRONE_FIELD };
+        continue;
+      }
+
       const onRoadX = gx % BLOCK_INTERVAL === 0;
       const onRoadY = gy % BLOCK_INTERVAL === 0;
 
@@ -354,8 +364,11 @@ export function generateWorld(seed = 42): WorldData {
     roadTilesByChunk[chunkKey(cx, cy)].push(t);
   }
 
+  const dronePad: Point = { x: DRONE_PAD.x, y: DRONE_PAD.y };
+
   return {
     grid, helipads, shopPositions, roadTiles, spawnPoints, townHallPos,
+    dronePad,
     sidewalkTiles, parkingBlocks, respawnPos,
     chunks, roadTilesByChunk,
   };
