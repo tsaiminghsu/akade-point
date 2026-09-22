@@ -11,6 +11,13 @@
  * track fast convergence and a mature track a smooth velocity estimate, while
  * the floor keeps it responsive to a genuine manoeuvre instead of stiffening
  * into a straight line forever.
+ *
+ * Association runs in two passes. The first pairs tracks and echoes greedily,
+ * closest first, inside each track's gate, and marks any pairing where a rival
+ * was nearly as close as ambiguous: those update position cautiously and leave
+ * velocity alone. The second offers echoes nobody claimed to tracks that were
+ * seen last scan but found nothing, through a wider gate, before any echo may
+ * start a track of its own.
  */
 
 import { polarToVec } from './geo';
@@ -52,15 +59,47 @@ export interface TrackerConfig {
   minAlpha: number;
   /** Steady-state velocity gain floor. */
   minBeta: number;
+  /** Per-scan decay of the residual drift sum. */
+  manoeuvreDriftDecay: number;
   /**
-   * Residual multiple, against the track's own smoothed noise level, that
-   * counts as the target having manoeuvred. Has to be smaller than
-   * `gateSigmas`, or every break large enough to notice is thrown out by the
-   * gate before this ever sees it.
+   * Drift length, in measurement standard deviations, that declares a
+   * manoeuvre. Pure noise gives a drift of about 1.4 per axis at a decay of
+   * 0.7, so this sits well clear of it.
    */
-  manoeuvreThreshold: number;
+  manoeuvreDriftThreshold: number;
   /** Scans the manoeuvre flag stays raised after it trips. */
   manoeuvreHoldScans: number;
+  /**
+   * Gain age a declared manoeuvre winds the filter back to. Deliberately not 2:
+   * those are the start-up gains, which assume the velocity is unknown.
+   */
+  manoeuvreGainAge: number;
+  /** Scans after a manoeuvre is declared before another can be. */
+  manoeuvreQuietScans: number;
+  /**
+   * Largest change in velocity a settled track may take per second, knots per
+   * second. A physical bound on what any ship in the scene can do, with margin.
+   */
+  maxAccelKnPerSec: number;
+  /**
+   * Hits after which a track's velocity counts as settled and the acceleration
+   * bound applies. Before this the filter is still converging on the target's
+   * speed from a noisy start and must be free to move a long way.
+   */
+  matureHits: number;
+  /**
+   * A pairing is ambiguous when a rival - another established track wanting
+   * the same echo, or another echo the track could equally have taken - is
+   * within this many measurement standard deviations of it.
+   */
+  ambiguitySigmas: number;
+  /** Position gain for an ambiguous update. Velocity is not updated at all. */
+  ambiguousAlpha: number;
+  /**
+   * Gate multiplier for the reacquisition pass, which offers unclaimed echoes
+   * to established tracks that found nothing in the normal gate.
+   */
+  reacquireGateScale: number;
   /**
    * Residual magnitude, NM, that the velocity gain floor is tuned for. A track
    * noisier than this gets a proportionally smaller floor.
@@ -89,15 +128,50 @@ export const DEFAULT_TRACKER_CONFIG: TrackerConfig = {
   // of a third of a degree at a few miles, beta = 0.08 puts nearly three knots
   // of jitter on every target; beta = 0.02 brings it under one, which is what a
   // real ARPA quotes. The cost is a filter far too sluggish to follow a turn,
-  // which is what manoeuvreThreshold below exists to fix.
+  // which is what the manoeuvre detector below exists to fix.
   minAlpha: 0.25,
   minBeta: 0.02,
-  // Must stay below gateSigmas. A break bigger than the gate does not produce
-  // a large residual at all: the measurement simply falls outside and the track
-  // coasts. Set above the gate this detector can never fire, which is exactly
-  // the bug that tightening the gate first introduced.
-  manoeuvreThreshold: 2.6,
+  // The detector used to compare each residual with the track's own running
+  // average. That average is itself noisy, so the test fired on about one
+  // residual in seventy regardless of what the ship was doing. Scored against
+  // what the flag claims - that the vector shown is more than 3 kn wrong - it
+  // was right less than half the time and flagged about 8% of good vectors.
+  // Summing residuals against the sensor's known noise lets random errors
+  // cancel while a genuine turn accumulates. At this threshold, over three
+  // ten-minute runs, the flag was right 61% of the time and fell on under 1% of
+  // good vectors. Lower thresholds reopen the gains on noise often enough to
+  // make the vectors worse overall.
+  manoeuvreDriftDecay: 0.7,
+  manoeuvreDriftThreshold: 5.2,
   manoeuvreHoldScans: 8,
+  // Resetting a track to gain age 2 set beta to 1, so a single 0.05 NM
+  // residual - an ordinary noise outlier - added about seventy knots to a
+  // ten-knot ship. The track then flew off its target, missed, and coasted
+  // away while the ship picked up a fresh track: ten of the thirteen stray
+  // tracks in a ten-minute run came from exactly this. Reopening only to
+  // moderate gains, together with the acceleration bound below, closes it off.
+  manoeuvreGainAge: 4,
+  manoeuvreQuietScans: 4,
+  // The most agile vessel in the scene, the pilot boat, turns at 60 deg/min at
+  // 14 knots: about 0.25 kn/s of lateral acceleration. Four times that still
+  // follows any real manoeuvre while refusing a jump of tens of knots.
+  maxAccelKnPerSec: 1,
+  // About thirty seconds at 24 rpm. A small, distant fishing boat confirms with
+  // a velocity tens of knots out, and bounding its correction at that point
+  // left the track drifting off the boat faster than it could converge.
+  matureHits: 12,
+  // Where two ships pass within tens of metres, their echoes sit closer together
+  // than the measurement noise, and which track takes which echo is a coin toss.
+  // No association rule can call that correctly. What can be done is to stop a
+  // coin-toss echo from bending a track's vector: each track then carries its
+  // own ship's velocity through the crossing, and the two predictions separate
+  // cleanly on the far side instead of each track leaving on the other ship.
+  ambiguitySigmas: 2,
+  ambiguousAlpha: 0.2,
+  // A ship turning hard can put her echo just outside a gate sized for straight
+  // running. Without a second look the echo started a new track, which then won
+  // every following echo while the old track coasted away: a stray.
+  reacquireGateScale: 2,
   nominalNoiseNm: 0.02,
   maxTrail: 240,
 };
@@ -155,7 +229,10 @@ function gateRadius(
   cfg: TrackerConfig,
   measRangeNm: number
 ): number {
-  const dt = Math.max(0, (t - track.lastUpdate) / 1000);
+  // Uncertainty grows with time since the last real measurement. Coasting
+  // advances the predicted position but observes nothing, so it must not reset
+  // this clock, or a track that has missed a few scans keeps a one-scan gate.
+  const dt = Math.max(0, (t - track.lastMeasured) / 1000);
   const noise = cfg.gateSigmas * measurementSigma(cfg, measRangeNm);
 
   // A track with no velocity estimate yet has to allow for any plausible
@@ -287,13 +364,56 @@ export class ShipTracker {
     });
     candidates.sort((a, b) => a.d - b.d);
 
-    const trackTaken = new Set<number>();
-    const pairs = new Map<number, { mi: number; d: number }>();
+    const pairs = new Map<number, { mi: number; d: number; ambiguous: boolean }>();
     for (const c of candidates) {
-      if (trackTaken.has(c.ti) || measurements[c.mi].claimed) continue;
-      trackTaken.add(c.ti);
+      if (pairs.has(c.ti) || measurements[c.mi].claimed) continue;
       measurements[c.mi].claimed = true;
-      pairs.set(c.ti, { mi: c.mi, d: c.d });
+      pairs.set(c.ti, { mi: c.mi, d: c.d, ambiguous: false });
+    }
+
+    // Flag pairings that were a close call. Only established tracks are judged:
+    // a tentative track has no velocity worth protecting yet.
+    for (const [ti, pair] of pairs) {
+      if (this.tracks[ti].status === 'tentative') continue;
+      const margin =
+        this.cfg.ambiguitySigmas * measurementSigma(this.cfg, measurements[pair.mi].plot.rangeNm);
+      pair.ambiguous = candidates.some(
+        (c) =>
+          c.d < pair.d + margin &&
+          ((c.mi === pair.mi && c.ti !== ti && this.tracks[c.ti].status !== 'tentative') ||
+            (c.ti === ti && c.mi !== pair.mi))
+      );
+    }
+
+    // Reacquisition. An echo nobody claimed is offered to established tracks
+    // that found nothing, through a wider gate, before it is allowed to start a
+    // track of its own. It can only take echoes no other track wanted, so it
+    // never steals from a neighbour.
+    //
+    // Only a track that was seen on the previous scan qualifies. That is the
+    // case this exists for - an echo that just slipped out of the gate on a
+    // hard turn - and a track that has already been coasting has no fix recent
+    // enough to trust a wide gate on: in trials it picked up sea clutter a
+    // tenth of a mile away and turned into a phantom.
+    const recentMs = scanPeriodSec * 1000 * 1.5;
+    const reacquire: Array<{ ti: number; mi: number; d: number }> = [];
+    this.tracks.forEach((track, ti) => {
+      if (track.status === 'lost' || track.status === 'tentative' || pairs.has(ti)) return;
+      if (scanTime - track.lastMeasured > recentMs) return;
+      const p = predict(track, scanTime);
+      measurements.forEach((m, mi) => {
+        if (m.claimed) return;
+        const d = Math.hypot(m.pos.x - p.x, m.pos.y - p.y);
+        const gate =
+          gateRadius(track, scanTime, this.cfg, m.plot.rangeNm) * this.cfg.reacquireGateScale;
+        if (d <= gate) reacquire.push({ ti, mi, d });
+      });
+    });
+    reacquire.sort((a, b) => a.d - b.d);
+    for (const c of reacquire) {
+      if (pairs.has(c.ti) || measurements[c.mi].claimed) continue;
+      measurements[c.mi].claimed = true;
+      pairs.set(c.ti, { mi: c.mi, d: c.d, ambiguous: false });
     }
 
     // Update or coast every existing track.
@@ -306,7 +426,9 @@ export class ShipTracker {
           measurements[pair.mi].pos,
           measurements[pair.mi].plot.t,
           pair.d,
-          scanPeriodSec
+          scanPeriodSec,
+          measurements[pair.mi].plot.rangeNm,
+          pair.ambiguous
         );
         this.lastRange.set(track.id, measurements[pair.mi].plot.rangeNm);
       } else {
@@ -335,6 +457,9 @@ export class ShipTracker {
         residualAvg: 0,
         gainAge: 1,
         manoeuvreHold: 0,
+        driftX: 0,
+        driftY: 0,
+        lastMeasured: m.plot.t,
         aisLock: 0,
       });
       this.lastRange.set(this.nextId - 1, m.plot.rangeNm);
@@ -363,7 +488,9 @@ export class ShipTracker {
     pos: Vec2,
     t: number,
     residual: number,
-    scanPeriodSec: number
+    scanPeriodSec: number,
+    rangeNm: number,
+    ambiguous = false
   ): void {
     // Dead reckoning uses the real elapsed time, so the prediction is honest.
     const dt = Math.max(0, (t - track.lastUpdate) / 1000);
@@ -390,15 +517,40 @@ export class ShipTracker {
     const rx = pos.x - px;
     const ry = pos.y - py;
 
-    // Manoeuvre detection. A settled track's residual is pure measurement
-    // noise, so a residual several times its own running average means the
-    // target has broken away from the predicted path. Winding the gain age
-    // back reopens alpha and beta, and the filter catches up in a few scans
-    // instead of the minutes the steady-state gains would take.
-    const noiseFloor = Math.max(0.015, track.residualAvg);
-    if (track.gainAge > 5 && residual > noiseFloor * this.cfg.manoeuvreThreshold) {
-      track.gainAge = 2;
+    if (ambiguous) {
+      // The echo may well belong to the neighbour, so it is not evidence about
+      // this ship's motion. Lean on the prediction for position, and leave the
+      // velocity, the gain schedule and the noise statistics exactly as they
+      // were.
+      track.x = px + this.cfg.ambiguousAlpha * rx;
+      track.y = py + this.cfg.ambiguousAlpha * ry;
+      this.finishUpdate(track, t, residual);
+      return;
+    }
+
+    // Time since the last real measurement, which coasting does not reset.
+    const dtMeasured = Math.max(0, (t - track.lastMeasured) / 1000);
+
+    // Manoeuvre detection. A settled track's residuals are pure measurement
+    // noise and point in random directions; a ship turning away from the
+    // prediction makes them point the same way scan after scan. Accumulate
+    // them against the noise the sensor is known to have at this range, and a
+    // drift that builds past the threshold is a manoeuvre. Winding the gain
+    // age back then reopens alpha and beta so the filter catches up.
+    // Young tracks are left alone, their gains still high from start-up, and
+    // after firing it stays quiet while the reopened filter catches up.
+    const sigma = measurementSigma(this.cfg, rangeNm);
+    track.driftX = this.cfg.manoeuvreDriftDecay * track.driftX + rx / sigma;
+    track.driftY = this.cfg.manoeuvreDriftDecay * track.driftY + ry / sigma;
+    if (
+      track.hits >= this.cfg.matureHits &&
+      track.gainAge >= this.cfg.manoeuvreGainAge + this.cfg.manoeuvreQuietScans &&
+      Math.hypot(track.driftX, track.driftY) > this.cfg.manoeuvreDriftThreshold
+    ) {
+      track.gainAge = this.cfg.manoeuvreGainAge;
       track.manoeuvreHold = this.cfg.manoeuvreHoldScans;
+      track.driftX = 0;
+      track.driftY = 0;
     } else {
       track.gainAge += 1;
       if (track.manoeuvreHold > 0) track.manoeuvreHold -= 1;
@@ -417,12 +569,37 @@ export class ShipTracker {
 
     const { alpha, beta } = alphaBetaGains(track.gainAge, this.cfg.minAlpha, betaFloor);
 
+    let dvx = (beta / dtGain) * rx;
+    let dvy = (beta / dtGain) * ry;
+
+    // Once a track has settled its velocity is a real estimate, and no ship
+    // can change hers by tens of knots between two sweeps. Bounding the change
+    // by a physical acceleration means one bad measurement - noise, clutter,
+    // or the echo of a neighbour - can nudge the vector but never throw it.
+    // Young tracks are exempt: their velocity starts at zero, or at a noisy
+    // first estimate, and has to be free to move to the target's speed.
+    if (track.hits >= this.cfg.matureHits) {
+      const budget = Math.max(dtMeasured, scanPeriodSec * 0.5);
+      const maxDv = (this.cfg.maxAccelKnPerSec / 3600) * budget;
+      const dv = Math.hypot(dvx, dvy);
+      if (dv > maxDv) {
+        dvx *= maxDv / dv;
+        dvy *= maxDv / dv;
+      }
+    }
+
     track.x = px + alpha * rx;
     track.y = py + alpha * ry;
-    track.vx += (beta / dtGain) * rx;
-    track.vy += (beta / dtGain) * ry;
+    track.vx += dvx;
+    track.vy += dvy;
 
+    this.finishUpdate(track, t, residual);
+  }
+
+  /** Bookkeeping shared by every kind of measurement update. */
+  private finishUpdate(track: Track, t: number, residual: number): void {
     track.lastUpdate = t;
+    track.lastMeasured = t;
     track.hits += 1;
     track.misses = 0;
     track.residual = residual;

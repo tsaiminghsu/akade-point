@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG } from './engine';
 import { ScopeRenderer, screenToPolar } from './scopeRenderer';
 import type { ScopeOverlay } from './scopeRenderer';
 import { DEFAULT_OWN_SHIP } from './world';
-import type { RadarPlot, RadarSnapshot } from './types';
+import type { ArpaTarget, RadarPlot, RadarSnapshot, TruthContact } from './types';
 
 /**
  * A canvas context that records what it was asked to draw.
@@ -17,6 +17,8 @@ import type { RadarPlot, RadarSnapshot } from './types';
  */
 class RecordingContext {
   fills: Array<{ style: string; op: string; ellipse?: { rx: number; ry: number } }> = [];
+  strokes: string[] = [];
+  texts: Array<{ text: string; style: string }> = [];
   clears: number[][] = [];
   gradients: Array<{ r1: number; stops: string[] }> = [];
 
@@ -45,14 +47,18 @@ class RecordingContext {
   moveTo() {}
   lineTo() {}
   arc() {}
-  stroke() {}
+  stroke() {
+    this.strokes.push(String(this.strokeStyle));
+  }
   strokeRect() {}
   fillRect(x: number, y: number, w: number, h: number) {
     if (this.globalCompositeOperation === 'destination-out') {
       this.clears.push([x, y, w, h, alphaOf(String(this.fillStyle))]);
     }
   }
-  fillText() {}
+  fillText(text: string) {
+    this.texts.push({ text, style: String(this.fillStyle) });
+  }
   setLineDash() {}
   drawImage() {}
   ellipse(_x: number, _y: number, rx: number, ry: number) {
@@ -135,7 +141,11 @@ function plot(overrides: Partial<RadarPlot> = {}): RadarPlot {
   };
 }
 
-function snapshot(plots: RadarPlot[], advancedSec = 1 / 60): RadarSnapshot {
+function snapshot(
+  plots: RadarPlot[],
+  advancedSec = 1 / 60,
+  extra: Partial<RadarSnapshot> = {}
+): RadarSnapshot {
   return {
     t: 0,
     advancedSec,
@@ -147,6 +157,8 @@ function snapshot(plots: RadarPlot[], advancedSec = 1 / 60): RadarSnapshot {
     scanCount: 0,
     alarms: [],
     guardAlarms: [],
+    truth: null,
+    ...extra,
   };
 }
 
@@ -212,10 +224,14 @@ describe('ScopeRenderer echo layer', () => {
     expect(afterStall).toBeLessThan(0.7);
   });
 
-  it('does not age the layer on a repaint that is not a new frame', () => {
+  it('leaves the echo layer untouched on a repaint that is not a new frame', () => {
+    // Settings changes repaint from the last snapshot. Fading would age the
+    // picture for time that never passed, and painting the snapshot's plots
+    // again would add the same echoes twice, brightening them on every click.
     const { renderer, echo } = makeRenderer();
-    renderer.render(snapshot([], 1 / 60), DEFAULT_CONFIG, overlay, false);
-    expect(echo.clears.at(-1)![4]).toBe(0);
+    renderer.render(snapshot([plot()]), DEFAULT_CONFIG, overlay, false);
+    expect(echo.clears).toHaveLength(0);
+    expect(echo.fills.filter((f) => f.op === 'lighter')).toHaveLength(0);
   });
 
   it('clears the layer when the range scale changes', () => {
@@ -226,6 +242,227 @@ describe('ScopeRenderer echo layer', () => {
     // Old echoes were painted at the old scale, so keeping them would put every
     // contact at the wrong range until it was swept again.
     expect(echo.fills.length).toBeGreaterThan(before);
+  });
+});
+
+describe('ScopeRenderer truth overlay', () => {
+  const truthOn = { ...DEFAULT_CONFIG, showTruth: true };
+  const isMagenta = (style: string) =>
+    style === '#e879f9' || style.startsWith('rgba(232, 121, 249');
+
+  function contact(overrides: Partial<TruthContact> = {}): TruthContact {
+    return {
+      mmsi: '1',
+      name: 'SEEN',
+      x: 0,
+      y: 0,
+      bearing: 45,
+      rangeNm: 2,
+      heading: 90,
+      sog: 8,
+      aisEnabled: true,
+      status: 'missed',
+      trackId: null,
+      trackErrorNm: NaN,
+      ...overrides,
+    };
+  }
+
+  function radarTarget(trackId: number, bearing: number, rangeNm: number): ArpaTarget {
+    return {
+      trackId,
+      status: 'confirmed',
+      x: 0,
+      y: 0,
+      rangeNm,
+      bearing,
+      relativeBearing: bearing,
+      cog: 0,
+      sog: 0,
+      relCourse: 0,
+      relSpeed: 0,
+      cpaNm: rangeNm,
+      tcpaSec: Infinity,
+      bowCrossRangeNm: NaN,
+      bowCrossTimeSec: NaN,
+      danger: 'safe',
+      inGuardZone: false,
+      steadyBearing: false,
+      manoeuvring: false,
+      trail: [],
+      aisOnly: false,
+    };
+  }
+
+  function magentaMarks(ctx: RecordingContext): number {
+    return (
+      ctx.strokes.filter(isMagenta).length +
+      ctx.fills.filter((f) => isMagenta(f.style)).length +
+      ctx.texts.filter((t) => isMagenta(t.style)).length
+    );
+  }
+
+  it('draws nothing while the overlay is switched off', () => {
+    const { renderer, main } = makeRenderer();
+    renderer.render(
+      snapshot([], 1 / 60, { truth: { contacts: [contact()], phantomTrackIds: [], strayTrackIds: [] } }),
+      DEFAULT_CONFIG,
+      overlay
+    );
+    expect(magentaMarks(main)).toBe(0);
+  });
+
+  it('marks a vessel inside the display range and skips one beyond it', () => {
+    const near = makeRenderer();
+    near.renderer.render(
+      snapshot([], 1 / 60, { truth: { contacts: [contact()], phantomTrackIds: [], strayTrackIds: [] } }),
+      truthOn,
+      overlay
+    );
+    expect(magentaMarks(near.main)).toBeGreaterThan(0);
+
+    const far = makeRenderer();
+    far.renderer.render(
+      snapshot([], 1 / 60, {
+        truth: { contacts: [contact({ rangeNm: 20 })], phantomTrackIds: [], strayTrackIds: [] },
+      }),
+      truthOn,
+      overlay
+    );
+    expect(magentaMarks(far.main)).toBe(0);
+  });
+
+  it('names a ship the radar can see but has not tracked, and not one hidden by land', () => {
+    const { renderer, main } = makeRenderer();
+    renderer.render(
+      snapshot([], 1 / 60, {
+        truth: {
+          contacts: [
+            contact({ name: 'SEEN', status: 'missed' }),
+            contact({ mmsi: '2', name: 'HIDDEN', status: 'masked', bearing: 120 }),
+            contact({ mmsi: '3', name: 'FOLLOWED', status: 'tracked', trackId: 4, bearing: 200 }),
+          ],
+          phantomTrackIds: [],
+          strayTrackIds: [],
+        },
+      }),
+      truthOn,
+      overlay
+    );
+    const names = main.texts.map((t) => t.text);
+    expect(names).toContain('SEEN');
+    expect(names).not.toContain('HIDDEN');
+    // A tracked ship carrying AIS is already named by its ARPA label.
+    expect(names).not.toContain('FOLLOWED');
+  });
+
+  it('names and fills a dark vessel even once it is tracked', () => {
+    const { renderer, main } = makeRenderer();
+    renderer.render(
+      snapshot([], 1 / 60, {
+        truth: {
+          contacts: [contact({ name: 'DARK', aisEnabled: false, status: 'tracked', trackId: 4 })],
+          phantomTrackIds: [],
+          strayTrackIds: [],
+        },
+      }),
+      truthOn,
+      overlay
+    );
+    expect(main.texts.map((t) => t.text)).toContain('DARK');
+    expect(main.fills.filter((f) => isMagenta(f.style)).length).toBeGreaterThan(0);
+  });
+
+  it('names the vessel behind the selected track', () => {
+    const { renderer, main } = makeRenderer();
+    renderer.render(
+      snapshot([], 1 / 60, {
+        targets: [radarTarget(4, 200, 2)],
+        truth: {
+          contacts: [contact({ name: 'PICKED', status: 'tracked', trackId: 4, bearing: 200 })],
+          phantomTrackIds: [],
+          strayTrackIds: [],
+        },
+      }),
+      truthOn,
+      { ...overlay, selectedTrackId: 4 }
+    );
+    expect(main.texts.map((t) => t.text)).toContain('PICKED');
+  });
+
+  it('draws the error line from a tracked vessel to its track', () => {
+    const withTrack = makeRenderer();
+    withTrack.renderer.render(
+      snapshot([], 1 / 60, {
+        targets: [radarTarget(4, 50, 2.2)],
+        truth: {
+          contacts: [contact({ status: 'tracked', trackId: 4, sog: 0 })],
+          phantomTrackIds: [],
+          strayTrackIds: [],
+        },
+      }),
+      truthOn,
+      overlay
+    );
+
+    const untracked = makeRenderer();
+    untracked.renderer.render(
+      snapshot([], 1 / 60, {
+        truth: {
+          contacts: [contact({ status: 'tracked', trackId: 4, sog: 0 })],
+          phantomTrackIds: [],
+          strayTrackIds: [],
+        },
+      }),
+      truthOn,
+      overlay
+    );
+
+    // Same stationary diamond both times; only the first has a track to join it to.
+    expect(withTrack.main.strokes.filter(isMagenta).length).toBe(
+      untracked.main.strokes.filter(isMagenta).length + 1
+    );
+  });
+
+  it('rings a phantom track with a question mark', () => {
+    const { renderer, main } = makeRenderer();
+    renderer.render(
+      snapshot([], 1 / 60, {
+        targets: [radarTarget(5, 10, 1)],
+        truth: { contacts: [], phantomTrackIds: [5], strayTrackIds: [] },
+      }),
+      truthOn,
+      overlay
+    );
+    expect(main.texts.filter((t) => t.text === '?' && t.style === '#e879f9')).toHaveLength(1);
+  });
+
+  it('leaves a phantom beyond the display range unmarked', () => {
+    const { renderer, main } = makeRenderer();
+    renderer.render(
+      snapshot([], 1 / 60, {
+        targets: [radarTarget(5, 10, 20)],
+        truth: { contacts: [], phantomTrackIds: [5], strayTrackIds: [] },
+      }),
+      truthOn,
+      overlay
+    );
+    expect(main.texts.filter((t) => t.text === '?')).toHaveLength(0);
+  });
+
+  it('rings a stray track dimmer than a phantom', () => {
+    const { renderer, main } = makeRenderer();
+    renderer.render(
+      snapshot([], 1 / 60, {
+        targets: [radarTarget(5, 10, 1), radarTarget(6, 200, 1)],
+        truth: { contacts: [], phantomTrackIds: [5], strayTrackIds: [6] },
+      }),
+      truthOn,
+      overlay
+    );
+    const marks = main.texts.filter((t) => t.text === '?').map((t) => t.style);
+    expect(marks).toContain('#e879f9');
+    expect(marks.some((m) => m.startsWith('rgba(232, 121, 249'))).toBe(true);
   });
 });
 

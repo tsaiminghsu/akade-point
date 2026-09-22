@@ -46,6 +46,10 @@ const COLORS = {
   guard: 'rgba(245, 196, 81, 0.75)',
   guardFill: 'rgba(245, 196, 81, 0.03)',
   ebl: 'rgba(120, 200, 255, 0.8)',
+  // Magenta is the one hue nothing on a radar screen uses, so debug marks can
+  // never be mistaken for part of the picture an operator would act on.
+  truth: '#e879f9',
+  truthDim: 'rgba(232, 121, 249, 0.4)',
 };
 
 /** Display-only state that lives in React rather than in the engine. */
@@ -134,14 +138,17 @@ export class ScopeRenderer {
   }
 
   /**
-   * `applyFade` exists for repaints that are not a new frame of simulation, such
-   * as the operator changing a setting. Those must not age the echo layer.
+   * `newFrame` is false for repaints that are not a new frame of simulation,
+   * such as the operator changing a setting. Those must leave the echo layer
+   * alone entirely: fading it would age the picture for time that never
+   * passed, and painting the snapshot's plots again would add the same echoes
+   * twice and brighten them on every click.
    */
   render(
     snapshot: RadarSnapshot,
     config: RadarConfig,
     overlay: ScopeOverlay,
-    applyFade = true
+    newFrame = true
   ): void {
     const { ctx } = this;
     const g = this.geometry(config, snapshot.own.heading, snapshot.own.cog);
@@ -151,7 +158,7 @@ export class ScopeRenderer {
       this.clearEchoes();
     }
 
-    this.paintEchoes(snapshot, config, g, applyFade ? snapshot.advancedSec * 1000 : 0);
+    if (newFrame) this.paintEchoes(snapshot, config, g, snapshot.advancedSec * 1000);
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
@@ -165,7 +172,9 @@ export class ScopeRenderer {
     this.drawHeadingLine(g, snapshot);
 
     if (config.showTrails) this.drawTrails(g, snapshot, config);
+    this.drawTruthContacts(g, snapshot, config, overlay);
     this.drawTargets(g, snapshot, config, overlay);
+    this.drawPhantoms(g, snapshot, config);
     this.drawOwnShip(g, snapshot, config);
     this.drawEbl(g, overlay, config);
     this.drawCursor(g, overlay);
@@ -517,7 +526,7 @@ export class ScopeRenderer {
       }
 
       // Label confirmed contacts once there is room for it.
-      if (!config.showTruth && (selected || target.danger !== 'safe')) {
+      if (selected || target.danger !== 'safe') {
         const label = target.ais?.name?.trim() || `T${Math.abs(target.trackId)}`;
         ctx.fillStyle = selected ? COLORS.selected : color;
         ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
@@ -526,6 +535,129 @@ export class ScopeRenderer {
         ctx.fillText(label, x + 11, y - 8);
       }
     }
+  }
+
+  // ── Ground-truth debug overlay ──────────────────────────────────
+
+  /**
+   * Real vessel positions, drawn under the ARPA symbols.
+   *
+   * Each vessel is a diamond: solid for a ship carrying no AIS, dashed and dim
+   * where the radar physically cannot see it. A thin line joins a vessel to the
+   * track following it, so tracking error reads straight off the screen. Names
+   * go only on the vessels worth a second look — ones the radar can see but has
+   * not tracked, dark ones, and whichever is selected — because labelling the
+   * whole harbour would bury the picture.
+   */
+  private drawTruthContacts(
+    g: ScopeGeometry,
+    snapshot: RadarSnapshot,
+    config: RadarConfig,
+    overlay: ScopeOverlay
+  ): void {
+    const truth = snapshot.truth;
+    if (!config.showTruth || !truth) return;
+
+    const { ctx } = this;
+    const tracks = trackIndex(snapshot);
+
+    ctx.save();
+    ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+
+    for (const c of truth.contacts) {
+      if (c.rangeNm > config.rangeNm) continue;
+      const [x, y] = this.place(g, c.bearing, c.rangeNm);
+      const unseen = c.status === 'masked' || c.status === 'out-of-range';
+      const colour = unseen ? COLORS.truthDim : COLORS.truth;
+      ctx.strokeStyle = colour;
+      ctx.fillStyle = colour;
+      ctx.lineWidth = 1;
+
+      if (c.trackId !== null) {
+        const track = tracks.get(c.trackId);
+        if (track) {
+          const [tx, ty] = this.place(g, track.bearing, track.rangeNm);
+          if (Math.hypot(tx - x, ty - y) > 1.5) {
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(tx, ty);
+            ctx.stroke();
+          }
+        }
+      }
+
+      ctx.setLineDash(unseen ? [2, 2] : []);
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x + 5, y);
+      ctx.lineTo(x, y + 5);
+      ctx.lineTo(x - 5, y);
+      ctx.closePath();
+      if (!c.aisEnabled && !unseen) ctx.fill();
+      else ctx.stroke();
+
+      if (c.sog > 0.5) {
+        const th = toRad(c.heading - g.rotationOffset);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.sin(th) * 11, y - Math.cos(th) * 11);
+        ctx.stroke();
+      }
+
+      const selected = c.trackId !== null && c.trackId === overlay.selectedTrackId;
+      if (!unseen && (c.status === 'missed' || !c.aisEnabled || selected)) {
+        // Below and to the left, opposite the ARPA label, so the two can sit
+        // on the same ship without overprinting.
+        ctx.fillText(c.name.trim() || c.mmsi, x - 8, y + 6);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Tracks with no real vessel under them, ringed over the ARPA symbols.
+   * Phantoms, fed by clutter, ring bright; strays, coasting away from a ship
+   * they lost, ring dim.
+   */
+  private drawPhantoms(g: ScopeGeometry, snapshot: RadarSnapshot, config: RadarConfig): void {
+    const truth = snapshot.truth;
+    if (!config.showTruth || !truth) return;
+    if (truth.phantomTrackIds.length === 0 && truth.strayTrackIds.length === 0) return;
+
+    const { ctx } = this;
+    const tracks = trackIndex(snapshot);
+
+    ctx.save();
+    ctx.lineWidth = 1.4;
+    ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+
+    const ring = (ids: number[], colour: string) => {
+      ctx.strokeStyle = colour;
+      ctx.fillStyle = colour;
+      for (const id of ids) {
+        const track = tracks.get(id);
+        if (!track || track.rangeNm > config.rangeNm) continue;
+        const [x, y] = this.place(g, track.bearing, track.rangeNm);
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillText('?', x + 12, y - 9);
+      }
+    };
+
+    ring(truth.strayTrackIds, COLORS.truthDim);
+    ring(truth.phantomTrackIds, COLORS.truth);
+
+    ctx.restore();
   }
 
   private drawVector(
@@ -684,6 +816,13 @@ export function screenToPolar(
 
 function relativeVec(point: Vec2, ownVec: Vec2): Vec2 {
   return { x: point.x - ownVec.x, y: point.y - ownVec.y };
+}
+
+/** Radar-backed targets by track id, for placing truth lines and phantom rings. */
+function trackIndex(snapshot: RadarSnapshot): Map<number, ArpaTarget> {
+  const out = new Map<number, ArpaTarget>();
+  for (const t of snapshot.targets) if (!t.aisOnly) out.set(t.trackId, t);
+  return out;
 }
 
 export function targetColor(target: ArpaTarget): string {

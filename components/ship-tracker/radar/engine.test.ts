@@ -292,3 +292,113 @@ describe('RadarEngine', () => {
     expect(throttled.getOwnShip().pos.lon).toBeCloseTo(smooth.getOwnShip().pos.lon, 5);
   });
 });
+
+describe('ground-truth debug overlay', () => {
+  it('builds nothing while the debug view is off', () => {
+    const engine = new RadarEngine(0, SEED, 0);
+    run(engine, 10);
+    expect(engine.snapshot().truth).toBeNull();
+  });
+
+  it('lines every simulated vessel up against the radar picture once switched on', () => {
+    const engine = new RadarEngine(0, SEED, 0);
+    engine.setConfig({ showTruth: true });
+    run(engine, 90);
+
+    const truth = engine.snapshot().truth!;
+    const expected = engine.getVessels().map((v) => v.mmsi).sort();
+    expect(truth.contacts.map((c) => c.mmsi).sort()).toEqual(expected);
+  });
+
+  it('explains every harbour berth as masked by land rather than missed', () => {
+    const engine = new RadarEngine(0, SEED, 0);
+    engine.setConfig({ showTruth: true });
+    run(engine, 90);
+
+    const moored = new Set(
+      engine.getVessels().filter((v) => v.navStatus === 'moored').map((v) => v.mmsi)
+    );
+    const berths = engine.snapshot().truth!.contacts.filter((c) => moored.has(c.mmsi));
+    expect(berths.length).toBe(moored.size);
+    for (const c of berths) expect(c.status).toBe('masked');
+  });
+
+  it('shows settled tracks sitting close to the ships they follow', () => {
+    const engine = new RadarEngine(0, SEED, 0);
+    engine.setConfig({ showTruth: true });
+    run(engine, 120);
+
+    const tracked = engine.snapshot().truth!.contacts.filter((c) => c.status === 'tracked');
+    expect(tracked.length).toBeGreaterThan(5);
+    const live = new Set(engine.getTracks().map((t) => t.id));
+    for (const c of tracked) {
+      expect(live.has(c.trackId!)).toBe(true);
+      expect(c.trackErrorNm).toBeLessThan(0.1);
+    }
+  });
+
+  it('includes the dark fishing boats the radar tracks without a name', () => {
+    const engine = new RadarEngine(0, SEED, 0);
+    engine.setConfig({ showTruth: true });
+    run(engine, 120);
+
+    const dark = engine.snapshot().truth!.contacts.filter((c) => !c.aisEnabled);
+    expect(dark.map((c) => c.name).sort()).toEqual(['AN FONG NO.116', 'SEAGREEN NO.5']);
+  });
+
+  it('agrees with the independent phantom check in heavy clutter', () => {
+    // Same worst case as the phantom regression above: no confirmed track is
+    // being fed clutter. Strays are a separate question, an association fault
+    // rather than clutter promotion, and are deliberately not asserted here.
+    const engine = new RadarEngine(0, SEED, 0);
+    engine.setEnvironment({ seaState: 5 });
+    engine.setConfig({ seaClutter: 0.1, gain: 0.75, showTruth: true });
+    run(engine, 240);
+
+    expect(engine.snapshot().truth!.phantomTrackIds).toEqual([]);
+  });
+
+  it(
+    'carries FUJI HARMONY and TA YU through their crossing at harbour entrance No.1 on their own tracks',
+    { timeout: 30_000 },
+    () => {
+      // The outbound container ship and the tug pass within a few metres of
+      // each other at about 548 s, closer than the radar can separate. Before
+      // the association fixes, one of the pair came out of the crossing on a
+      // brand-new track on every seed tried.
+      const engine = new RadarEngine(0, SEED, 0);
+      engine.setConfig({ showTruth: true });
+      const trackOf = (name: string) =>
+        engine.snapshot().truth!.contacts.find((c) => c.name === name)!;
+
+      run(engine, 515);
+      const fujiBefore = trackOf('FUJI HARMONY');
+      const tugBefore = trackOf('TA YU');
+      expect(fujiBefore.status).toBe('tracked');
+      expect(tugBefore.status).toBe('tracked');
+      expect(fujiBefore.trackId).not.toBe(tugBefore.trackId);
+
+      run(engine, 70);
+      expect(trackOf('FUJI HARMONY').trackId).toBe(fujiBefore.trackId);
+      expect(trackOf('TA YU').trackId).toBe(tugBefore.trackId);
+      expect(engine.snapshot().truth!.strayTrackIds).toEqual([]);
+    }
+  );
+
+  it('never changes what the tracker sees', () => {
+    // The overlay is display only. Two engines on the same seed, one with it
+    // on, must produce identical tracks.
+    const plain = new RadarEngine(0, SEED, 0);
+    const debug = new RadarEngine(0, SEED, 0);
+    debug.setConfig({ showTruth: true });
+    for (let i = 0; i < 1200; i += 1) {
+      plain.step(50);
+      debug.step(50);
+      if (i % 20 === 0) debug.snapshot();
+    }
+
+    const summarise = (e: RadarEngine) =>
+      e.getTracks().map((t) => [t.id, t.status, t.x.toFixed(6), t.y.toFixed(6)]);
+    expect(summarise(debug)).toEqual(summarise(plain));
+  });
+});

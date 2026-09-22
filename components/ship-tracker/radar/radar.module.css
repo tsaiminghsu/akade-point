@@ -613,6 +613,23 @@
   font-weight: 600;
 }
 
+/* Debug readouts share the overlay's magenta so they read as tooling, not as
+   part of the picture. */
+.statusDebug {
+  color: #e879f9;
+}
+
+.truthLegend {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #e879f9;
+}
+
 /* ── Narrow layouts ─────────────────────────────────────────────── */
 
 @media (max-width: 1240px) {

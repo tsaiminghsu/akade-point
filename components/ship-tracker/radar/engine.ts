@@ -33,6 +33,7 @@ import {
   stepOwnShip,
 } from './world';
 import { buildAisOnlyTarget, buildTarget } from './arpa';
+import { buildTruthOverlay } from './truth';
 import type {
   AisReport,
   ArpaTarget,
@@ -520,6 +521,11 @@ export class RadarEngine {
       scanCount: this.scanCount,
       alarms: inScope.filter((t) => t.danger === 'danger'),
       guardAlarms: inScope.filter((t) => t.inGuardZone && t.status === 'confirmed'),
+      // Built only on request. It is the one place the vessels' real positions
+      // leave the engine, and it goes to the display, never to the tracker.
+      truth: this.config.showTruth
+        ? buildTruthOverlay(this.vessels, this.tracker.getActiveTracks(), this.own, this.sensor)
+        : null,
     };
   }
 

@@ -141,6 +141,19 @@ export interface Track {
   gainAge: number;
   /** Scans remaining on the manoeuvre flag. */
   manoeuvreHold: number;
+  /**
+   * Fading sum of recent residual vectors, each divided by the measurement
+   * noise expected at its range. Noise points every which way and cancels;
+   * a turn the filter is lagging pushes the same way scan after scan and
+   * builds up. Its length is the manoeuvre test statistic.
+   */
+  driftX: number;
+  driftY: number;
+  /**
+   * Wall-clock ms of the last real measurement. Unlike `lastUpdate`, coasting
+   * does not advance it, so it says how long the track has gone unobserved.
+   */
+  lastMeasured: number;
   /** MMSI of the AIS report fused onto this track, when one holds. */
   aisMmsi?: string;
   /** Consecutive scans the AIS association has held. */
@@ -247,11 +260,64 @@ export interface RadarConfig {
   showAisOverlay: boolean;
   showTrails: boolean;
   showVectors: boolean;
-  /** Paint ground-truth vessels, for debugging the detector. */
+  /**
+   * Paint the simulation's real vessel positions over the radar picture, with
+   * each track's error and any phantom tracks marked. A debugging aid for the
+   * sensor model and tracker; it never feeds back into either.
+   */
   showTruth: boolean;
 }
 
 export type DataSource = 'simulation' | 'live-ais';
+
+/**
+ * Why a real vessel does or does not have a radar track.
+ *
+ * - `tracked`: a confirmed or coasting track is following it.
+ * - `acquiring`: only a tentative track is on it so far.
+ * - `masked`: land stands between it and the antenna.
+ * - `out-of-range`: inside the blind zone or beyond instrumented range.
+ * - `missed`: the radar can see it and still has no track on it.
+ */
+export type TruthStatus = 'tracked' | 'acquiring' | 'masked' | 'out-of-range' | 'missed';
+
+/** One real vessel, as the ground-truth debug overlay shows it. */
+export interface TruthContact {
+  mmsi: string;
+  name: string;
+  /** Ground position, NM east and north of the scene origin. */
+  x: number;
+  y: number;
+  /** Bearing and range from own ship, in the same plane the tracks use. */
+  bearing: number;
+  rangeNm: number;
+  heading: number;
+  sog: number;
+  aisEnabled: boolean;
+  status: TruthStatus;
+  /** The radar track following this vessel, if one is. */
+  trackId: number | null;
+  /** Distance from the vessel to that track, NM. NaN when untracked. */
+  trackErrorNm: number;
+}
+
+/** The simulation's ground truth lined up against the tracker's output. */
+export interface TruthOverlay {
+  contacts: TruthContact[];
+  /**
+   * Confirmed tracks with no real vessel under them. A confirmed track is still
+   * being fed measurements, so one that follows no ship is being fed clutter:
+   * the tracker promoted noise into a target.
+   */
+  phantomTrackIds: number[];
+  /**
+   * Coasting tracks with no real vessel under them. These lost their ship and
+   * dead-reckoned away from it, or the ship already has a newer track. The
+   * usual cause is an association fault where two targets pass close, which
+   * needs a different fix from a phantom, so the two are kept apart.
+   */
+  strayTrackIds: number[];
+}
 
 /** Everything the renderer and the panels need for one frame. */
 export interface RadarSnapshot {
@@ -275,4 +341,10 @@ export interface RadarSnapshot {
   /** Targets currently breaching the CPA and TCPA limits. */
   alarms: ArpaTarget[];
   guardAlarms: ArpaTarget[];
+  /**
+   * Ground truth for the debug overlay. Null unless `showTruth` is on, so the
+   * matching costs nothing in normal use. Display only: nothing in tracking,
+   * fusion or ARPA ever reads it.
+   */
+  truth: TruthOverlay | null;
 }

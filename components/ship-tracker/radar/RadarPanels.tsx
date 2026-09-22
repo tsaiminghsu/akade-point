@@ -22,6 +22,7 @@ import type {
   RadarConfig,
   RadarSnapshot,
   TrackStatus,
+  TruthStatus,
   VesselKind,
 } from './types';
 import type { LiveStatus } from './useRadar';
@@ -233,6 +234,24 @@ export function DisplayPanel({
           onChange={(showTrails) => setConfig({ showTrails })}
         />
       </div>
+
+      <div className={styles.divider} />
+      <Toggle
+        label="真實位置（除錯）"
+        checked={config.showTruth}
+        onChange={(showTruth) => setConfig({ showTruth })}
+      />
+      {config.showTruth && (
+        <ul className={styles.truthLegend}>
+          <li>洋紅菱形：模擬中的真實船位，實心為無 AIS 的船</li>
+          <li>細線：航跡與真實船位的誤差</li>
+          <li>虛線菱形：被陸地遮蔽或超出雷達距離</li>
+          <li>標名：雷達看得到卻未追蹤、無 AIS 或已選取的船</li>
+          <li>亮色虛線圈加「?」：幻影，已確認航跡底下沒有真實船隻（雜波被當成目標）</li>
+          <li>暗色虛線圈加「?」：偏離，推算中的航跡已離開原本的船（關聯錯誤）</li>
+          <li>真實 AIS 模式下顯示的是 AIS 回報位置</li>
+        </ul>
+      )}
     </Panel>
   );
 }
@@ -795,6 +814,24 @@ export function StatusBar({
       </span>
       <span>{source === 'simulation' ? '模擬資料' : '真實 AIS'}</span>
       {paused && <span className={styles.statusAlarm}>已暫停</span>}
+      {snapshot?.truth && <TruthSummary truth={snapshot.truth} />}
     </footer>
+  );
+}
+
+/** How the tracker is doing against the truth, shown only with the overlay on. */
+function TruthSummary({ truth }: { truth: NonNullable<RadarSnapshot['truth']> }) {
+  const count = (status: TruthStatus) =>
+    truth.contacts.filter((c) => c.status === status).length;
+  const phantoms = truth.phantomTrackIds.length;
+  const strays = truth.strayTrackIds.length;
+
+  return (
+    <span className={styles.statusDebug}>
+      真實 {truth.contacts.length} · 已追蹤 {count('tracked')} · 擷取中 {count('acquiring')} ·
+      漏偵 {count('missed')} · 遮蔽 {count('masked')} ·{' '}
+      <span className={phantoms > 0 ? styles.statusAlarm : undefined}>幻影 {phantoms}</span> ·{' '}
+      <span className={strays > 0 ? styles.statusAlarm : undefined}>偏離 {strays}</span>
+    </span>
   );
 }

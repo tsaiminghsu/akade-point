@@ -170,6 +170,10 @@ export function useRadar(): UseRadarReturn {
     (patch: Partial<RadarConfig>) => {
       engine.setConfig(patch);
       setConfigState(engine.getConfig());
+      // A paused engine produces no frames, so nothing derived from the
+      // snapshot would follow the controls until it resumed: the range filter,
+      // and the truth overlay, which the engine only builds while it is on.
+      if (pausedRef.current) setSnapshot(engine.snapshot());
     },
     [engine]
   );
