@@ -803,6 +803,20 @@
     "localhostWarning": "ESP32 は localhost に接続できません。開発時は API_BASE をこの PC の LAN アドレス（例：http://192.168.1.20:3000）にしてください。",
     "tokenIssued": "新しいトークンを発行しました",
     "tokensRevoked": "接続を解除しました（{count} 件のトークンを失効）",
-    "firmwareHint": "参考ファームウェア：firmware/esp32-claw-config。プロトコルと配線は docs/claw-machine-esp32.md を参照。"
+    "firmwareHint": "参考ファームウェア：firmware/esp32-claw-config。プロトコルと配線は docs/claw-machine-esp32.md を参照。",
+    "deliveryNotified": "機台に通知済み、適用待ち",
+    "notifiedToast": "機台に即時通知しました",
+    "mqttHeading": "即時通知（MQTT）",
+    "mqttServer": "サーバー",
+    "mqttServerIot": "有効（AWS IoT Core）",
+    "mqttServerBroker": "有効（MQTT ブローカー）",
+    "mqttServerOff": "無効：機台はポーリングで変更を取得",
+    "mqttBoard": "機台",
+    "mqttBoardOn": "購読中。保存するとすぐ取得",
+    "mqttBoardOff": "未購読。{seconds} 秒ごとにポーリング",
+    "mqttThing": "Thing 名／クライアント ID",
+    "mqttTopic": "トピック",
+    "mqttBroker": "機台の接続先",
+    "mqttOffHint": "即時配信には、サーバーで CLAW_CONFIG_NOTIFY=iot（AWS IoT Core）または mqtt（自前ブローカー）を設定し、ファームウェアに MQTT_URI と MACHINE_ID を入れてください。docs/claw-machine-esp32.md を参照。"
   }
 }

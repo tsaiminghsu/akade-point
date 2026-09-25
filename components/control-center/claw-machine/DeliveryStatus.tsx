@@ -5,7 +5,15 @@ import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle2, Clock, CloudOff, Unplug, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { DEVICE_POLL_S, deliveryState, settingsSha, type ClawSync, type DeliveryState } from "@/lib/control-center/claw/device";
+import {
+  DEVICE_POLL_S,
+  MQTT_FALLBACK_POLL_S,
+  deliveryState,
+  settingsSha,
+  type ClawSync,
+  type DeliveryState,
+} from "@/lib/control-center/claw/device";
+import { useClawConfigsStore } from "@/store/useClawConfigsStore";
 import type { ClawSettings } from "./game/settings";
 import { useRelativeTime } from "./useRelativeTime";
 
@@ -21,6 +29,7 @@ const STYLE: Record<DeliveryState, { icon: LucideIcon; className: string }> = {
 export function useDelivery(savedSettings: ClawSettings, sync: ClawSync | undefined) {
   const t = useTranslations("ClawConfigs");
   const relativeTime = useRelativeTime();
+  const notifyMode = useClawConfigsStore((s) => s.notify.mode);
   const sha = useMemo(() => settingsSha(savedSettings), [savedSettings]);
   // Evaluated on render; the page re-renders whenever the sync poll brings news.
   const { state, online } = deliveryState(sha, sync, Date.now());
@@ -29,8 +38,15 @@ export function useDelivery(savedSettings: ClawSettings, sync: ClawSync | undefi
   let label: string;
   if (state === "never") label = t("deliveryNever");
   else if (state === "applied") label = online ? t("deliveryApplied") : t("deliveryAppliedOffline");
-  else if (state === "pending") label = t("deliveryPending", { seconds: DEVICE_POLL_S });
-  else if (state === "offline") label = t("deliveryOffline", { time: lastSeen ?? "—" });
+  else if (state === "pending") {
+    const listening = sync?.notify === "mqtt";
+    // A listening board was rung on save; one that isn't polls on its own clock
+    // (slowly, if it's on MQTT but this server isn't publishing).
+    label =
+      listening && notifyMode !== "off"
+        ? t("deliveryNotified")
+        : t("deliveryPending", { seconds: listening ? MQTT_FALLBACK_POLL_S : DEVICE_POLL_S });
+  } else if (state === "offline") label = t("deliveryOffline", { time: lastSeen ?? "—" });
   else label = t("deliveryFailed", { code: sync?.lastAck?.code ?? "?" });
 
   const title = lastSeen ? t("lastSeenTitle", { time: lastSeen }) + (sync?.fw ? ` · ${sync.fw}` : "") : label;

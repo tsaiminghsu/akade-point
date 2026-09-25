@@ -151,7 +151,12 @@ export default function ClawConfigsPageContent() {
         // Keep the draft object: swapping it would make the simulator reload
         // the chute and stock for values that haven't changed.
         setBase(res.config);
-        toast.success(t("saved", { name: machine.name, rev: res.config.revision }));
+        const saved = t("saved", { name: machine.name, rev: res.config.revision });
+        toast.success(res.notify?.sent ? `${saved} · ${t("notifiedToast")}` : saved);
+        // A notified board applies within a second or two; look sooner than the 5 s poll.
+        if (res.notify?.sent) {
+          for (const ms of [1000, 2500]) setTimeout(() => void useClawConfigsStore.getState().refreshSync(), ms);
+        }
       } else if (res.conflict) {
         setConflict(res.conflict);
       }

@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { apiRequest } from "@/lib/control-center/apiClient";
 import { factoryConfig, type ClawConfig, type ClawConfigPart, type ClawDraft } from "@/lib/control-center/claw/config";
-import type { ClawSync } from "@/lib/control-center/claw/device";
+import type { ClawNotifyMode, ClawSync } from "@/lib/control-center/claw/device";
 import type { MachineEvent } from "@/lib/control-center/types";
 import { useMachinesStore } from "./useMachinesStore";
 
@@ -17,8 +17,15 @@ export interface MachineTokenInfo {
 /** How often the setup page re-reads what the boards pulled and applied. */
 export const SYNC_POLL_MS = 5000;
 
+/** What a save or copy did about ringing the boards (null: nothing to ring for). */
+export interface NotifyOutcome {
+  mode: ClawNotifyMode;
+  sent: number;
+  failed: number;
+}
+
 export type SaveResult =
-  | { ok: true; config: ClawConfig }
+  | { ok: true; config: ClawConfig; notify: NotifyOutcome | null }
   /** Someone saved first; `config` is theirs. */
   | { ok: false; conflict: ClawConfig }
   | { ok: false; conflict?: undefined };
@@ -41,10 +48,12 @@ interface ClawConfigsState {
     parts: ClawConfigPart[],
     machineIds: string[],
     sourceMachineId?: string
-  ) => Promise<{ copied: number; missing: number } | null>;
+  ) => Promise<{ copied: number; missing: number; notify: NotifyOutcome | null } | null>;
 
   /** What each machine's board last pulled and applied, by machineId. */
   sync: Record<string, ClawSync>;
+  /** How the server rings boards on a save, and where boards should connect. */
+  notify: { mode: ClawNotifyMode; brokerUri: string | null };
   refreshSync: () => Promise<void>;
   startSyncPolling: () => void;
   stopSyncPolling: () => void;
@@ -125,7 +134,7 @@ export const useClawConfigsStore = create<ClawConfigsState>()((set, get) => ({
       return { ok: false };
     }
     const body = (await res.json().catch(() => null)) as
-      | { config?: ClawConfig; event?: MachineEvent | null; error?: string }
+      | { config?: ClawConfig; event?: MachineEvent | null; notify?: NotifyOutcome | null; error?: string }
       | null;
     if (res.status === 409 && body?.config) {
       const conflict = body.config;
@@ -139,11 +148,16 @@ export const useClawConfigsStore = create<ClawConfigsState>()((set, get) => ({
     const config = body.config;
     set((s) => ({ configs: { ...s.configs, [machineId]: config } }));
     recordEvents([body.event]);
-    return { ok: true, config };
+    return { ok: true, config, notify: body.notify ?? null };
   },
 
   copyTo: async (draft, parts, machineIds, sourceMachineId) => {
-    const res = await apiRequest<{ configs: ClawConfig[]; missing: string[]; events: MachineEvent[] }>(
+    const res = await apiRequest<{
+      configs: ClawConfig[];
+      missing: string[];
+      events: MachineEvent[];
+      notify: NotifyOutcome | null;
+    }>(
       "/api/control-center/claw-configs/copy",
       { method: "POST", body: JSON.stringify({ ...draft, parts, machineIds, sourceMachineId }) }
     );
@@ -154,20 +168,24 @@ export const useClawConfigsStore = create<ClawConfigsState>()((set, get) => ({
       return { configs };
     });
     recordEvents(res.events);
-    return { copied: res.configs.length, missing: res.missing.length };
+    return { copied: res.configs.length, missing: res.missing.length, notify: res.notify };
   },
 
   sync: {},
+  notify: { mode: "off", brokerUri: null },
 
   refreshSync: async () => {
-    const res = await apiRequest<{ sync: ClawSync[] }>("/api/control-center/claw-configs/sync", undefined, {
-      silent: true,
-    });
+    const res = await apiRequest<{ sync: ClawSync[]; notify: ClawConfigsState["notify"] }>(
+      "/api/control-center/claw-configs/sync",
+      undefined,
+      { silent: true }
+    );
     if (!res) return;
     const sync: Record<string, ClawSync> = {};
     for (const row of res.sync) sync[row.machineId] = row;
     // Most polls change nothing; don't re-render the page for those.
     if (JSON.stringify(sync) !== JSON.stringify(get().sync)) set({ sync });
+    if (JSON.stringify(res.notify) !== JSON.stringify(get().notify)) set({ notify: res.notify });
   },
 
   startSyncPolling: () => {

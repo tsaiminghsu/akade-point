@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ClawConfig } from "@/lib/control-center/claw/config";
+import { DEVICE_POLL_S, clawConfigTopic } from "@/lib/control-center/claw/device";
 import type { Machine } from "@/lib/control-center/types";
 import { useClawConfigsStore, type MachineTokenInfo } from "@/store/useClawConfigsStore";
 import { DeliveryBadge } from "./DeliveryStatus";
@@ -27,17 +28,31 @@ interface BoardLinkDialogProps {
   saved: ClawConfig;
 }
 
-/** secrets.h for firmware/esp32-claw-config, filled in with this server and token. */
-function secretsSnippet(origin: string, token: string) {
+/** The MQTT part of secrets.h: nothing secret from this server, so it can be shown any time. */
+function mqttSnippet(machineId: string, brokerUri: string | null) {
+  return [
+    `#define MACHINE_ID "${machineId}"`,
+    `#define MQTT_URI "${brokerUri ?? ""}"`,
+    "// mqtts:// to AWS IoT: paste the Thing's certificate and private key",
+    'static const char DEVICE_CERT[] = R"PEM(',
+    ')PEM";',
+    'static const char DEVICE_KEY[] = R"PEM(',
+    ')PEM";',
+  ].join("\n");
+}
+
+/** secrets.h for firmware/esp32-claw-config, filled in with this server, token and machine. */
+function secretsSnippet(origin: string, token: string, machineId: string, brokerUri: string | null) {
   return [
     "#pragma once",
     '#define WIFI_SSID "your-wifi"',
     '#define WIFI_PASSWORD "your-password"',
     `#define API_BASE "${origin}"`,
     `#define DEVICE_TOKEN "${token}"`,
-    "// https: paste Amazon Root CA 1 (amazontrust.com/repository/AmazonRootCA1.pem)",
+    "// https / mqtts: paste Amazon Root CA 1 (amazontrust.com/repository/AmazonRootCA1.pem)",
     'static const char ROOT_CA[] = R"PEM(',
     ')PEM";',
+    mqttSnippet(machineId, brokerUri),
   ].join("\n");
 }
 
@@ -47,6 +62,7 @@ export function BoardLinkDialog({ open, onOpenChange, machine, saved }: BoardLin
   const tCommon = useTranslations("Common");
   const relativeTime = useRelativeTime();
   const sync = useClawConfigsStore((s) => s.sync[machine.id]);
+  const notify = useClawConfigsStore((s) => s.notify);
 
   const [tokens, setTokens] = useState<MachineTokenInfo[] | null>(null);
   const [plaintext, setPlaintext] = useState<string | null>(null);
@@ -189,18 +205,58 @@ export function BoardLinkDialog({ open, onOpenChange, machine, saved }: BoardLin
               <p className="text-xs text-muted-foreground">{t("snippetHeading")}</p>
               <div className="flex items-start gap-2">
                 <pre className="min-w-0 flex-1 overflow-x-auto rounded bg-background px-2 py-1.5 text-[11px] leading-relaxed">
-                  {secretsSnippet(origin, plaintext)}
+                  {secretsSnippet(origin, plaintext, machine.id, notify.brokerUri)}
                 </pre>
                 <Button
                   size="icon-sm"
                   variant="outline"
                   aria-label={t("copy")}
-                  onClick={() => copy(secretsSnippet(origin, plaintext))}
+                  onClick={() => copy(secretsSnippet(origin, plaintext, machine.id, notify.brokerUri))}
                 >
                   <Copy className="h-3.5 w-3.5" />
                 </Button>
               </div>
               {isLocalhost && <p className="text-xs text-status-warning">{t("localhostWarning")}</p>}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-2 border-t border-border pt-3">
+          <h3 className="text-sm font-medium text-foreground">{t("mqttHeading")}</h3>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            <dt className="text-muted-foreground">{t("mqttServer")}</dt>
+            <dd className="text-foreground">
+              {notify.mode === "iot" ? t("mqttServerIot") : notify.mode === "mqtt" ? t("mqttServerBroker") : t("mqttServerOff")}
+            </dd>
+            <dt className="text-muted-foreground">{t("mqttBoard")}</dt>
+            <dd className="text-foreground">
+              {!sync?.pulledAt
+                ? "—"
+                : sync.notify === "mqtt"
+                  ? t("mqttBoardOn")
+                  : t("mqttBoardOff", { seconds: DEVICE_POLL_S })}
+            </dd>
+            <dt className="text-muted-foreground">{t("mqttThing")}</dt>
+            <dd className="min-w-0 break-all font-mono text-foreground">{machine.id}</dd>
+            <dt className="text-muted-foreground">{t("mqttTopic")}</dt>
+            <dd className="min-w-0 break-all font-mono text-foreground">{clawConfigTopic(machine.id)}</dd>
+            <dt className="text-muted-foreground">{t("mqttBroker")}</dt>
+            <dd className="min-w-0 break-all font-mono text-foreground">{notify.brokerUri ?? "—"}</dd>
+          </dl>
+          {notify.mode === "off" && <p className="text-xs text-muted-foreground">{t("mqttOffHint")}</p>}
+          {!plaintext && (
+            <div className="flex items-start gap-2">
+              <pre className="min-w-0 flex-1 overflow-x-auto rounded bg-muted/40 px-2 py-1.5 text-[11px] leading-relaxed">
+                {mqttSnippet(machine.id, notify.brokerUri)}
+              </pre>
+              <Button
+                size="icon-sm"
+                variant="outline"
+                aria-label={t("copy")}
+                onClick={() => copy(mqttSnippet(machine.id, notify.brokerUri))}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
             </div>
           )}
         </section>

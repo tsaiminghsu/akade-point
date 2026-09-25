@@ -803,6 +803,20 @@
     "localhostWarning": "ESP32 連不到 localhost：開發時把 API_BASE 改成這台電腦的區網 IP，例如 http://192.168.1.20:3000。",
     "tokenIssued": "已產生新的 Token",
     "tokensRevoked": "已中斷連線（撤銷 {count} 個 Token）",
-    "firmwareHint": "韌體範例：firmware/esp32-claw-config；協定與接線說明見 docs/claw-machine-esp32.md。"
+    "firmwareHint": "韌體範例：firmware/esp32-claw-config；協定與接線說明見 docs/claw-machine-esp32.md。",
+    "deliveryNotified": "已即時通知，等待機台套用",
+    "notifiedToast": "已即時通知機台",
+    "mqttHeading": "即時通知（MQTT）",
+    "mqttServer": "伺服器",
+    "mqttServerIot": "已啟用（AWS IoT Core）",
+    "mqttServerBroker": "已啟用（MQTT broker）",
+    "mqttServerOff": "未啟用：機台靠輪詢取得變更",
+    "mqttBoard": "機台",
+    "mqttBoardOn": "已訂閱，儲存後立即拉取",
+    "mqttBoardOff": "未訂閱，每 {seconds} 秒輪詢",
+    "mqttThing": "Thing 名稱／Client ID",
+    "mqttTopic": "主題",
+    "mqttBroker": "機台連線位址",
+    "mqttOffHint": "要即時下發，伺服器設 CLAW_CONFIG_NOTIFY=iot（AWS IoT Core）或 mqtt（自架 broker），機台韌體填 MQTT_URI 與 MACHINE_ID。見 docs/claw-machine-esp32.md。"
   }
 }

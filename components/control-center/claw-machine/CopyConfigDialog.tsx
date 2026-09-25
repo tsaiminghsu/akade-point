@@ -84,7 +84,8 @@ export function CopyConfigDialog({ open, onOpenChange, source, draft }: CopyConf
       .copyTo(draft, Array.from(parts), Array.from(targets), source.id);
     setBusy(false);
     if (!res) return;
-    toast.success(t("copied", { count: res.copied }));
+    const copied = t("copied", { count: res.copied });
+    toast.success(res.notify?.sent ? `${copied} · ${t("notifiedToast")}` : copied);
     if (res.missing > 0) toast.warning(t("copiedMissing", { count: res.missing }));
     onOpenChange(false);
   };
