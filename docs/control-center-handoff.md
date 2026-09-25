@@ -347,3 +347,12 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - 韌體 `firmware/esp32-claw-config/` 的 `claw_settings.h` 是 `SETTING_DEFS` 的 C++ 副本，`lib/control-center/claw/firmware.test.ts` 保證一致；改設定項目要兩邊一起改並更新韌體。
 - 韌體已用 esp32 core 2.0.17 toolchain 編譯（未連結、未燒錄）；原廠飛絡力板沒有資料介面，`board.cpp` 是整合點（LOG_ONLY／UART 範例）。
 - `scripts/claw-device-sim.mjs` 是虛擬機台，本 session 用它在瀏覽器驗證：已套用、等待拉取、套用失敗（重複回報不重複記事件）、重新產生與中斷連線後 401。
+
+### 11.2 MQTT 即時通知
+
+- `lib/iot/claw-notify.ts`：`CLAW_CONFIG_NOTIFY=iot`（IoT Data Plane，`IOT_DATA_ENDPOINT`）或 `mqtt`（mqtt.js 短連線到 `CLAW_MQTT_URL`）；5 秒逾時、永不丟錯，失敗不影響儲存。主題 `claw/{machineId}/config`，內容只有 `{v,sha,rev}`，設定仍走 HTTPS。
+- 只在主機板設定的 sha 變時發（PUT、DELETE、copy 有勾 settings）；rig-only 不發。
+- 機台以 `X-Notify: mqtt` 回報訂閱中 → 同步列 `notify`；payload 的 `pollMqtt`（300 秒）是訂閱中的保險輪詢；韌體斷線時立刻回到 30 秒。
+- 韌體用 core 內建 esp-mqtt（IDF 4.4 設定結構，只支援 core 2.x；3.x 會 `#warning` 並退回輪詢）；client id＝Thing 名稱＝機台 id。policy：`infra/iot/claw-board-policy.json`。
+- 本機：`npm run mqtt:dev`（aedes）；D:\akade-point 的 `.claude/launch.json` 有 `iot-cc-mqtt`，`iot-cc` 帶 `CLAW_CONFIG_NOTIFY=mqtt` 環境變數。實測：儲存 → 頁面顯示已套用 1.2 秒；broker 關掉時儲存 28 ms 照常成功；broker 恢復時虛擬機台自動重連並補拉斷線期間的版本。
+- 正式環境（AWS IoT Core）與實機尚未實測。

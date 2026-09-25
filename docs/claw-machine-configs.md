@@ -11,7 +11,7 @@
 - 設定跟著**機台目錄裡的每一台**走，存在 DynamoDB，換電腦、換人都看得到。
 - 有儲存／放棄／載入出廠值、編輯衝突偵測、套用到多台機台，且每次變更寫入機台事件紀錄。
 
-設定存好後由機台上的 ESP32 **拉取套用**，設定頁顯示每台的下發狀態，見 [`claw-machine-esp32.md`](./claw-machine-esp32.md)。
+設定存好後由機台上的 ESP32 **拉取套用**（可選 MQTT 即時通知，儲存後約 1 秒內套用），設定頁顯示每台的下發狀態，見 [`claw-machine-esp32.md`](./claw-machine-esp32.md)。
 
 ## 使用方式
 
@@ -100,6 +100,8 @@
 | `store/useClawConfigsStore.ts` | zustand store（含下發狀態每 5 秒輪詢、Token 操作） |
 | `lib/control-center/claw/device.ts` | 下發契約：`settingsSha`、payload、ETag、下發狀態判定（純函式，前後端共用） |
 | `lib/machine-auth.ts`、`lib/dynamo/cc-{machine-tokens,claw-sync}.ts` | 機台 Token 驗證、同步紀錄 |
+| `lib/iot/claw-notify.ts` | MQTT 通知（AWS IoT Core／一般 broker），永不丟錯 |
+| `scripts/mqtt-dev-broker.mjs`、`infra/iot/claw-board-policy.json` | 本機 broker（`npm run mqtt:dev`）、機台的 IoT policy |
 | `app/api/device/machines/config/**` | 裝置端 API |
 | `components/control-center/claw-machine/{BoardLinkDialog,DeliveryStatus}.tsx` | 機台連線對話框、狀態標示 |
 | `firmware/esp32-claw-config/` | ESP32 韌體範例 |

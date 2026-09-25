@@ -34,8 +34,11 @@ plus claw / stock / chute per machine in `akade-cc-claw-configs`, with a 3D
 simulator to try it (three.js + Rapier, copied from akade-point's
 `/games/claw-machine`), revision-checked saves, and copy-to-many. Each
 machine's ESP32 pulls its board settings from `/api/device/machines/config`
-(machine device token `mt_…`, ETag/304) and reports back; reference firmware
-is in `firmware/esp32-claw-config/`. See `docs/claw-machine-configs.md` and
+(machine device token `mt_…`, ETag/304) and reports back; with
+`CLAW_CONFIG_NOTIFY=iot|mqtt` a save also sends an MQTT notice to
+`claw/{machineId}/config` so the board pulls within about a second
+(`npm run mqtt:dev` runs a local broker). Reference firmware is in
+`firmware/esp32-claw-config/`. See `docs/claw-machine-configs.md` and
 `docs/claw-machine-esp32.md`.
 
 The **Vehicles** module (drones/rovers via MissionPlanner + companion boards)

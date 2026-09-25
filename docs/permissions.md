@@ -56,6 +56,7 @@
 | 機台／門市／品牌／群組／設定／平面圖版本 寫入 | store-admin |
 | 娃娃機設定 PUT／DELETE／copy | store-admin |
 | 機台 ESP32 token 產生／撤銷 | system-admin |
+| 機台 AWS IoT Thing／憑證佈建（AWS 端） | system-admin |
 | 載具建立／編輯／刪除、token 產生 | system-admin |
 | 使用者授權（未來） | system-admin |
 

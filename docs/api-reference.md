@@ -65,10 +65,10 @@
 
 | 方法 路徑 | Body／Header | 回應 |
 |:---|:---|:---|
-| `GET /device/machines/config` | `If-None-Match: "<sha>"`、`X-Firmware?` | **304**（沒變）或 `{ v, machineId, rev, sha, poll, settings }` + `ETag`；機台已刪 → 404 |
+| `GET /device/machines/config` | `If-None-Match: "<sha>"`、`X-Firmware?`、`X-Notify: mqtt?` | **304**（沒變）或 `{ v, machineId, rev, sha, poll, pollMqtt, settings }` + `ETag`；機台已刪 → 404 |
 | `POST /device/machines/config/ack` | `{ v:1, sha, rev, st: applied\|failed, code?, msg? }` | `{ ok: true }`；格式錯 → 400 |
 
-`vt_`（載具）與 `mt_`（機台）token 互不通用。詳見 [`claw-machine-esp32.md`](./claw-machine-esp32.md)。
+`vt_`（載具）與 `mt_`（機台）token 互不通用。開啟 `CLAW_CONFIG_NOTIFY` 時，儲存後伺服器會發 MQTT 通知到 `claw/{machineId}/config`（`{v,sha,rev}`，QoS 1），機台收到即拉取。詳見 [`claw-machine-esp32.md`](./claw-machine-esp32.md)。
 
 ---
 
@@ -83,12 +83,12 @@
 | `PUT /claw-configs/{machineId}` | `{ settings, rig, revision }`（revision = 編輯開始時的版本，0 = 從未儲存） | `{ config, event }`；revision 不符 → 409 `{ error, config }`（帶目前版本）；內容未變 → 200 不寫入 |
 | `DELETE /claw-configs/{machineId}` | — | `{ config, event }`（恢復出廠值） |
 | `POST /claw-configs/copy` | `{ settings, rig, parts: ["settings"\|"rig"], machineIds[]（≤200）, sourceMachineId? }` | `{ configs, missing, events }` |
-| `GET /claw-configs/sync` | — | `{ sync: ClawSync[] }`（各機台 ESP32 最後拉取／套用；從未連線的機台不在內） |
+| `GET /claw-configs/sync` | — | `{ sync: ClawSync[], notify: { mode: iot\|mqtt\|off, brokerUri } }`（各機台 ESP32 最後拉取／套用；從未連線的機台不在內） |
 | `GET /machines/{id}/token` | — | `{ tokens: [{ tokenId, label, createdAt, revokedAt }] }`（無雜湊） |
 | `POST /machines/{id}/token` | `{ label? }` | `{ token, tokenId, createdAt }`（明碼**僅此一次**，撤銷舊 token）；機台不存在 → 404 |
 | `DELETE /machines/{id}/token` | — | `{ ok, revoked }`（中斷連線） |
 
-`ClawConfig`：`{ machineId, settings, rig, revision, updatedAt, updatedBy }`。
+`ClawConfig`：`{ machineId, settings, rig, revision, updatedAt, updatedBy }`。PUT、DELETE、copy 的回應另有 `notify: { mode, sent, failed } | null`：主機板設定有變時對機台發的 MQTT 通知結果（null＝沒有要通知的）。
 
 ---
 
