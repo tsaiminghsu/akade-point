@@ -1,7 +1,7 @@
 /**
  * Run once to create every DynamoDB table this app needs:
  *   akade-auth and akade-users (shared with the Akade Point app — creating
- *   them here is idempotent) plus the fifteen akade-cc-* tables.
+ *   them here is idempotent) plus the seventeen akade-cc-* tables.
  *
  * Usage:
  *   node scripts/create-tables.mjs
@@ -402,6 +402,32 @@ await createTable({
   BillingMode: "PAY_PER_REQUEST",
   AttributeDefinitions: [{ AttributeName: "machineId", AttributeType: "S" }],
   KeySchema: [{ AttributeName: "machineId", KeyType: "HASH" }],
+});
+
+// 18. akade-cc-claw-sync — what each machine's board last pulled and applied
+await createTable({
+  TableName: "akade-cc-claw-sync",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [{ AttributeName: "machineId", AttributeType: "S" }],
+  KeySchema: [{ AttributeName: "machineId", KeyType: "HASH" }],
+});
+
+// 19. akade-cc-machine-tokens — claw machine board (ESP32) device tokens
+await createTable({
+  TableName: "akade-cc-machine-tokens",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "tokenId", AttributeType: "S" },
+    { AttributeName: "machineId", AttributeType: "S" },
+  ],
+  KeySchema: [{ AttributeName: "tokenId", KeyType: "HASH" }],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "machine-index",
+      KeySchema: [{ AttributeName: "machineId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
 });
 
 await enableTtl("akade-cc-machine-events", "expiresAt");

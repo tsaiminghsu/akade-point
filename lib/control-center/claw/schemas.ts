@@ -31,3 +31,14 @@ export const clawConfigCopySchema = clawDraftSchema.extend({
   /** Machine the config came from, named in the targets' event log. */
   sourceMachineId: z.string().min(1).optional(),
 });
+
+/** What a machine's board reports after trying to apply a config it pulled. */
+export const deviceAckSchema = z.object({
+  v: z.literal(1),
+  sha: z.string().regex(/^[0-9a-f]{1,32}$/),
+  rev: z.number().int().min(0),
+  st: z.enum(["applied", "failed"]),
+  /** Machine-readable reason for a failure, e.g. OUT_OF_RANGE, BOARD_TIMEOUT. */
+  code: z.string().regex(/^[A-Z0-9_]{1,32}$/).optional(),
+  msg: z.string().max(200).optional(),
+});

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireAdminOrDevBypass } from "@/lib/session";
 import { deleteMachine, updateMachine } from "@/lib/dynamo/cc-machines";
 import { deleteClawConfig } from "@/lib/dynamo/cc-claw-configs";
+import { deleteClawSync } from "@/lib/dynamo/cc-claw-sync";
+import { revokeAllForMachine } from "@/lib/dynamo/cc-machine-tokens";
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -36,7 +38,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  await deleteClawConfig(params.id);
+  // Dependents first; the machine row goes last.
+  await revokeAllForMachine(params.id);
+  await Promise.all([deleteClawConfig(params.id), deleteClawSync(params.id)]);
   await deleteMachine(params.id);
   return NextResponse.json({ ok: true });
 }

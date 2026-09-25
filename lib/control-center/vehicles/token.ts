@@ -10,17 +10,20 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  * bytes (base64url). Only sha256(fullToken) is stored, so a database leak does
  * not expose usable tokens. The plaintext is shown to the operator exactly once.
  *
+ * Claw machines' ESP32 boards use the same scheme with the prefix "mt"
+ * (lib/machine-auth.ts), so a token can't be replayed against the other kind.
+ *
  * Server-only (uses node:crypto); tests run in vitest's node environment.
  */
 
-const PREFIX = "vt";
+export type TokenPrefix = "vt" | "mt";
 
 export function generateSecret(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export function formatToken(tokenId: string, secret: string): string {
-  return `${PREFIX}_${tokenId}_${secret}`;
+export function formatToken(tokenId: string, secret: string, prefix: TokenPrefix = "vt"): string {
+  return `${prefix}_${tokenId}_${secret}`;
 }
 
 export function hashToken(token: string): string {
@@ -33,7 +36,10 @@ export function hashToken(token: string): string {
  * two underscores: prefix, tokenId (a cuid2, which never contains "_"), then
  * the rest is the secret verbatim.
  */
-export function parseToken(token: string): { tokenId: string; secret: string } | null {
+export function parseToken(
+  token: string,
+  expectedPrefix: TokenPrefix = "vt"
+): { tokenId: string; secret: string } | null {
   const first = token.indexOf("_");
   if (first === -1) return null;
   const second = token.indexOf("_", first + 1);
@@ -41,7 +47,7 @@ export function parseToken(token: string): { tokenId: string; secret: string } |
   const prefix = token.slice(0, first);
   const tokenId = token.slice(first + 1, second);
   const secret = token.slice(second + 1);
-  if (prefix !== PREFIX || !tokenId || !secret) return null;
+  if (prefix !== expectedPrefix || !tokenId || !secret) return null;
   return { tokenId, secret };
 }
 

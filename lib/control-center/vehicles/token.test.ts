@@ -26,6 +26,15 @@ describe("token", () => {
     expect(parseToken("vt_a_b_c")).toEqual({ tokenId: "a", secret: "b_c" });
   });
 
+  it("keeps vehicle and machine tokens apart by prefix", () => {
+    const machine = formatToken("id1", "sec", "mt");
+    expect(machine).toBe("mt_id1_sec");
+    expect(parseToken(machine, "mt")).toEqual({ tokenId: "id1", secret: "sec" });
+    // A machine token is not a vehicle token, and vice versa.
+    expect(parseToken(machine)).toBeNull();
+    expect(parseToken(formatToken("id1", "sec"), "mt")).toBeNull();
+  });
+
   it("hashes deterministically and differs by input", () => {
     const a = hashToken("vt_a_b");
     expect(a).toBe(hashToken("vt_a_b"));
