@@ -13,6 +13,7 @@ export default defineConfig({
       'lib/control-center/**/*.test.ts',
       'lib/dynamo/**/*.test.ts',
       'store/**/*.test.ts',
+      'components/**/__tests__/*.test.ts',
     ],
     exclude: ['node_modules', '.next'],
     passWithNoTests: true,
