@@ -9,6 +9,10 @@ import { requireAdminOrDevBypass } from "@/lib/session";
  */
 export type VehicleAction = "view" | "manage" | "command" | "mission" | "provision";
 
-export async function requireVehicleAccess(_action: VehicleAction) {
+export async function requireVehicleAccess(action: VehicleAction) {
+  // `action` is unused today (every action requires admin) but is the argument a
+  // role check will branch on. Referenced via void so it stays in the signature
+  // and at call sites without tripping no-unused-vars.
+  void action;
   return requireAdminOrDevBypass();
 }

@@ -8,6 +8,7 @@ import {
   History as HistoryIcon,
   LayoutDashboard,
   MonitorSmartphone,
+  Plane,
   Settings as SettingsIcon,
   ShieldAlert,
   Store as StoreIcon,
@@ -89,6 +90,9 @@ export function SearchCommand({ open, onOpenChange, onSelectMachine }: SearchCom
           </CommandItem>
           <CommandItem value="machines" onSelect={() => go(`${ROOT}/machines`)}>
             <HardDrive className="h-4 w-4" /> {tSidebar("machines")}
+          </CommandItem>
+          <CommandItem value="vehicles" onSelect={() => go(`${ROOT}/vehicles`)}>
+            <Plane className="h-4 w-4" /> {tSidebar("vehicles")}
           </CommandItem>
           <CommandItem value="alerts" onSelect={() => go(`${ROOT}/alerts`)}>
             <ShieldAlert className="h-4 w-4" /> {tSidebar("alerts")}
