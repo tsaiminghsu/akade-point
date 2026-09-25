@@ -1,0 +1,2 @@
+# Holds the Wi-Fi password and the machine's device token.
+secrets.h
