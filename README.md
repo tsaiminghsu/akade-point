@@ -25,12 +25,28 @@ what that page writes.
 ## Routes
 
 `/` redirects to `/iot-control-center`, which holds dashboard, `machines`,
-`stores`, `alerts`, `analytics`, `history`, `editor` (floor-plan) and
-`settings` / `users`. `/login` is a LINE sign-in page outside the shell.
+`vehicles`, `stores`, `alerts`, `analytics`, `history`, `editor` (floor-plan)
+and `settings` / `users`. `/login` is a LINE sign-in page outside the shell.
+
+The **Vehicles** module (drones/rovers via MissionPlanner + companion boards)
+adds device-side routes under `/api/device/vehicles/**` — authenticated by a
+companion device token, not the admin check — and a Python companion bridge in
+`companion/`. It runs entirely over HTTPS in local dev; AWS IoT Core MQTT is an
+optional low-latency command channel in production (`VEHICLE_TRANSPORT=iot`,
+`IOT_DATA_ENDPOINT`). See `docs/vehicles-overview.md`.
 
 Outside production the admin check is bypassed (`requireAdminOrDevBypass` in
 `lib/session.ts`, mirrored in `app/iot-control-center/layout.tsx`), so a fresh
 dev machine can open the app without a LINE login. Production always enforces it.
+The device-token check (`requireDeviceToken`) has no such bypass.
+
+## Documentation
+
+User- and integrator-facing docs live in `docs/`: `user-guide.md`,
+`permissions.md` (role matrix, not yet implemented), `api-reference.md`, and the
+`vehicles-*.md` set (overview, message contract, data model, security, IoT
+provisioning, companion setup, local dev & verification) plus
+`companion-esp32.md`.
 
 ## Local development
 

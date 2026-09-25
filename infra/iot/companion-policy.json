@@ -1,0 +1,24 @@
+{
+  "Comment": "AWS IoT Core policy for a vehicle companion. Attach to the companion's certificate. Scoped to the Thing whose name equals the vehicle's companionId, so one policy serves every companion. Replace REGION and ACCOUNT_ID.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Connect",
+      "Effect": "Allow",
+      "Action": "iot:Connect",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:client/${iot:Connection.Thing.ThingName}"
+    },
+    {
+      "Sid": "SubscribeToOwnCommands",
+      "Effect": "Allow",
+      "Action": "iot:Subscribe",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:topicfilter/vehicles/${iot:Connection.Thing.ThingName}/cmd"
+    },
+    {
+      "Sid": "ReceiveOwnCommands",
+      "Effect": "Allow",
+      "Action": "iot:Receive",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:topic/vehicles/${iot:Connection.Thing.ThingName}/cmd"
+    }
+  ]
+}

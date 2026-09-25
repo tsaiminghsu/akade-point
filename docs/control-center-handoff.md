@@ -274,3 +274,36 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - 本 session 計畫檔：`C:\Users\Attlie\.claude\plans\control-center-shiny-wall.md`
 - 合併時期快照：akade-point tag `pre-split`；本 session 改動首次 commit 於 akade-point `f958f610`
 - 拆分：akade-point `280d23b7`；CC repo `b4cf14f`
+
+---
+
+## 10. Vehicles 模組（無人機／無人車，MissionPlanner 整合）
+
+於 `feat/vehicles-module` 分支新增。完整文件見 `docs/vehicles-*.md` 與 `docs/user-guide.md`／`permissions.md`／`api-reference.md`。
+
+**架構**：遙測／ack／任務走 HTTPS（device token），IoT Core MQTT 只在 prod 推指令；每次遙測 POST 的回應夾帶待執行指令，是本機模式的送達通道。`VEHICLE_TRANSPORT=local|iot` 切換，程式路徑單一。
+
+**新增檔案**：
+- 純模組＋測試：`lib/control-center/vehicles/{types,constants,schemas,linkState,commandState,waypoints,token,view}.ts`
+- DAL：`lib/dynamo/cc-vehicle-{s,tokens,commands,telemetry,missions}.ts`；`client.ts` +5 TABLES；`ttl.ts` +2 常數
+- 驗證：`lib/device-auth.ts`（`requireDeviceToken`，無 NODE_ENV 繞道）、`lib/vehicle-access.ts`（角色 seam）、`lib/iot/publish.ts`（best-effort，永不丟錯）
+- Routes：`app/api/control-center/vehicles/**`、`app/api/device/vehicles/**`
+- 前端：`store/useVehiclesStore.ts`、`app/iot-control-center/vehicles/**`、`components/control-center/vehicles/**`
+- companion：`companion/`（Python，pytest 11 案例）
+- scripts：`seed-vehicle-local.mjs`、`vehicles-smoke.mjs`；`create-tables.mjs` +5 表 + TTL
+- infra：`infra/iot/companion-policy.json`
+
+**新表**：`akade-cc-vehicles`、`-vehicle-tokens`、`-vehicle-commands`（TTL 30d）、`-vehicle-telemetry`（TTL 7d）、`-vehicle-missions`。
+
+**新依賴**：`@aws-sdk/client-iot-data-plane`、`react-is`（recharts v3 的 es6 build 需要，先前 install 曾把它從樹上剪掉導致殼層圖表崩潰）。
+
+**環境變數**：`VEHICLE_TRANSPORT`（local/iot）、`IOT_DATA_ENDPOINT`（iot 模式）。
+
+**陷阱**：
+- device token 的 base64url secret 含 `_`，`parseToken` 只切前兩個底線（否則每個真實 companion 都 401）。有回歸測試。
+- `status`／`state`／`t` 是 DynamoDB 保留字，條件式與 telemetry 排序需別名。
+- 在 Windows 上對執行中的 dev server 跑 `npm install` 會鎖檔並汙染 node_modules／webpack 快取；裝完依賴要重啟 dev server 並清 `.next`。
+
+**權限現況**：仍只有 `isAdmin`；`requireVehicleAccess(action)` 是未來角色的唯一插入點；角色矩陣見 `docs/permissions.md`（尚未實作）。
+
+**待補驗證**：實機／SITL 的完整飛行序列與任務往返、MissionPlanner 同時連線（本 session 已用 curl 模擬 companion 驗證全部 API 與 UI 的指令流程）。
