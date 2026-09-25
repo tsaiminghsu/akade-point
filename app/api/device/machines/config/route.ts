@@ -6,6 +6,7 @@ import { getClawConfig } from "@/lib/dynamo/cc-claw-configs";
 import { getClawSync, recordPull } from "@/lib/dynamo/cc-claw-sync";
 import { factoryConfig } from "@/lib/control-center/claw/config";
 import {
+  boardNotifyFrom,
   cleanFirmware,
   etagFor,
   matchesEtag,
@@ -17,8 +18,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * A claw machine's board pulls its settings. Send If-None-Match with the last
- * sha you processed: 304 means nothing new. The optional X-Firmware header is
- * shown on the setup page.
+ * sha you processed: 304 means nothing new. Optional headers: X-Firmware
+ * (shown on the setup page) and X-Notify: mqtt while the board is subscribed
+ * to its notice topic.
  */
 export async function GET(req: Request) {
   const auth = await requireMachineToken(req);
@@ -34,10 +36,11 @@ export async function GET(req: Request) {
 
   const payload = toDevicePayload(saved ?? factoryConfig(machineId));
   const fw = cleanFirmware(req.headers.get("x-firmware"));
+  const notify = boardNotifyFrom(req.headers.get("x-notify"));
   const now = Date.now();
-  if (shouldRecordPull(sync, payload.sha, fw, now)) {
+  if (shouldRecordPull(sync, { sha: payload.sha, fw, notify }, now)) {
     // Bookkeeping only: the board still gets its config if this write fails.
-    await recordPull(machineId, { sha: payload.sha, rev: payload.rev, fw, now }).catch((err) =>
+    await recordPull(machineId, { sha: payload.sha, rev: payload.rev, fw, notify, now }).catch((err) =>
       console.error("claw sync pull write failed", err)
     );
   }

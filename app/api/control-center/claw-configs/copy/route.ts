@@ -7,6 +7,8 @@ import { applyClawConfigParts, type CCClawConfig } from "@/lib/dynamo/cc-claw-co
 import { createEvents } from "@/lib/dynamo/cc-machine-events";
 import { sanitizeDraft, type ClawConfigPart } from "@/lib/control-center/claw/config";
 import { clawConfigCopySchema } from "@/lib/control-center/claw/schemas";
+import { settingsSha } from "@/lib/control-center/claw/device";
+import { notifyClawConfig } from "@/lib/iot/claw-notify";
 
 /** Machines read or written at once. */
 const CONCURRENCY = 10;
@@ -56,5 +58,12 @@ export async function POST(req: Request) {
     return [];
   });
 
-  return NextResponse.json({ configs, missing, events });
+  // Boards only have something to apply when the board settings were copied.
+  const notify = parts.includes("settings")
+    ? await notifyClawConfig(
+        configs.map((c) => ({ machineId: c.machineId, sha: settingsSha(c.settings), rev: c.revision }))
+      )
+    : null;
+
+  return NextResponse.json({ configs, missing, events, notify });
 }

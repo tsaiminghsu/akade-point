@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { defaultDraft, factoryConfig } from "./config";
 import {
   DEVICE_OFFLINE_MS,
+  MQTT_FALLBACK_POLL_S,
   PULL_RECORD_INTERVAL_MS,
+  boardNotifyFrom,
+  clawConfigTopic,
   cleanFirmware,
   cyrb53,
   deliveryState,
@@ -85,16 +88,35 @@ describe("cleanFirmware", () => {
 
 describe("shouldRecordPull", () => {
   const now = 10_000_000;
-  const prev: ClawSync = { machineId: "m1", pulledAt: now - 1000, pulledSha: "aa", fw: "1.0" };
-  it("records the first pull, a new sha or a new firmware", () => {
-    expect(shouldRecordPull(null, "aa", undefined, now)).toBe(true);
-    expect(shouldRecordPull(prev, "bb", "1.0", now)).toBe(true);
-    expect(shouldRecordPull(prev, "aa", "1.1", now)).toBe(true);
+  const prev: ClawSync = { machineId: "m1", pulledAt: now - 1000, pulledSha: "aa", fw: "1.0", notify: "poll" };
+  const same = { sha: "aa", fw: "1.0", notify: "poll" as const };
+  it("records the first pull, a new sha, a new firmware or a change of notify", () => {
+    expect(shouldRecordPull(null, same, now)).toBe(true);
+    expect(shouldRecordPull(prev, { ...same, sha: "bb" }, now)).toBe(true);
+    expect(shouldRecordPull(prev, { ...same, fw: "1.1" }, now)).toBe(true);
+    expect(shouldRecordPull(prev, { ...same, notify: "mqtt" }, now)).toBe(true);
   });
   it("skips a repeat pull until the record interval passes", () => {
-    expect(shouldRecordPull(prev, "aa", "1.0", now)).toBe(false);
-    expect(shouldRecordPull(prev, "aa", undefined, now)).toBe(false);
-    expect(shouldRecordPull(prev, "aa", "1.0", now - 1000 + PULL_RECORD_INTERVAL_MS)).toBe(true);
+    expect(shouldRecordPull(prev, same, now)).toBe(false);
+    expect(shouldRecordPull(prev, { ...same, fw: undefined }, now)).toBe(false);
+    expect(shouldRecordPull(prev, same, now - 1000 + PULL_RECORD_INTERVAL_MS)).toBe(true);
+  });
+});
+
+describe("MQTT notices", () => {
+  it("uses one topic per machine", () => {
+    expect(clawConfigTopic("abc123")).toBe("claw/abc123/config");
+  });
+  it("reads the board's X-Notify header", () => {
+    expect(boardNotifyFrom("mqtt")).toBe("mqtt");
+    expect(boardNotifyFrom(" MQTT ")).toBe("mqtt");
+    expect(boardNotifyFrom(null)).toBe("poll");
+    expect(boardNotifyFrom("sms")).toBe("poll");
+  });
+  it("tells the board to poll slowly while it listens", () => {
+    const p = toDevicePayload(factoryConfig("m1"));
+    expect(p.pollMqtt).toBe(MQTT_FALLBACK_POLL_S);
+    expect(p.pollMqtt).toBeGreaterThan(p.poll);
   });
 });
 

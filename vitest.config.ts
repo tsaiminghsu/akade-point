@@ -12,6 +12,7 @@ export default defineConfig({
     include: [
       'lib/control-center/**/*.test.ts',
       'lib/dynamo/**/*.test.ts',
+      'lib/iot/**/*.test.ts',
       'store/**/*.test.ts',
       'components/**/__tests__/*.test.ts',
     ],

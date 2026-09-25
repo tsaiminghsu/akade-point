@@ -1,7 +1,9 @@
 // What a claw machine's ESP32 pulls, and how far the delivery has got.
 //
 // The board polls GET /api/device/machines/config with If-None-Match set to
-// the `sha` it last processed; a 304 means nothing changed. Only the board
+// the `sha` it last processed; a 304 means nothing changed. A board that also
+// listens on MQTT (claw/{machineId}/config) is told the moment a config is
+// saved and pulls right away, so it only needs a slow safety poll. Only the board
 // settings are sent: the rig (claw head, stock, chute) is hardware the
 // operator fits by hand, so a board has nothing to apply it to.
 //
@@ -14,6 +16,24 @@ import type { ClawConfig } from "./config";
 export const DEVICE_CONTRACT_VERSION = 1;
 /** How often the board asks for its config (s). Sent in every response, so it can be changed here. */
 export const DEVICE_POLL_S = 30;
+/**
+ * The poll while the board's MQTT session is up (s). Notices make changes
+ * arrive at once; this only catches one that was lost.
+ */
+export const MQTT_FALLBACK_POLL_S = 300;
+
+/** How the server rings boards when a config is saved (see lib/iot/claw-notify.ts). */
+export type ClawNotifyMode = "iot" | "mqtt" | "off";
+
+/** The topic a machine's board subscribes to for "your config changed" notices. */
+export const clawConfigTopic = (machineId: string) => `claw/${machineId}/config`;
+
+/** An MQTT notice: tiny on purpose; the board fetches the settings over HTTPS. */
+export interface ClawNotice {
+  v: typeof DEVICE_CONTRACT_VERSION;
+  sha: string;
+  rev: number;
+}
 /**
  * A pull rewrites `pulledAt` only when the stored one is at least this old,
  * or the config or firmware changed, so polling costs about one write per
@@ -56,6 +76,8 @@ export interface DeviceConfigPayload {
   sha: string;
   /** Seconds until the next pull. */
   poll: number;
+  /** Seconds until the next pull while the board's MQTT session is up. */
+  pollMqtt: number;
   /** Board settings in SETTING_DEFS order, in board units (枚, 秒, V, 段, levels). */
   settings: ClawSettings;
 }
@@ -68,6 +90,7 @@ export function toDevicePayload(config: ClawConfig): DeviceConfigPayload {
     rev: config.revision,
     sha: settingsSha(settings),
     poll: DEVICE_POLL_S,
+    pollMqtt: MQTT_FALLBACK_POLL_S,
     settings,
   };
 }
@@ -100,6 +123,11 @@ export interface ClawAck {
   t: number;
 }
 
+export type BoardNotify = "mqtt" | "poll";
+
+/** Read the board's X-Notify header: "mqtt" while it is subscribed, anything else means polling. */
+export const boardNotifyFrom = (header: string | null): BoardNotify => (header?.trim().toLowerCase() === "mqtt" ? "mqtt" : "poll");
+
 /** What the server knows about a machine's board, one row per machine. */
 export interface ClawSync {
   machineId: string;
@@ -108,6 +136,8 @@ export interface ClawSync {
   pulledSha?: string;
   pulledRevision?: number;
   fw?: string;
+  /** Whether the board had its MQTT session up at its last recorded pull. */
+  notify?: BoardNotify;
   /** Last config the board reported as applied. */
   appliedSha?: string;
   appliedRevision?: number;
@@ -116,9 +146,13 @@ export interface ClawSync {
   lastAck?: ClawAck;
 }
 
-export function shouldRecordPull(prev: ClawSync | null | undefined, sha: string, fw: string | undefined, now: number) {
+export function shouldRecordPull(
+  prev: ClawSync | null | undefined,
+  pull: { sha: string; fw?: string; notify: BoardNotify },
+  now: number
+) {
   if (!prev?.pulledAt) return true;
-  if (prev.pulledSha !== sha || (fw && prev.fw !== fw)) return true;
+  if (prev.pulledSha !== pull.sha || (pull.fw && prev.fw !== pull.fw) || prev.notify !== pull.notify) return true;
   return now - prev.pulledAt >= PULL_RECORD_INTERVAL_MS;
 }
 

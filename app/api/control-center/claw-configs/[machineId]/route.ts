@@ -6,6 +6,8 @@ import { deleteClawConfig, getClawConfig, saveClawConfig } from "@/lib/dynamo/cc
 import { createEvent } from "@/lib/dynamo/cc-machine-events";
 import { describeChange, diffDrafts, factoryConfig, hasChanges, sanitizeDraft } from "@/lib/control-center/claw/config";
 import { clawConfigPutSchema } from "@/lib/control-center/claw/schemas";
+import { settingsSha } from "@/lib/control-center/claw/device";
+import { notifyClawConfig } from "@/lib/iot/claw-notify";
 
 type Ctx = { params: { machineId: string } };
 
@@ -58,7 +60,13 @@ export async function PUT(req: Request, { params }: Ctx) {
     console.error("claw config event write failed", err);
     return null;
   });
-  return NextResponse.json({ config, event });
+  // Ring the board only when its settings changed; a rig-only save is nothing to apply.
+  const sha = settingsSha(config.settings);
+  const notify =
+    sha === settingsSha(prev.settings)
+      ? null
+      : await notifyClawConfig([{ machineId, sha, rev: config.revision }]);
+  return NextResponse.json({ config, event, notify });
 }
 
 /** Back to factory defaults: the row is removed. */
@@ -70,6 +78,12 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   if (!saved) return NextResponse.json({ config: factoryConfig(machineId), event: null });
 
   await deleteClawConfig(machineId);
+  const factory = factoryConfig(machineId);
+  const factorySha = settingsSha(factory.settings);
+  const notify =
+    factorySha === settingsSha(saved.settings)
+      ? null
+      : await notifyClawConfig([{ machineId, sha: factorySha, rev: 0 }]);
   const event = await createEvent({
     machineId,
     storeId: machine.storeId,
@@ -81,5 +95,5 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     console.error("claw config event write failed", err);
     return null;
   });
-  return NextResponse.json({ config: factoryConfig(machineId), event });
+  return NextResponse.json({ config: factory, event, notify });
 }
