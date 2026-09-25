@@ -127,7 +127,7 @@ export function BoardLinkDialog({ open, onOpenChange, machine, saved }: BoardLin
 
   return (
     <Dialog open={open} onOpenChange={(v) => !busy && onOpenChange(v)}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden sm:max-w-lg [&>*]:min-w-0">
         <DialogHeader>
           <DialogTitle>{t("boardLinkTitle", { name: machine.name })}</DialogTitle>
           <DialogDescription>{t("boardLinkDescription")}</DialogDescription>
