@@ -44,6 +44,7 @@ export const TABLES = {
   CC_VEHICLE_COMMANDS: "akade-cc-vehicle-commands",
   CC_VEHICLE_TELEMETRY: "akade-cc-vehicle-telemetry",
   CC_VEHICLE_MISSIONS: "akade-cc-vehicle-missions",
+  CC_CLAW_CONFIGS: "akade-cc-claw-configs",
 } as const;
 
 /**

@@ -1,7 +1,7 @@
 /**
  * Run once to create every DynamoDB table this app needs:
  *   akade-auth and akade-users (shared with the Akade Point app — creating
- *   them here is idempotent) plus the fourteen akade-cc-* tables.
+ *   them here is idempotent) plus the fifteen akade-cc-* tables.
  *
  * Usage:
  *   node scripts/create-tables.mjs
@@ -396,6 +396,14 @@ await createTable({
 // every list request gets permanently slower. See lib/dynamo/ttl.ts for the
 // horizons that stamp the expiresAt attribute. Vehicle telemetry (7 d) and the
 // command log (30 d) get the same treatment.
+// 17. akade-cc-claw-configs — one claw-machine board/rig config per machine
+await createTable({
+  TableName: "akade-cc-claw-configs",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [{ AttributeName: "machineId", AttributeType: "S" }],
+  KeySchema: [{ AttributeName: "machineId", KeyType: "HASH" }],
+});
+
 await enableTtl("akade-cc-machine-events", "expiresAt");
 await enableTtl("akade-cc-alerts", "expiresAt");
 await enableTtl("akade-cc-vehicle-telemetry", "expiresAt");

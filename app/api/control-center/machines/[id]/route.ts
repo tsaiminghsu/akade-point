@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminOrDevBypass } from "@/lib/session";
 import { deleteMachine, updateMachine } from "@/lib/dynamo/cc-machines";
+import { deleteClawConfig } from "@/lib/dynamo/cc-claw-configs";
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -35,6 +36,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  await deleteClawConfig(params.id);
   await deleteMachine(params.id);
   return NextResponse.json({ ok: true });
 }
