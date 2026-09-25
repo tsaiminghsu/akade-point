@@ -37,6 +37,13 @@ export const TABLES = {
   CC_MAINTENANCE_RECORDS: "akade-cc-maintenance-records",
   CC_STORE_SETTINGS: "akade-cc-store-settings",
   CC_LAYOUT_VERSIONS: "akade-cc-layout-versions",
+
+  // Vehicles module (drones / rovers via MissionPlanner + companion boards).
+  CC_VEHICLES: "akade-cc-vehicles",
+  CC_VEHICLE_TOKENS: "akade-cc-vehicle-tokens",
+  CC_VEHICLE_COMMANDS: "akade-cc-vehicle-commands",
+  CC_VEHICLE_TELEMETRY: "akade-cc-vehicle-telemetry",
+  CC_VEHICLE_MISSIONS: "akade-cc-vehicle-missions",
 } as const;
 
 /**

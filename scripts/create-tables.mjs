@@ -1,7 +1,7 @@
 /**
  * Run once to create every DynamoDB table this app needs:
  *   akade-auth and akade-users (shared with the Akade Point app — creating
- *   them here is idempotent) plus the nine akade-cc-* tables.
+ *   them here is idempotent) plus the fourteen akade-cc-* tables.
  *
  * Usage:
  *   node scripts/create-tables.mjs
@@ -302,10 +302,103 @@ await createTable({
   ],
 });
 
-// Live Mode appends telemetry every second, so these two tables need an expiry
-// or every list request gets permanently slower. See lib/dynamo/ttl.ts for the
-// horizons that stamp the expiresAt attribute.
+// 12. akade-cc-vehicles
+await createTable({
+  TableName: "akade-cc-vehicles",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "companionId", AttributeType: "S" },
+  ],
+  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "companion-index",
+      KeySchema: [{ AttributeName: "companionId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+});
+
+// 13. akade-cc-vehicle-tokens
+await createTable({
+  TableName: "akade-cc-vehicle-tokens",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "tokenId", AttributeType: "S" },
+    { AttributeName: "vehicleId", AttributeType: "S" },
+  ],
+  KeySchema: [{ AttributeName: "tokenId", KeyType: "HASH" }],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "vehicle-index",
+      KeySchema: [{ AttributeName: "vehicleId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+});
+
+// 14. akade-cc-vehicle-commands
+await createTable({
+  TableName: "akade-cc-vehicle-commands",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "vehicleId", AttributeType: "S" },
+    { AttributeName: "createdAt", AttributeType: "N" },
+  ],
+  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "vehicle-index",
+      KeySchema: [
+        { AttributeName: "vehicleId", KeyType: "HASH" },
+        { AttributeName: "createdAt", KeyType: "RANGE" },
+      ],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+});
+
+// 15. akade-cc-vehicle-telemetry (history; live state lives on the vehicle row)
+await createTable({
+  TableName: "akade-cc-vehicle-telemetry",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "vehicleId", AttributeType: "S" },
+    { AttributeName: "t", AttributeType: "N" },
+  ],
+  KeySchema: [
+    { AttributeName: "vehicleId", KeyType: "HASH" },
+    { AttributeName: "t", KeyType: "RANGE" },
+  ],
+});
+
+// 16. akade-cc-vehicle-missions
+await createTable({
+  TableName: "akade-cc-vehicle-missions",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "id", AttributeType: "S" },
+    { AttributeName: "vehicleId", AttributeType: "S" },
+  ],
+  KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: "vehicle-index",
+      KeySchema: [{ AttributeName: "vehicleId", KeyType: "HASH" }],
+      Projection: { ProjectionType: "ALL" },
+    },
+  ],
+});
+
+// Live Mode appends telemetry every second, so these tables need an expiry or
+// every list request gets permanently slower. See lib/dynamo/ttl.ts for the
+// horizons that stamp the expiresAt attribute. Vehicle telemetry (7 d) and the
+// command log (30 d) get the same treatment.
 await enableTtl("akade-cc-machine-events", "expiresAt");
 await enableTtl("akade-cc-alerts", "expiresAt");
+await enableTtl("akade-cc-vehicle-telemetry", "expiresAt");
+await enableTtl("akade-cc-vehicle-commands", "expiresAt");
 
 console.log("\n✅ All tables ready.");

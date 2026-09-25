@@ -14,6 +14,13 @@ export const EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
 /** Alerts: 90 days, so Analytics' resolution-rate history stays meaningful. */
 export const ALERT_TTL_SECONDS = 90 * 24 * 60 * 60;
 
+/** Vehicle telemetry history: 7 days. The live state lives on the vehicle row;
+ *  this table is only the recent flight-path window. */
+export const VEHICLE_TELEMETRY_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+/** Vehicle command log: 30 days. */
+export const VEHICLE_COMMAND_TTL_SECONDS = 30 * 24 * 60 * 60;
+
 /**
  * TTL attribute value (epoch **seconds**, as DynamoDB requires) derived from the
  * record's own domain time rather than "now", so a back-dated record expires
