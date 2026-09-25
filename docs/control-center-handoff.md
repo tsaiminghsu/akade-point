@@ -334,3 +334,16 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - 模擬器內文字維持繁中（主機板術語），頁面框架三語。
 
 **驗證（本 session）**：vitest 235／tsc／eslint／`next build` 皆通過。瀏覽器實測：編輯→儲存（rev 1、事件寫入）、第二台獨立設定、未儲存切換提示、`Ctrl+S`、複製到 2 台（含只複製 settings 時 rig 維持出廠）、409 衝突的覆蓋與載入最新、載入出廠值／放棄變更、機台抽屜深連結、手機版版面；API 的 400／404／409、數值夾限與 no-op 儲存。
+
+### 11.1 ESP32 下發（機台拉設定）
+
+完整文件：`docs/claw-machine-esp32.md`。機台 ESP32 以 `mt_` token 拉 `GET /api/device/machines/config`（If-None-Match／304），套用後 `POST .../config/ack`；設定頁每 5 秒輪詢 `GET /claw-configs/sync` 顯示下發狀態，「機台連線」對話框產生／撤銷 token。
+
+- 新表：`akade-cc-claw-sync`（pk machineId）、`akade-cc-machine-tokens`（pk tokenId，GSI `machine-index`）。共 17 張 `akade-cc-*`。
+- `lib/control-center/vehicles/token.ts` 的 `formatToken`／`parseToken` 多了 prefix 參數（預設 `vt`，載具行為不變）；機台用 `mt`，兩種 token 互不通用（有測試）。
+- 變更偵測用設定內容的 `settingsSha`（cyrb53，純 JS，前後端一致），不是 revision：只改 rig 的儲存不會觸發機台重套。
+- 拉取時 `pulledAt` 只在 sha／韌體變了或距上次滿 5 分鐘才寫（`PULL_RECORD_INTERVAL_MS`），離線判定 15 分鐘。
+- 同一結果重複 ack 只記一次事件（`config_applied`／`config_apply_failed`）。
+- 韌體 `firmware/esp32-claw-config/` 的 `claw_settings.h` 是 `SETTING_DEFS` 的 C++ 副本，`lib/control-center/claw/firmware.test.ts` 保證一致；改設定項目要兩邊一起改並更新韌體。
+- 韌體已用 esp32 core 2.0.17 toolchain 編譯（未連結、未燒錄）；原廠飛絡力板沒有資料介面，`board.cpp` 是整合點（LOG_ONLY／UART 範例）。
+- `scripts/claw-device-sim.mjs` 是虛擬機台，本 session 用它在瀏覽器驗證：已套用、等待拉取、套用失敗（重複回報不重複記事件）、重新產生與中斷連線後 401。

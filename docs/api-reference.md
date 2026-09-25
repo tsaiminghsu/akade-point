@@ -16,7 +16,7 @@
 | 碼 | 意義 |
 |:--|:--|
 | 400 | 請求格式錯誤（zod、空 patch、壞 JSON） |
-| 401 | 裝置端 token 無效／已撤銷 |
+| 401 | 裝置端 token（載具 `vt_`／機台 `mt_`）無效／已撤銷 |
 | 403 | 未登入或非管理員（正式環境） |
 | 404 | 資源不存在，或跨載具存取 |
 | 409 | 依賴衝突、指令已終結，或娃娃機設定的 revision 已被他人更新 |
@@ -61,6 +61,15 @@
 
 欄位定義見 [`vehicles-message-contract.md`](./vehicles-message-contract.md)。
 
+## 裝置端：娃娃機 ESP32（Bearer `mt_` machine token）
+
+| 方法 路徑 | Body／Header | 回應 |
+|:---|:---|:---|
+| `GET /device/machines/config` | `If-None-Match: "<sha>"`、`X-Firmware?` | **304**（沒變）或 `{ v, machineId, rev, sha, poll, settings }` + `ETag`；機台已刪 → 404 |
+| `POST /device/machines/config/ack` | `{ v:1, sha, rev, st: applied\|failed, code?, msg? }` | `{ ok: true }`；格式錯 → 400 |
+
+`vt_`（載具）與 `mt_`（機台）token 互不通用。詳見 [`claw-machine-esp32.md`](./claw-machine-esp32.md)。
+
 ---
 
 ## 管理端：娃娃機設定 Claw configs
@@ -74,6 +83,10 @@
 | `PUT /claw-configs/{machineId}` | `{ settings, rig, revision }`（revision = 編輯開始時的版本，0 = 從未儲存） | `{ config, event }`；revision 不符 → 409 `{ error, config }`（帶目前版本）；內容未變 → 200 不寫入 |
 | `DELETE /claw-configs/{machineId}` | — | `{ config, event }`（恢復出廠值） |
 | `POST /claw-configs/copy` | `{ settings, rig, parts: ["settings"\|"rig"], machineIds[]（≤200）, sourceMachineId? }` | `{ configs, missing, events }` |
+| `GET /claw-configs/sync` | — | `{ sync: ClawSync[] }`（各機台 ESP32 最後拉取／套用；從未連線的機台不在內） |
+| `GET /machines/{id}/token` | — | `{ tokens: [{ tokenId, label, createdAt, revokedAt }] }`（無雜湊） |
+| `POST /machines/{id}/token` | `{ label? }` | `{ token, tokenId, createdAt }`（明碼**僅此一次**，撤銷舊 token）；機台不存在 → 404 |
+| `DELETE /machines/{id}/token` | — | `{ ok, revoked }`（中斷連線） |
 
 `ClawConfig`：`{ machineId, settings, rig, revision, updatedAt, updatedBy }`。
 
@@ -85,7 +98,7 @@
 
 | 模組 | 端點 |
 |:---|:---|
-| Machines | `GET/POST /machines`、`PATCH/DELETE /machines/{id}`（`?storeId&groupId` 過濾；DELETE 連帶刪除娃娃機設定） |
+| Machines | `GET/POST /machines`、`PATCH/DELETE /machines/{id}`（`?storeId&groupId` 過濾；DELETE 連帶刪除娃娃機設定、同步紀錄並撤銷機台 token） |
 | Events | `GET /events`（`?limit&before&storeId&machineId`）、`POST /events`、`POST /events/batch`（≤100） |
 | Alerts | `GET /alerts`（同上）、`POST /alerts`、`POST /alerts/batch`、`PATCH /alerts/{id}`（status） |
 | Stores | `GET/POST /stores`、`PATCH/DELETE /stores/{id}`（DELETE 尚有機台 → 409） |

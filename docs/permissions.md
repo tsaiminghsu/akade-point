@@ -37,6 +37,7 @@
 | 儀表板 / 數據分析 / 歷史紀錄 | 讀 | 讀 | 讀 | 讀 |
 | 機台 Machines | 讀 | 讀 | 讀寫 | 讀寫 |
 | 娃娃機設定 Claw setup | 讀＋模擬試夾 | 讀＋模擬試夾 | 讀寫＋套用多台 | 讀寫＋套用多台 |
+| 娃娃機設定：機台連線（ESP32 token） | 看狀態 | 看狀態 | 看狀態 | 讀寫 |
 | 警報 Alerts | 讀 | 處理 | 處理 | 處理 |
 | 控制中心（平面圖編輯器） | 讀 | 讀 | 讀寫 | 讀寫 |
 | 載具 Vehicles（監控／指令／任務） | 讀 | 指令＋任務 | 指令＋任務 | 全部 |
@@ -54,10 +55,11 @@
 | 載具指令 POST、任務建立／更新／刪除／上傳 | operator |
 | 機台／門市／品牌／群組／設定／平面圖版本 寫入 | store-admin |
 | 娃娃機設定 PUT／DELETE／copy | store-admin |
+| 機台 ESP32 token 產生／撤銷 | system-admin |
 | 載具建立／編輯／刪除、token 產生 | system-admin |
 | 使用者授權（未來） | system-admin |
 
-裝置端 API（`/api/device/vehicles/**`）不屬於此矩陣，一律以 device token 驗證。
+裝置端 API（`/api/device/vehicles/**`、`/api/device/machines/**`）不屬於此矩陣，一律以 device token（`vt_`／`mt_`）驗證。
 
 ### 導入方式（建議）
 

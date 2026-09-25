@@ -11,6 +11,8 @@
 - 設定跟著**機台目錄裡的每一台**走，存在 DynamoDB，換電腦、換人都看得到。
 - 有儲存／放棄／載入出廠值、編輯衝突偵測、套用到多台機台，且每次變更寫入機台事件紀錄。
 
+設定存好後由機台上的 ESP32 **拉取套用**，設定頁顯示每台的下發狀態，見 [`claw-machine-esp32.md`](./claw-machine-esp32.md)。
+
 ## 使用方式
 
 1. 左側清單選機台（手機版為頂端下拉選單）。每列顯示版本、儲存時間、強／中／弱電壓與爪子；「出廠預設」表示從未儲存過。
@@ -25,6 +27,7 @@
 5. 工具列：
    - **載入出廠值**：把畫面換成出廠預設（仍需儲存才生效）。
    - **放棄變更**：回到這台機台最後儲存的版本。
+   - **機台連線**：產生／重新產生／撤銷這台 ESP32 的 Token，看下發狀態（最後連線、機台目前版本、韌體、最後回報）。
    - **套用到其他機台**：把這台**已儲存**的設定複製到勾選的機台（有未儲存變更時停用）。可選只複製「主機板設定」或「爪子、擺場商品、出貨口」，未勾的部分各機台保留原值。
    - **儲存**。
 6. 有未儲存的變更時切換機台會先詢問；關閉分頁會跳出瀏覽器的離開提示。
@@ -62,6 +65,8 @@
 | `config_change` | `夾娃娃機 #3 娃娃機設定已更新（第 2 版）：V1 強電壓 40.0 V→35.0 V、A2 下線長度 2.0 秒→2.5 秒；爪子` |
 | `config_change` | `夾娃娃機 #4 已從「夾娃娃機 #5」套用娃娃機設定（主機板設定，第 3 版）` |
 | `config_reset` | `夾娃娃機 #2 娃娃機設定已恢復出廠值`（僅 `DELETE` API 會產生） |
+| `config_applied` | `夾娃娃機 #3 主機板已套用娃娃機設定（第 3 版）`（機台回報） |
+| `config_apply_failed` | `夾娃娃機 #3 主機板套用娃娃機設定失敗（第 4 版）：BOARD_TIMEOUT …`（warning） |
 
 內容與已儲存版本相同的儲存不寫入、不記事件。
 
@@ -76,6 +81,10 @@
 | `PUT /claw-configs/{machineId}` | `{ settings, rig, revision }` | `{ config, event }`；revision 不符 → **409** `{ error, config: 目前版本 }`；機台不存在 → 404 |
 | `DELETE /claw-configs/{machineId}` | — | `{ config: 出廠值, event }`（刪除該列） |
 | `POST /claw-configs/copy` | `{ settings, rig, parts: ("settings"\|"rig")[], machineIds: string[]（≤200）, sourceMachineId? }` | `{ configs, missing, events }`；不存在的機台列在 `missing` |
+| `GET /claw-configs/sync` | — | `{ sync: ClawSync[] }`：各機台 ESP32 最後拉取／套用的狀態 |
+| `GET/POST/DELETE /machines/{id}/token` | POST `{ label? }` | 列出（無雜湊）／產生（明碼只此一次，撤銷舊的）／撤銷全部 |
+
+裝置端（ESP32）的 `GET /api/device/machines/config` 與 `POST /api/device/machines/config/ack` 見 [`claw-machine-esp32.md`](./claw-machine-esp32.md)。
 
 複製不檢查 revision（刻意覆蓋），但會讓目標的 revision +1，正在編輯該台的人儲存時會收到 409。
 
@@ -88,7 +97,13 @@
 | `components/control-center/claw-machine/ClawConfigsPageContent.tsx`、`CopyConfigDialog.tsx` | 頁面、工具列、清單、對話框 |
 | `lib/control-center/claw/config.ts`、`schemas.ts` | 設定正規化、比較、變更描述、zod（伺服器與前端共用，不 import 物理引擎） |
 | `lib/dynamo/cc-claw-configs.ts` | DAL（條件式寫入、部分複製） |
-| `store/useClawConfigsStore.ts` | zustand store |
+| `store/useClawConfigsStore.ts` | zustand store（含下發狀態每 5 秒輪詢、Token 操作） |
+| `lib/control-center/claw/device.ts` | 下發契約：`settingsSha`、payload、ETag、下發狀態判定（純函式，前後端共用） |
+| `lib/machine-auth.ts`、`lib/dynamo/cc-{machine-tokens,claw-sync}.ts` | 機台 Token 驗證、同步紀錄 |
+| `app/api/device/machines/config/**` | 裝置端 API |
+| `components/control-center/claw-machine/{BoardLinkDialog,DeliveryStatus}.tsx` | 機台連線對話框、狀態標示 |
+| `firmware/esp32-claw-config/` | ESP32 韌體範例 |
+| `scripts/claw-device-sim.mjs` | 虛擬機台（無硬體時測下發） |
 | `app/api/control-center/claw-configs/**` | API |
 
 ### 與 akade-point 版本同步

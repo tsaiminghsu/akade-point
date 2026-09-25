@@ -17,7 +17,7 @@ same two DynamoDB tables**:
 | `akade-auth` | NextAuth adapter store, plus the runtime LINE channel credentials (`lib/auth/lineRuntimeConfig.ts`) |
 | `akade-users` | User profiles; the `isAdmin` flag on a user is what gates this app |
 
-The fifteen `akade-cc-*` tables belong to this app alone. Grant an admin with
+The seventeen `akade-cc-*` tables belong to this app alone. Grant an admin with
 `node scripts/set-admin.mjs`. The **editor UI** for LINE channel credentials
 lives in the Akade Point app's `/admin/line-auth-settings`; this app only reads
 what that page writes.
@@ -32,8 +32,11 @@ outside the shell.
 **Claw machine setup** (`claw-machines`) keeps one 飛絡力-style board config
 plus claw / stock / chute per machine in `akade-cc-claw-configs`, with a 3D
 simulator to try it (three.js + Rapier, copied from akade-point's
-`/games/claw-machine`), revision-checked saves, and copy-to-many. See
-`docs/claw-machine-configs.md`.
+`/games/claw-machine`), revision-checked saves, and copy-to-many. Each
+machine's ESP32 pulls its board settings from `/api/device/machines/config`
+(machine device token `mt_…`, ETag/304) and reports back; reference firmware
+is in `firmware/esp32-claw-config/`. See `docs/claw-machine-configs.md` and
+`docs/claw-machine-esp32.md`.
 
 The **Vehicles** module (drones/rovers via MissionPlanner + companion boards)
 adds device-side routes under `/api/device/vehicles/**` — authenticated by a
@@ -51,7 +54,7 @@ The device-token check (`requireDeviceToken`) has no such bypass.
 
 User- and integrator-facing docs live in `docs/`: `user-guide.md`,
 `permissions.md` (role matrix, not yet implemented), `api-reference.md`,
-`claw-machine-configs.md`, and the
+`claw-machine-configs.md`, `claw-machine-esp32.md`, and the
 `vehicles-*.md` set (overview, message contract, data model, security, IoT
 provisioning, companion setup, local dev & verification) plus
 `companion-esp32.md`.
