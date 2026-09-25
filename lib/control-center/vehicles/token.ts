@@ -27,11 +27,20 @@ export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-/** Parses a bearer token into its id and secret, or null if malformed. */
+/**
+ * Parses a bearer token into its id and secret, or null if malformed. The
+ * secret is base64url and can itself contain "_", so we split on only the first
+ * two underscores: prefix, tokenId (a cuid2, which never contains "_"), then
+ * the rest is the secret verbatim.
+ */
 export function parseToken(token: string): { tokenId: string; secret: string } | null {
-  const parts = token.split("_");
-  if (parts.length !== 3) return null;
-  const [prefix, tokenId, secret] = parts;
+  const first = token.indexOf("_");
+  if (first === -1) return null;
+  const second = token.indexOf("_", first + 1);
+  if (second === -1) return null;
+  const prefix = token.slice(0, first);
+  const tokenId = token.slice(first + 1, second);
+  const secret = token.slice(second + 1);
   if (prefix !== PREFIX || !tokenId || !secret) return null;
   return { tokenId, secret };
 }

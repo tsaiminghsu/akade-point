@@ -9,12 +9,21 @@ describe("token", () => {
     expect(parseToken(token)).toEqual({ tokenId: "tok123", secret: "secretpart" });
   });
 
+  it("keeps a base64url secret that contains underscores intact", () => {
+    // Real secrets are base64url and can contain "_" and "-".
+    const secret = "W90dX1VMSw9BRhds11giSnmzHkabfn1v_cd2BQUlv-4";
+    const token = formatToken("cuid2id", secret);
+    expect(parseToken(token)).toEqual({ tokenId: "cuid2id", secret });
+    expect(hashToken(token)).toBe(hashToken(formatToken("cuid2id", secret)));
+  });
+
   it("rejects malformed tokens", () => {
     expect(parseToken("nope")).toBeNull();
     expect(parseToken("vt_only")).toBeNull();
     expect(parseToken("xx_a_b")).toBeNull();
     expect(parseToken("vt__b")).toBeNull();
-    expect(parseToken("vt_a_b_c")).toBeNull();
+    // "vt_a_b_c" is now VALID: tokenId "a", secret "b_c".
+    expect(parseToken("vt_a_b_c")).toEqual({ tokenId: "a", secret: "b_c" });
   });
 
   it("hashes deterministically and differs by input", () => {
