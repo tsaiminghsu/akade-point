@@ -1,0 +1,22 @@
+# systemd unit for the Akade vehicle companion.
+# Install:
+#   sudo cp deploy/vehicle-companion.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now vehicle-companion
+# Logs: journalctl -u vehicle-companion -f
+
+[Unit]
+Description=Akade IoT Control Center vehicle companion
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/vehicle-companion
+ExecStart=/opt/vehicle-companion/.venv/bin/python -m vehicle_companion --config /etc/vehicle-companion/companion.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

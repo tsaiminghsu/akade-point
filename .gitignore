@@ -38,3 +38,11 @@ next-env.d.ts
 # DynamoDB Local (offline dev — see scripts/start-dynamodb-local.mjs)
 /.dynamodb-local/
 /.dynamodb-local-data/
+
+# Vehicle companion: local config holds a device token; venv and certs are local
+/companion/companion.toml
+/companion/companion.local.toml
+/companion/.venv/
+/companion/**/__pycache__/
+/companion/certs/
+*.egg-info/

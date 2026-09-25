@@ -1,0 +1,34 @@
+# Akade IoT Control Center — companion configuration.
+# Copy to companion.toml and fill in. Generate vehicle_id + token in the app:
+# Vehicles → (your vehicle) → Setup tab → Generate token.
+
+vehicle_id = "REPLACE_WITH_VEHICLE_ID"
+api_base = "https://your-control-center.example.com"
+token = "vt_xxx_yyy"
+
+# "http"  — HTTPS only; commands arrive in the telemetry response (local/dev,
+#           or any deployment without AWS IoT Core).
+# "iot"   — also subscribe to AWS IoT Core MQTT for low-latency command push.
+transport = "http"
+
+# How the companion reaches the flight controller / SITL.
+#   Pixhawk over USB:  "/dev/ttyACM0"  (add baud in code if serial)
+#   Pixhawk over UART: "/dev/serial0"
+#   SITL / MAVProxy:   "udpin:127.0.0.1:14550"
+mavlink_url = "udpin:127.0.0.1:14550"
+
+source_system = 253
+telemetry_interval_s = 1.0
+history_every_s = 5.0
+
+# UDP endpoints to also receive the MAVLink stream — e.g. MissionPlanner on a
+# laptop. Leave empty to disable fan-out.
+forward_udp = ["127.0.0.1:14551"]
+
+# Only used when transport = "iot".
+[mqtt]
+endpoint = "xxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com"
+companion_id = "sitl-copter"   # must equal the vehicle's companionId / IoT Thing name
+cert = "/etc/vehicle-companion/certs/device.pem.crt"
+key = "/etc/vehicle-companion/certs/private.pem.key"
+ca = "/etc/vehicle-companion/certs/AmazonRootCA1.pem"
