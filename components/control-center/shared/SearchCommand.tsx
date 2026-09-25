@@ -6,6 +6,7 @@ import {
   BarChart3,
   HardDrive,
   History as HistoryIcon,
+  Joystick,
   LayoutDashboard,
   MonitorSmartphone,
   Plane,
@@ -90,6 +91,9 @@ export function SearchCommand({ open, onOpenChange, onSelectMachine }: SearchCom
           </CommandItem>
           <CommandItem value="machines" onSelect={() => go(`${ROOT}/machines`)}>
             <HardDrive className="h-4 w-4" /> {tSidebar("machines")}
+          </CommandItem>
+          <CommandItem value="claw machine setup board" onSelect={() => go(`${ROOT}/claw-machines`)}>
+            <Joystick className="h-4 w-4" /> {tSidebar("clawMachines")}
           </CommandItem>
           <CommandItem value="vehicles" onSelect={() => go(`${ROOT}/vehicles`)}>
             <Plane className="h-4 w-4" /> {tSidebar("vehicles")}

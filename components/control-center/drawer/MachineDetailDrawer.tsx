@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Cpu, MapPin, Radio, Tag } from "lucide-react";
+import { Cpu, Joystick, MapPin, Radio, Tag } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -13,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/control-center/shared/StatusBadge";
 // This drawer is mounted on every Control Center route, so a static import
 // would pull the whole charting library into the shared shell chunk even on
@@ -68,6 +70,14 @@ export function MachineDetailDrawer() {
                   <Radio className="h-3 w-3" /> {group?.name}
                 </span>
               </SheetDescription>
+              <Button asChild variant="outline" size="sm" className="mt-2 self-start">
+                <Link
+                  href={`/iot-control-center/claw-machines?machine=${encodeURIComponent(machine.id)}`}
+                  onClick={closeMachineDrawer}
+                >
+                  <Joystick className="mr-1.5 h-4 w-4" /> {t("clawConfig")}
+                </Link>
+              </Button>
             </SheetHeader>
 
             <div className="p-4">
