@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
-import { Copy, Joystick, RotateCcw, Save, Search, Undo2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Copy, Cpu, Joystick, RotateCcw, Save, Search, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -34,10 +34,14 @@ import {
   type ClawRig,
 } from "@/lib/control-center/claw/config";
 import type { ClawSettings } from "./game/settings";
+import type { ClawSync } from "@/lib/control-center/claw/device";
 import type { Machine } from "@/lib/control-center/types";
 import { useClawConfigsStore } from "@/store/useClawConfigsStore";
 import { useMachinesStore } from "@/store/useMachinesStore";
+import { BoardLinkDialog } from "./BoardLinkDialog";
 import { CopyConfigDialog } from "./CopyConfigDialog";
+import { DeliveryBadge, DeliveryIcon } from "./DeliveryStatus";
+import { useRelativeTime } from "./useRelativeTime";
 
 // three.js + Rapier are large; keep them out of the page chunk so the machine
 // list shows while the simulator loads.
@@ -45,22 +49,6 @@ const ClawBench = dynamic(() => import("./ClawBench"), {
   ssr: false,
   loading: () => <div className="h-full w-full animate-pulse bg-[#0b0718]" />,
 });
-
-export function useRelativeTime() {
-  const t = useTranslations("ClawConfigs");
-  const locale = useLocale();
-  return useCallback(
-    (ts: number) => {
-      const mins = Math.round((Date.now() - ts) / 60000);
-      if (mins < 1) return t("justNow");
-      if (mins < 60) return t("minutesAgo", { mins });
-      const hours = Math.round(mins / 60);
-      if (hours < 24) return t("hoursAgo", { hours });
-      return new Date(ts).toLocaleDateString(locale, { month: "2-digit", day: "2-digit" });
-    },
-    [t, locale]
-  );
-}
 
 export default function ClawConfigsPageContent() {
   const t = useTranslations("ClawConfigs");
@@ -89,9 +77,15 @@ export default function ClawConfigsPageContent() {
   const [pendingSwitch, setPendingSwitch] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ClawConfig | null>(null);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const sync = useClawConfigsStore((s) => s.sync);
 
   useEffect(() => {
-    void useClawConfigsStore.getState().hydrate();
+    const store = useClawConfigsStore.getState();
+    void store.hydrate();
+    // Delivery status comes from the boards, so keep it fresh while the page is open.
+    store.startSyncPolling();
+    return () => store.stopSyncPolling();
   }, []);
 
   const storeName = useMemo(() => new Map(stores.map((s) => [s.id, s.name])), [stores]);
@@ -270,6 +264,7 @@ export default function ClawConfigsPageContent() {
                 machine={m}
                 storeName={storeFilter === "all" ? storeName.get(m.storeId) : undefined}
                 config={configs[m.id]}
+                sync={sync[m.id]}
                 selected={m.id === selectedId}
                 dirty={m.id === selectedId && dirty}
                 onPick={pick}
@@ -284,8 +279,8 @@ export default function ClawConfigsPageContent() {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:px-4">
-            <div className="w-full lg:hidden">
+          <div className="shrink-0 space-y-1.5 border-b border-border px-3 py-2 sm:px-4">
+            <div className="lg:hidden">
               <Select value={selectedId ?? ""} onValueChange={pick}>
                 <SelectTrigger aria-label={t("selectMachine")}>
                   <SelectValue placeholder={t("selectMachine")} />
@@ -300,49 +295,65 @@ export default function ClawConfigsPageContent() {
               </Select>
             </div>
             {machine && (
-              <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 {/* On phones the select above already names the machine. */}
-                <p className="hidden items-center gap-2 truncate text-sm font-medium text-foreground lg:flex">
+                <p className="hidden min-w-0 flex-1 items-center gap-2 text-sm font-medium text-foreground lg:flex">
                   <StatusDot status={machine.status} />
-                  <span className="truncate">{machine.name}</span>
-                  <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                  <span className="max-w-[60%] truncate">{machine.name}</span>
+                  <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">
                     {storeName.get(machine.storeId)} · {machine.deviceId}
                   </span>
                 </p>
-                <p className="text-xs text-muted-foreground" aria-live="polite">
-                  {status}
+                {/* Secondary actions go icon-only when the row gets narrow. */}
+                <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                  <Button variant="ghost" size="sm" onClick={loadFactory} aria-label={t("factory")} title={t("factory")}>
+                    <RotateCcw className="h-4 w-4 2xl:mr-1.5" /> <span className="hidden 2xl:inline">{t("factory")}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={discard}
+                    disabled={!dirty || saving}
+                    aria-label={t("discard")}
+                    title={t("discard")}
+                  >
+                    <Undo2 className="h-4 w-4 2xl:mr-1.5" /> <span className="hidden 2xl:inline">{t("discard")}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLinkOpen(true)}
+                    aria-label={t("boardLink")}
+                    title={t("boardLink")}
+                  >
+                    <Cpu className="h-4 w-4 xl:mr-1.5" /> <span className="hidden xl:inline">{t("boardLink")}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCopyOpen(true)}
+                    disabled={dirty || machines.length < 2}
+                    aria-label={t("copyTo")}
+                    title={dirty ? t("copyNeedsSave") : t("copyTo")}
+                  >
+                    <Copy className="h-4 w-4 xl:mr-1.5" /> <span className="hidden xl:inline">{t("copyTo")}</span>
+                  </Button>
+                  <Button size="sm" onClick={() => void save()} disabled={!dirty || saving}>
+                    <Save className="mr-1.5 h-4 w-4" /> {saving ? t("saving") : t("save")}
+                  </Button>
+                </div>
+                <p
+                  className="flex w-full flex-wrap items-center gap-x-2 text-xs text-muted-foreground"
+                  aria-live="polite"
+                >
+                  <span>{status}</span>
+                  {base && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <DeliveryBadge savedSettings={base.settings} sync={sync[machine.id]} />
+                    </>
+                  )}
                 </p>
-              </div>
-            )}
-            {machine && (
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Icon-only below sm, so the toolbar stays one row on a phone. */}
-                <Button variant="ghost" size="sm" onClick={loadFactory} aria-label={t("factory")} title={t("factory")}>
-                  <RotateCcw className="h-4 w-4 sm:mr-1.5" /> <span className="hidden sm:inline">{t("factory")}</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={discard}
-                  disabled={!dirty || saving}
-                  aria-label={t("discard")}
-                  title={t("discard")}
-                >
-                  <Undo2 className="h-4 w-4 sm:mr-1.5" /> <span className="hidden sm:inline">{t("discard")}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCopyOpen(true)}
-                  disabled={dirty || machines.length < 2}
-                  aria-label={t("copyTo")}
-                  title={dirty ? t("copyNeedsSave") : t("copyTo")}
-                >
-                  <Copy className="h-4 w-4 sm:mr-1.5" /> <span className="hidden sm:inline">{t("copyTo")}</span>
-                </Button>
-                <Button size="sm" onClick={() => void save()} disabled={!dirty || saving}>
-                  <Save className="mr-1.5 h-4 w-4" /> {saving ? t("saving") : t("save")}
-                </Button>
               </div>
             )}
           </div>
@@ -410,6 +421,10 @@ export default function ClawConfigsPageContent() {
       </AlertDialog>
 
       {machine && base && (
+        <BoardLinkDialog open={linkOpen} onOpenChange={setLinkOpen} machine={machine} saved={base} />
+      )}
+
+      {machine && base && (
         <CopyConfigDialog
           open={copyOpen}
           onOpenChange={setCopyOpen}
@@ -421,10 +436,14 @@ export default function ClawConfigsPageContent() {
   );
 }
 
+/** Settings of a machine that was never saved; one object, so DeliveryIcon's memo holds. */
+const FACTORY_SETTINGS = defaultDraft().settings;
+
 function MachineRow({
   machine,
   storeName,
   config,
+  sync,
   selected,
   dirty,
   onPick,
@@ -432,6 +451,7 @@ function MachineRow({
   machine: Machine;
   storeName?: string;
   config?: ClawConfig;
+  sync?: ClawSync;
   selected: boolean;
   dirty: boolean;
   onPick: (id: string) => void;
@@ -456,6 +476,7 @@ function MachineRow({
             {machine.name}
           </span>
           {dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-label={t("statusDirty")} />}
+          <DeliveryIcon savedSettings={config?.settings ?? FACTORY_SETTINGS} sync={sync} />
         </span>
         <span className="mt-0.5 block truncate pl-4 text-xs text-muted-foreground">
           {storeName ? `${storeName} · ` : ""}

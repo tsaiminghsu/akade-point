@@ -3,8 +3,19 @@ import { toast } from "sonner";
 
 import { apiRequest } from "@/lib/control-center/apiClient";
 import { factoryConfig, type ClawConfig, type ClawConfigPart, type ClawDraft } from "@/lib/control-center/claw/config";
+import type { ClawSync } from "@/lib/control-center/claw/device";
 import type { MachineEvent } from "@/lib/control-center/types";
 import { useMachinesStore } from "./useMachinesStore";
+
+export interface MachineTokenInfo {
+  tokenId: string;
+  label: string;
+  createdAt: number;
+  revokedAt: number | null;
+}
+
+/** How often the setup page re-reads what the boards pulled and applied. */
+export const SYNC_POLL_MS = 5000;
 
 export type SaveResult =
   | { ok: true; config: ClawConfig }
@@ -31,9 +42,20 @@ interface ClawConfigsState {
     machineIds: string[],
     sourceMachineId?: string
   ) => Promise<{ copied: number; missing: number } | null>;
+
+  /** What each machine's board last pulled and applied, by machineId. */
+  sync: Record<string, ClawSync>;
+  refreshSync: () => Promise<void>;
+  startSyncPolling: () => void;
+  stopSyncPolling: () => void;
+  listTokens: (machineId: string) => Promise<MachineTokenInfo[] | null>;
+  /** Issue the board token (plaintext returned once); revokes the old ones. */
+  issueToken: (machineId: string, label?: string) => Promise<{ token: string; tokenId: string; createdAt: number } | null>;
+  revokeTokens: (machineId: string) => Promise<number | null>;
 }
 
 let hydrateInflight: Promise<void> | null = null;
+let syncTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Show config events in the machine drawer and history without a reload. */
 function recordEvents(events: (MachineEvent | null | undefined)[]) {
@@ -133,5 +155,55 @@ export const useClawConfigsStore = create<ClawConfigsState>()((set, get) => ({
     });
     recordEvents(res.events);
     return { copied: res.configs.length, missing: res.missing.length };
+  },
+
+  sync: {},
+
+  refreshSync: async () => {
+    const res = await apiRequest<{ sync: ClawSync[] }>("/api/control-center/claw-configs/sync", undefined, {
+      silent: true,
+    });
+    if (!res) return;
+    const sync: Record<string, ClawSync> = {};
+    for (const row of res.sync) sync[row.machineId] = row;
+    // Most polls change nothing; don't re-render the page for those.
+    if (JSON.stringify(sync) !== JSON.stringify(get().sync)) set({ sync });
+  },
+
+  startSyncPolling: () => {
+    if (syncTimer) return;
+    void get().refreshSync();
+    syncTimer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void get().refreshSync();
+    }, SYNC_POLL_MS);
+  },
+
+  stopSyncPolling: () => {
+    if (syncTimer) clearInterval(syncTimer);
+    syncTimer = null;
+  },
+
+  listTokens: async (machineId) => {
+    const res = await apiRequest<{ tokens: MachineTokenInfo[] }>(
+      `/api/control-center/machines/${encodeURIComponent(machineId)}/token`,
+      undefined,
+      { silent: true }
+    );
+    return res?.tokens ?? null;
+  },
+
+  issueToken: async (machineId, label) =>
+    apiRequest<{ token: string; tokenId: string; createdAt: number }>(
+      `/api/control-center/machines/${encodeURIComponent(machineId)}/token`,
+      { method: "POST", body: JSON.stringify(label ? { label } : {}) }
+    ),
+
+  revokeTokens: async (machineId) => {
+    const res = await apiRequest<{ ok: true; revoked: number }>(
+      `/api/control-center/machines/${encodeURIComponent(machineId)}/token`,
+      { method: "DELETE" }
+    );
+    return res ? res.revoked : null;
   },
 }));
