@@ -307,3 +307,30 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 **權限現況**：仍只有 `isAdmin`；`requireVehicleAccess(action)` 是未來角色的唯一插入點；角色矩陣見 `docs/permissions.md`（尚未實作）。
 
 **待補驗證**：實機／SITL 的完整飛行序列與任務往返、MissionPlanner 同時連線（本 session 已用 curl 模擬 companion 驗證全部 API 與 UI 的指令流程）。
+
+## 11. 娃娃機設定模組（多台機台各自保存）
+
+於 `feat/claw-machine-configs` 分支新增（疊在 `feat/vehicles-module` 之上）。完整文件：`docs/claw-machine-configs.md`。
+
+**做什麼**：把 akade-point `/games/claw-machine` 的模擬器與飛絡力 TK08 式主機板設定搬進來，改成**每台機台一份設定**存在 DynamoDB（原版只有一台，存 localStorage）。路由 `/iot-control-center/claw-machines`，機台抽屜有入口按鈕（`?machine=<id>`）。
+
+**新增檔案**：
+- 模擬器快照：`components/control-center/claw-machine/game/**`（含原測試，vitest include 已加 `components/**/__tests__/*.test.ts`）
+- 受控包裝：`ClawBench.tsx`（取代 `ClawMachineGame.tsx`）；頁面 `ClawConfigsPageContent.tsx`、`CopyConfigDialog.tsx`
+- 純模組＋測試：`lib/control-center/claw/{config,schemas}.ts`（`config.test.ts` 19 案例）
+- DAL：`lib/dynamo/cc-claw-configs.ts`；routes：`app/api/control-center/claw-configs/**`
+- store：`store/useClawConfigsStore.ts`
+
+**新表**：`akade-cc-claw-configs`（pk `machineId`）。`create-tables.mjs` 已加。
+
+**新依賴**：`three@0.184`、`@react-three/fiber@8`、`@react-three/drei@9`（React 18 相容版；akade-point 用 fiber 9/drei 10）、`@dimforge/rapier3d-compat@0.19`、`@types/three`。
+
+**不變量／陷阱**：
+- 伺服器端不得 import `game/clawSim.ts`／`physics.ts`（會把 Rapier 打包進 API route）。出貨口 sanitizer 因此拆到 `game/chute.ts`；`lib/control-center/claw/config.ts` 只 import `settings`／`claws`／`items`／`chute`。build 後已確認 route bundle 無 rapier。
+- 遊戲的 `isClawType()` 用 `v in STYLES`，會接受 `"constructor"` 等繼承鍵；API 輸入改用 `CLAW_TYPES.find` 判斷（有測試）。
+- 模擬器以 `key={machineId:benchKey}` 重建：換機台、放棄變更、載入出廠值、載入他人版本都 bump `benchKey`。儲存成功時**不要**換掉 draft 物件，否則模擬器會對未變的 chute／stock 重新套用（出貨口碰撞體重建）。
+- 儲存帶 `revision` 做條件式寫入（0 = `attribute_not_exists`），409 帶回目前版本；複製不檢查 revision 但會 +1。選機台時一律重新 GET 該台設定。
+- 鍵盤操作只在焦點位於模擬器內或 body 時生效，避免吃掉頁面其他按鈕／對話框的按鍵；`Ctrl/Cmd+S` 由頁面處理。
+- 模擬器內文字維持繁中（主機板術語），頁面框架三語。
+
+**驗證（本 session）**：vitest 235／tsc／eslint／`next build` 皆通過。瀏覽器實測：編輯→儲存（rev 1、事件寫入）、第二台獨立設定、未儲存切換提示、`Ctrl+S`、複製到 2 台（含只複製 settings 時 rig 維持出廠）、409 衝突的覆蓋與載入最新、載入出廠值／放棄變更、機台抽屜深連結、手機版版面；API 的 400／404／409、數值夾限與 no-op 儲存。

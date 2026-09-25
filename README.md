@@ -17,7 +17,7 @@ same two DynamoDB tables**:
 | `akade-auth` | NextAuth adapter store, plus the runtime LINE channel credentials (`lib/auth/lineRuntimeConfig.ts`) |
 | `akade-users` | User profiles; the `isAdmin` flag on a user is what gates this app |
 
-The nine `akade-cc-*` tables belong to this app alone. Grant an admin with
+The fifteen `akade-cc-*` tables belong to this app alone. Grant an admin with
 `node scripts/set-admin.mjs`. The **editor UI** for LINE channel credentials
 lives in the Akade Point app's `/admin/line-auth-settings`; this app only reads
 what that page writes.
@@ -25,8 +25,15 @@ what that page writes.
 ## Routes
 
 `/` redirects to `/iot-control-center`, which holds dashboard, `machines`,
-`vehicles`, `stores`, `alerts`, `analytics`, `history`, `editor` (floor-plan)
-and `settings` / `users`. `/login` is a LINE sign-in page outside the shell.
+`claw-machines`, `vehicles`, `stores`, `alerts`, `analytics`, `history`,
+`editor` (floor-plan) and `settings` / `users`. `/login` is a LINE sign-in page
+outside the shell.
+
+**Claw machine setup** (`claw-machines`) keeps one 飛絡力-style board config
+plus claw / stock / chute per machine in `akade-cc-claw-configs`, with a 3D
+simulator to try it (three.js + Rapier, copied from akade-point's
+`/games/claw-machine`), revision-checked saves, and copy-to-many. See
+`docs/claw-machine-configs.md`.
 
 The **Vehicles** module (drones/rovers via MissionPlanner + companion boards)
 adds device-side routes under `/api/device/vehicles/**` — authenticated by a
@@ -43,7 +50,8 @@ The device-token check (`requireDeviceToken`) has no such bypass.
 ## Documentation
 
 User- and integrator-facing docs live in `docs/`: `user-guide.md`,
-`permissions.md` (role matrix, not yet implemented), `api-reference.md`, and the
+`permissions.md` (role matrix, not yet implemented), `api-reference.md`,
+`claw-machine-configs.md`, and the
 `vehicles-*.md` set (overview, message contract, data model, security, IoT
 provisioning, companion setup, local dev & verification) plus
 `companion-esp32.md`.
@@ -78,6 +86,6 @@ cookie (`i18n/request.ts`); the appearance settings page sets it.
 
 ```bash
 npm run typecheck    # tsc --noEmit
-npm test             # vitest — geometry, simulation, batching, stores
+npm test             # vitest — geometry, simulation, batching, stores, claw sim
 npm run build
 ```

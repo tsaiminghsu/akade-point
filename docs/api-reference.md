@@ -19,7 +19,7 @@
 | 401 | 裝置端 token 無效／已撤銷 |
 | 403 | 未登入或非管理員（正式環境） |
 | 404 | 資源不存在，或跨載具存取 |
-| 409 | 依賴衝突，或指令已終結 |
+| 409 | 依賴衝突、指令已終結，或娃娃機設定的 revision 已被他人更新 |
 | 413 | 平面圖版本 payload 過大 |
 | 500 | 未攔截錯誤 |
 
@@ -63,13 +63,29 @@
 
 ---
 
+## 管理端：娃娃機設定 Claw configs
+
+一台機台一份設定（主機板 `settings` + `rig`：爪子、擺場商品、出貨口）。數值由伺服器夾到合法範圍；未儲存過的機台回出廠值（`revision: 0`）。細節見 [`claw-machine-configs.md`](./claw-machine-configs.md)。
+
+| 方法 路徑 | Body | 回應 |
+|:---|:---|:---|
+| `GET /claw-configs` | — | `{ configs: ClawConfig[] }`（只含儲存過的） |
+| `GET /claw-configs/{machineId}` | — | `{ config }`；機台不存在 → 404 |
+| `PUT /claw-configs/{machineId}` | `{ settings, rig, revision }`（revision = 編輯開始時的版本，0 = 從未儲存） | `{ config, event }`；revision 不符 → 409 `{ error, config }`（帶目前版本）；內容未變 → 200 不寫入 |
+| `DELETE /claw-configs/{machineId}` | — | `{ config, event }`（恢復出廠值） |
+| `POST /claw-configs/copy` | `{ settings, rig, parts: ["settings"\|"rig"], machineIds[]（≤200）, sourceMachineId? }` | `{ configs, missing, events }` |
+
+`ClawConfig`：`{ machineId, settings, rig, revision, updatedAt, updatedBy }`。
+
+---
+
 ## 管理端：既有模組（摘要）
 
 以下模組沿用相同慣例（403／400／409／500，PATCH 空 body → 400）。詳細欄位見各自的 zod schema。
 
 | 模組 | 端點 |
 |:---|:---|
-| Machines | `GET/POST /machines`、`PATCH/DELETE /machines/{id}`（`?storeId&groupId` 過濾） |
+| Machines | `GET/POST /machines`、`PATCH/DELETE /machines/{id}`（`?storeId&groupId` 過濾；DELETE 連帶刪除娃娃機設定） |
 | Events | `GET /events`（`?limit&before&storeId&machineId`）、`POST /events`、`POST /events/batch`（≤100） |
 | Alerts | `GET /alerts`（同上）、`POST /alerts`、`POST /alerts/batch`、`PATCH /alerts/{id}`（status） |
 | Stores | `GET/POST /stores`、`PATCH/DELETE /stores/{id}`（DELETE 尚有機台 → 409） |
