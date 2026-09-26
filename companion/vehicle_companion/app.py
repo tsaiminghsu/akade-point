@@ -12,6 +12,7 @@ from .clock import Clock
 from .config import Config
 from .links.cloud import CloudLink
 from .links.direct import DirectServer
+from .links.video import VideoControl
 from .mav.command import CommandClient
 from .mav.connection import MavConnection
 from .mav.heartbeat import GcsHeartbeat
@@ -50,6 +51,7 @@ class Companion:
     heartbeat: GcsHeartbeat
     manual: ManualDrive
     direct: Optional[DirectServer] = None
+    video: Optional[VideoControl] = None
     tlog: Optional[TlogWriter] = None
 
 
@@ -84,6 +86,7 @@ def build(config: Config) -> Companion:
         return cloud.operator_present or bool(direct and direct.operator_present)
 
     heartbeat = GcsHeartbeat(conn, config.gcs_heartbeat, operator_present=operator_present)
+    video = VideoControl(config.video.api_url, config.video.path) if config.video.enabled else None
     builder = StateBuilder(
         conn,
         status,
@@ -91,8 +94,9 @@ def build(config: Config) -> Companion:
         battery_cells=config.battery_cells,
         sysinfo=sysinfo,
         gcs_state=lambda: {"policy": heartbeat.policy, "hb": heartbeat.sending},
+        video_state=(video.state_block if video else (lambda: None)),
     )
-    handlers = Handlers(conn, commands, missions, params, status, clock.now_ms, mission_source=cloud)
+    handlers = Handlers(conn, commands, missions, params, status, clock.now_ms, mission_source=cloud, video=video)
 
     def ack_sink(ack: dict) -> None:
         # Direct-link commands ("d_" ids) are unknown to the server; they reach
@@ -143,7 +147,7 @@ def build(config: Config) -> Companion:
         holder["direct"] = direct
     return Companion(
         config, clock, conn, commands, missions, params, status, streams, sysinfo, builder, cloud, handlers, executor,
-        heartbeat, manual, direct, tlog,
+        heartbeat, manual, direct, video, tlog,
     )
 
 
@@ -161,6 +165,8 @@ async def run(config: Config) -> None:
     await c.cloud.start()
     if c.direct is not None:
         await c.direct.start()
+    if c.video is not None:
+        await c.video.start()
 
     mqtt = None
     if config.transport == "iot" and config.mqtt.enabled:
@@ -185,6 +191,8 @@ async def run(config: Config) -> None:
         asyncio.create_task(c.heartbeat.run(), name="gcs-heartbeat"),
         asyncio.create_task(c.sysinfo.run(), name="sysinfo"),
     ]
+    if c.video is not None:
+        tasks.append(asyncio.create_task(c.video.run(), name="video"))
     log.info("running (contract v%d, gcs heartbeat %s)", config.contract, config.gcs_heartbeat)
     try:
         await stop.wait()
@@ -196,6 +204,8 @@ async def run(config: Config) -> None:
             mqtt.stop()
         if c.direct is not None:
             await c.direct.stop()
+        if c.video is not None:
+            await c.video.close()
         await c.cloud.close()
         c.conn.stop()
         log.info("stopped")

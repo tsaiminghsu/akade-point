@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Map as MapIcon, Video } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,6 +19,7 @@ import { Hud } from "./Hud";
 import { CommandLog, MessagesPanel } from "./MessagesPanel";
 import { QuickPanel } from "./QuickPanel";
 import { RoverDrivePad } from "./RoverDrivePad";
+import { VideoPanel } from "./VideoPanel";
 
 /**
  * Mission Planner's Flight Data screen: HUD over a tabbed panel on the left,
@@ -40,6 +42,9 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
   const [flyAlt, setFlyAlt] = useState("");
   const [homeAt, setHomeAt] = useState<{ lat: number; lon: number } | null>(null);
   const [target, setTarget] = useState<{ lat: number; lon: number } | null>(null);
+  const [main, setMain] = useState<"map" | "video">("map");
+  const [hudOnVideo, setHudOnVideo] = useState(true);
+  const hasVideo = Boolean(vehicle?.videoUrl);
 
   const rover = vehicle?.type === "rover";
   const hudLabels = useMemo(
@@ -119,8 +124,42 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
         </Tabs>
       </div>
 
-      <div className="h-[60vh] min-h-[360px] lg:h-auto lg:flex-1">
-        <GcsMap state={state} trail={trail} target={target} canCommand={canCommand} onAction={onMapAction} vehicleLabel={vehicle?.name} />
+      <div className="relative h-[60vh] min-h-[360px] lg:h-auto lg:flex-1">
+        {main === "video" && hasVideo ? (
+          <VideoPanel
+            url={vehicle!.videoUrl}
+            state={state}
+            canCommand={canCommand}
+            overlay={hudOnVideo ? <Hud state={state} stale={stale} everReceived={state !== null} labels={hudLabels} transparent className="h-full w-full" /> : undefined}
+          />
+        ) : (
+          <GcsMap state={state} trail={trail} target={target} canCommand={canCommand} onAction={onMapAction} vehicleLabel={vehicle?.name} />
+        )}
+        {hasVideo && (
+          <>
+            {/* Picture-in-picture of whichever view is not main. */}
+            <div className="absolute bottom-3 left-3 z-[1001] hidden h-36 w-56 overflow-hidden rounded-md border border-border shadow-lg sm:block">
+              {main === "map" ? (
+                <VideoPanel url={vehicle!.videoUrl} state={state} canCommand={canCommand} compact />
+              ) : (
+                <GcsMap state={state} trail={trail} target={target} canCommand={false} contextMenu={false} />
+              )}
+            </div>
+            <div className="absolute left-1/2 top-3 z-[1001] flex -translate-x-1/2 gap-1 rounded-md bg-background/85 p-1 shadow">
+              <Button size="sm" variant={main === "map" ? "secondary" : "ghost"} className="h-7 gap-1 text-xs" onClick={() => setMain("map")}>
+                <MapIcon className="h-3.5 w-3.5" /> {t("video.map")}
+              </Button>
+              <Button size="sm" variant={main === "video" ? "secondary" : "ghost"} className="h-7 gap-1 text-xs" onClick={() => setMain("video")}>
+                <Video className="h-3.5 w-3.5" /> {t("video.video")}
+              </Button>
+              {main === "video" && (
+                <Button size="sm" variant={hudOnVideo ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setHudOnVideo((v) => !v)} aria-pressed={hudOnVideo}>
+                  HUD
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <Dialog open={flyTo !== null} onOpenChange={(o) => !o && setFlyTo(null)}>

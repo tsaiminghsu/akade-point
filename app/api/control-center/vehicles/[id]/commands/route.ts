@@ -83,6 +83,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     case "param_set":
       args = { params: request.params };
       break;
+    case "video_record":
+      args = { on: request.on };
+      break;
     case "mission_upload": {
       const mission = await getMission(request.missionId);
       if (!mission || mission.vehicleId !== params.id) {

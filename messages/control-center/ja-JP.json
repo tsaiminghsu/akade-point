@@ -870,7 +870,8 @@
       "forceTitle": "強制ディスアーム",
       "forceDescription": "飛行中の強制ディスアームはモーターを即停止し、機体は落下します。緊急時のみ使用してください。確認のため DISARM と入力してください。",
       "forceType": "DISARM と入力",
-      "forceConfirm": "強制ディスアーム"
+      "forceConfirm": "強制ディスアーム",
+      "cmd_video_record": "録画の切り替え"
     },
     "messages": {
       "prearmTitle": "アーム前チェック未通過（{count}件）",
@@ -1197,6 +1198,21 @@
         "remove": "削除",
         "empty": "ラリーポイントはまだありません。"
       }
+    },
+    "video": {
+      "map": "地図",
+      "video": "映像",
+      "noUrl": "映像URLが未設定です。「設定」タブで MediaMTX の WHEP URL を入力してください。",
+      "snapshotSaved": "スナップショットを保存しました",
+      "problem_badUrl": "映像URLの形式が不正です",
+      "problem_mixedContent": "HTTPSページでは http:// の映像を再生できません。https://（tailscale serve など）を使用してください",
+      "error": "映像が途切れました（{detail}）。3秒後に再接続します",
+      "retry": "再試行",
+      "connecting": "映像に接続中…",
+      "snapshot": "スナップショット",
+      "record": "Piで録画開始",
+      "stopRecord": "録画停止",
+      "recordUnavailable": "コンパニオンに [video] 設定がないため録画を制御できません"
     }
   }
 }

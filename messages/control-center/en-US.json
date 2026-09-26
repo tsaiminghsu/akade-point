@@ -870,7 +870,8 @@
       "forceTitle": "Force disarm",
       "forceDescription": "Force-disarming in flight stops the motors at once and a drone will fall. Emergencies only. Type DISARM to confirm.",
       "forceType": "Type DISARM",
-      "forceConfirm": "Force disarm"
+      "forceConfirm": "Force disarm",
+      "cmd_video_record": "Recording on/off"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -1197,6 +1198,21 @@
         "remove": "Remove",
         "empty": "No rally points yet."
       }
+    },
+    "video": {
+      "map": "Map",
+      "video": "Video",
+      "noUrl": "No video URL yet. Enter MediaMTX's WHEP URL in the Setup tab.",
+      "snapshotSaved": "Snapshot saved",
+      "problem_badUrl": "Invalid video URL",
+      "problem_mixedContent": "An https page cannot play http:// video; use https:// (e.g. tailscale serve)",
+      "error": "Video lost ({detail}); retrying in 3 s",
+      "retry": "Retry",
+      "connecting": "Connecting video…",
+      "snapshot": "Snapshot",
+      "record": "Start recording on the Pi",
+      "stopRecord": "Stop recording",
+      "recordUnavailable": "The companion has no [video] section, so it cannot control recording"
     }
   }
 }

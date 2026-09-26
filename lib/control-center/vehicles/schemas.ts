@@ -150,6 +150,7 @@ export const commandRequestSchema = z.discriminatedUnion("type", [
       message: "set_home needs current: true or lat, lon and alt",
     }),
   z.object({ type: z.literal("run_prearm") }),
+  z.object({ type: z.literal("video_record"), on: z.boolean() }),
   z.object({ type: z.literal("reboot") }),
   z.object({ type: z.literal("param_get"), names: z.array(paramName).min(1).max(50) }),
   z.object({

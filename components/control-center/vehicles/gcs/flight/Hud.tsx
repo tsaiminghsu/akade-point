@@ -21,6 +21,8 @@ interface HudProps {
   everReceived: boolean;
   labels: HudLabels;
   className?: string;
+  /** draw only the symbology (for overlaying on video) */
+  transparent?: boolean;
 }
 
 const SKY_TOP = "#1d4f91";
@@ -42,12 +44,12 @@ function fmt(v: number | null | undefined, digits = 0): string {
  * right, heading tape along the bottom, mode and arming state in the corners.
  * Missing values are drawn as "—"; stale data is greyed out under LINK LOST.
  */
-export function Hud({ state, stale, everReceived, labels, className }: HudProps) {
+export function Hud({ state, stale, everReceived, labels, className, transparent = false }: HudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
-  const propsRef = useRef({ state, stale, everReceived, labels });
-  propsRef.current = { state, stale, everReceived, labels };
+  const propsRef = useRef({ state, stale, everReceived, labels, transparent });
+  propsRef.current = { state, stale, everReceived, labels, transparent };
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -83,7 +85,7 @@ export function Hud({ state, stale, everReceived, labels, className }: HudProps)
     if (!ctx) return;
     const { w, h, dpr } = sizeRef.current;
     if (w === 0 || h === 0) return;
-    const { state: s, stale: isStale, everReceived: ever, labels: L } = propsRef.current;
+    const { state: s, stale: isStale, everReceived: ever, labels: L, transparent: clear } = propsRef.current;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
@@ -100,16 +102,18 @@ export function Hud({ state, stale, everReceived, labels, className }: HudProps)
     ctx.translate(hz.centre.x, hz.centre.y);
     ctx.rotate(hz.angleRad);
     const big = Math.hypot(w, h) * 2;
-    const sky = ctx.createLinearGradient(0, -h, 0, 0);
-    sky.addColorStop(0, SKY_TOP);
-    sky.addColorStop(1, SKY_BOTTOM);
-    ctx.fillStyle = sky;
-    ctx.fillRect(-big, -big, big * 2, big);
-    const ground = ctx.createLinearGradient(0, 0, 0, h);
-    ground.addColorStop(0, GROUND_TOP);
-    ground.addColorStop(1, GROUND_BOTTOM);
-    ctx.fillStyle = ground;
-    ctx.fillRect(-big, 0, big * 2, big);
+    if (!clear) {
+      const sky = ctx.createLinearGradient(0, -h, 0, 0);
+      sky.addColorStop(0, SKY_TOP);
+      sky.addColorStop(1, SKY_BOTTOM);
+      ctx.fillStyle = sky;
+      ctx.fillRect(-big, -big, big * 2, big);
+      const ground = ctx.createLinearGradient(0, 0, 0, h);
+      ground.addColorStop(0, GROUND_TOP);
+      ground.addColorStop(1, GROUND_BOTTOM);
+      ctx.fillStyle = ground;
+      ctx.fillRect(-big, 0, big * 2, big);
+    }
     ctx.strokeStyle = FG;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -335,7 +339,7 @@ export function Hud({ state, stale, everReceived, labels, className }: HudProps)
     // --- stale overlay ----------------------------------------------------
     const fcLost = s !== null && s.fc.ok === false;
     if (isStale || !s || fcLost) {
-      ctx.fillStyle = "rgba(20,20,20,0.6)";
+      ctx.fillStyle = clear ? "rgba(20,20,20,0.25)" : "rgba(20,20,20,0.6)";
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = WARN;
       ctx.font = font(Math.max(16, Math.min(28, w / 14)), true);

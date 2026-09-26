@@ -40,6 +40,18 @@ class DirectConfig:
 
 
 @dataclass
+class VideoConfig:
+    """MediaMTX control API on the Pi (stream status and recording)."""
+
+    api_url: str = ""
+    path: str = "cam"
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_url)
+
+
+@dataclass
 class Config:
     vehicle_id: str
     api_base: str
@@ -70,6 +82,7 @@ class Config:
     log_level: str = "INFO"
     mqtt: MqttConfig = field(default_factory=MqttConfig)
     direct: DirectConfig = field(default_factory=DirectConfig)
+    video: VideoConfig = field(default_factory=VideoConfig)
 
     @staticmethod
     def from_dict(data: dict) -> "Config":
@@ -82,11 +95,12 @@ class Config:
         unknown = set(data) - known - {"forward_udp"}
         if unknown:
             raise ValueError(f"unknown config keys: {', '.join(sorted(unknown))}")
-        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct")}
+        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video")}
         cfg = Config(**kwargs)
         cfg.api_base = cfg.api_base.rstrip("/")
         cfg.mqtt = MqttConfig(**data.get("mqtt", {}))
         cfg.direct = DirectConfig(**data.get("direct", {}))
+        cfg.video = VideoConfig(**data.get("video", {}))
         if cfg.gcs_heartbeat not in ("off", "always", "operator"):
             raise ValueError("gcs_heartbeat must be off, always or operator")
         if cfg.transport not in ("http", "iot"):

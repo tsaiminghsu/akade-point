@@ -69,6 +69,7 @@ class Handlers:
         *,
         mission_source: Optional[MissionSource] = None,
         mode_confirm_s: float = 3.0,
+        video=None,
     ):
         self.conn = conn
         self.commands = commands
@@ -78,6 +79,7 @@ class Handlers:
         self.now_ms = now_ms
         self.mission_source = mission_source
         self.mode_confirm_s = mode_confirm_s
+        self.video = video
 
     # ---- plumbing ------------------------------------------------------
 
@@ -390,6 +392,15 @@ class Handlers:
         mtype = mission_type_of(args.get("mtype", 0))
         r = await self.missions.clear(mtype)
         return self.ack(cmd_id, r.ok, "MAV_RESULT_ACCEPTED" if r.ok else f"MISSION_CLEAR_FAILED:{r.code}", res={"mtype": mtype})
+
+    # ---- video -----------------------------------------------------------
+
+    async def _h_video_record(self, cmd_id: str, args: dict) -> dict:
+        if self.video is None:
+            return self.ack(cmd_id, False, "NO_VIDEO", "no [video] api_url in the companion config")
+        on = bool(args.get("on"))
+        ok, code = await self.video.set_recording(on)
+        return self.ack(cmd_id, ok, code, res={"on": on})
 
     # ---- parameters ----------------------------------------------------
 

@@ -111,6 +111,8 @@ export interface VehicleStateV2 {
   caps: VehicleCap[];
   /** others: other GCS heartbeats seen; policy/hb: the companion's own GCS heartbeat */
   gcs: { others: number; policy?: "off" | "always" | "operator"; hb?: boolean };
+  /** MediaMTX on the companion: stream ready, viewers, recording (null = not configured / unreachable) */
+  video?: { ready: boolean; readers: number; rec: boolean | null } | null;
   fw: string | null;
 }
 
@@ -181,7 +183,8 @@ export type VehicleCommandType =
   | "run_prearm"
   | "reboot"
   | "param_get"
-  | "param_set";
+  | "param_set"
+  | "video_record";
 
 /** Where a command was issued: through this server, or straight to the
  *  companion over the direct link (then reported back for the log). */

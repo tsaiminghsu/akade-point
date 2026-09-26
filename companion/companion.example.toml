@@ -63,6 +63,12 @@ ticket_key = ""
 pin = ""
 allowed_origins = ["https://your-control-center.example.com"]
 
+# MediaMTX on the Pi (see docs/vehicles-video.md): stream status and the
+# ground station's record button. Leave api_url empty to disable.
+[video]
+api_url = "http://127.0.0.1:9997"
+path = "cam"
+
 # Only used when transport = "iot".
 [mqtt]
 endpoint = "xxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com"

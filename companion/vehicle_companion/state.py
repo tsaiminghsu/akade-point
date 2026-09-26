@@ -135,6 +135,7 @@ class StateBuilder:
         battery_cells: int = 0,
         sysinfo=None,
         gcs_state: Callable[[], dict] = lambda: {},
+        video_state: Callable[[], Optional[dict]] = lambda: None,
     ):
         self.conn = conn
         self.status = status
@@ -142,6 +143,7 @@ class StateBuilder:
         self.battery_cells = battery_cells
         self.sysinfo = sysinfo
         self.gcs_state = gcs_state
+        self.video_state = video_state
 
     def build(self) -> dict:
         c = self.conn
@@ -290,6 +292,7 @@ class StateBuilder:
             "comp": dict(self.sysinfo.snapshot) if self.sysinfo is not None else None,
             "caps": capabilities(version, hb),
             "gcs": {"others": len(c.other_gcs()), **self.gcs_state()},
+            "video": self.video_state(),
             "fw": firmware_string(version, hb),
         }
 

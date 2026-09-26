@@ -870,7 +870,8 @@
       "forceTitle": "強制上鎖",
       "forceDescription": "飛行中強制上鎖會讓馬達立即停止，無人機會直接墜落。只在緊急情況使用。輸入 DISARM 確認。",
       "forceType": "輸入 DISARM",
-      "forceConfirm": "強制上鎖"
+      "forceConfirm": "強制上鎖",
+      "cmd_video_record": "錄影開關"
     },
     "messages": {
       "prearmTitle": "解鎖前檢查未通過（{count} 項）",
@@ -1197,6 +1198,21 @@
         "remove": "刪除",
         "empty": "還沒有 Rally 點。"
       }
+    },
+    "video": {
+      "map": "地圖",
+      "video": "影像",
+      "noUrl": "還沒設定影像網址。到「設定」頁籤填入 MediaMTX 的 WHEP 網址。",
+      "snapshotSaved": "已存下截圖",
+      "problem_badUrl": "影像網址格式錯誤",
+      "problem_mixedContent": "HTTPS 頁面不能播放 http:// 影像，請改用 https://（例如 tailscale serve）",
+      "error": "影像中斷（{detail}），3 秒後重試",
+      "retry": "重試",
+      "connecting": "連線影像中…",
+      "snapshot": "截圖",
+      "record": "開始在樹莓派錄影",
+      "stopRecord": "停止錄影",
+      "recordUnavailable": "companion 沒有設定 [video]，無法控制錄影"
     }
   }
 }
