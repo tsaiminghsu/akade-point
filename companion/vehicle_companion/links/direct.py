@@ -24,6 +24,7 @@ then
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 import time
@@ -262,7 +263,7 @@ class DirectServer:
             if self._pin_blocked(client.remote):
                 await client.ws.send_json({"k": "error", "code": "PIN_LOCKED", "msg": "too many attempts"})
                 return False
-            if str(data["pin"]) == self.cfg.pin:
+            if hmac.compare_digest(str(data["pin"]).encode(), self.cfg.pin.encode()):
                 client.scope, client.sub = "control", "pin"
             else:
                 self._pin_failures[client.remote].append(time.monotonic())

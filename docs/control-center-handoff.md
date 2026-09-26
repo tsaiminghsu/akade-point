@@ -289,7 +289,7 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - 驗證：`lib/device-auth.ts`（`requireDeviceToken`，無 NODE_ENV 繞道）、`lib/vehicle-access.ts`（角色 seam）、`lib/iot/publish.ts`（best-effort，永不丟錯）
 - Routes：`app/api/control-center/vehicles/**`、`app/api/device/vehicles/**`
 - 前端：`store/useVehiclesStore.ts`、`app/iot-control-center/vehicles/**`、`components/control-center/vehicles/**`
-- companion：`companion/`（Python，pytest 11 案例）
+- companion：`companion/`（Python；2026-09 重寫後見下方「地面站重構」）
 - scripts：`seed-vehicle-local.mjs`、`vehicles-smoke.mjs`；`create-tables.mjs` +5 表 + TTL
 - infra：`infra/iot/companion-policy.json`
 
@@ -307,6 +307,68 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 **權限現況**：仍只有 `isAdmin`；`requireVehicleAccess(action)` 是未來角色的唯一插入點；角色矩陣見 `docs/permissions.md`（尚未實作）。
 
 **待補驗證**：實機／SITL 的完整飛行序列與任務往返、MissionPlanner 同時連線（本 session 已用 curl 模擬 companion 驗證全部 API 與 UI 的指令流程）。
+
+### 10.1 地面站重構（2026-09，`feat/vehicles-gcs`，疊在 `feat/claw-machine-configs` 上）
+
+參考 Mission Planner 把 Vehicles 從「清單 + 抽屜」改成每台載具一個網頁地面站。
+
+**里程碑 commit**：
+
+| Commit | 里程碑 | 內容 |
+|:---|:---|:---|
+| `866262b` | M0a | companion 重寫：單一 reader、訂閱式 ACK、明確鎖定飛控、mavlink-router |
+| `ae1c6ae` | M0b | 契約 v2、STATUSTEXT events、指令 `exp` |
+| `124109b` | M1 | 地面站頁面與直連鏈路 |
+| `f98d91a` | M2 | 任務/圍欄/Rally 編輯 |
+| `539a903` | M3 | 影像 |
+| `5a0828d` | M4 | 參數/安全設定/日誌 |
+| `7fb2177` | M5 | STorM32 雲台 |
+| `b3553c7` | M6 | ESP32 酬載節點、小車底盤、Remote ID |
+
+文件：`vehicles-gcs.md`（操作）、`vehicles-video.md`、`vehicles-gimbal-storm32.md`、`vehicles-esp32.md`、`vehicles-message-contract.md`（v2 + 直連協定）、`vehicles-companion.md`。
+
+**程式位置**：
+- **companion**：`companion/vehicle_companion/{mav,ops,links}/`。
+  - 測試 `companion/tests/`（63 案例），其中多數是對 `tools/fake_autopilot.py` 的 UDP 整合測試。
+  - 模擬器可加 `--payload` 模擬 ESP32 酬載節點。
+- **純模組**：`lib/control-center/vehicles/{gcs,link,plan,params,video}/`（vitest 的 include 只抓 `lib/**`）。
+- **UI**：`components/control-center/vehicles/gcs/**`、`store/{useGcsStore,usePlanStore,useParamStore}.ts`。
+- **韌體**：`firmware/esp32-{payload-node,rover-base}` + `firmware/tools/{gen_mavlink,compile_check}.py`。
+
+**新表**：`akade-cc-vehicle-events`（STATUSTEXT，TTL 7d）、`akade-cc-vehicle-params`（參數快照）。
+
+**新依賴**：`leaflet`、`react-leaflet@4`（v5 要 React 19）、`@types/leaflet`。
+
+**新環境變數**：`VEHICLE_DIRECT_SIGNING_KEY`（直連票證；未設時用 `NEXTAUTH_SECRET`）。`amplify.yml` 現在會把 `VEHICLE_*`、`IOT_DATA_ENDPOINT` 等寫進 `.env.production`；以前這些變數在 runtime 其實都沒生效。
+
+**陷阱**：
+- 必須在 import pymavlink 前設 `MAVLINK20=1`。否則 `mission_type` 會遺失，圍欄上傳會蓋掉任務。
+- 同一條 MAVLink 連線只能有一個 reader，ACK 靠「先訂閱再送出」。以前兩個執行緒搶 `recv_match` 會偷走 ACK。
+- 飛控要明確鎖定（autopilot ≠ INVALID、compid 1 優先）。雲台（154）、ESP32（25）、MP（255）的心跳都不能蓋掉它。
+- `PARAM_VALUE` 要以名稱比對：ArduPilot 回聲的 index 是 65535。數值用 float32 比較。
+- Leaflet 會壓在 Dialog 上面，`.gcs-map` 要加 `isolation: isolate`。容器尺寸改變時要 `invalidateSize`（`AutoResize`）。
+- 參數說明 `apm.pdef.json` 約 2.2 MB，超過 Next 資料快取上限，由瀏覽器直接抓（允許 CORS）後再裁減欄位。
+- 這個 repo 的 `.prettierrc`（單引號、行寬 100）和實際程式風格不符，**不要**跑 `npm run format`，否則會改寫大量無關檔案。
+- ESP32 小車的 companion 實例要設 `gcs_heartbeat = "always"`，否則搖桿一停約 2 秒就會掉回 HOLD（見 `vehicles-esp32.md`）。
+
+**驗證狀態**：
+- **已驗證**：
+  - pytest 63、vitest 342、tsc 通過；`npm run build` 通過。
+  - lint 只剩既有錯誤：`app/api/auth/[...nextauth]/route.ts` 兩個 `no-explicit-any`、`tailwind.config.ts` 一個 `require`，都不是本分支造成的。
+  - 瀏覽器實測（fake autopilot + companion，雲端與直連）：
+    - HUD、起飛、飛到這裡、LINK LOST、手機版面。
+    - 任務與圍欄上傳 + 比對、參數讀寫、tlog 清單。
+    - 雲台轉到 −90° 並讀回、酬載繼電器/伺服/脈衝。
+- **未驗證**：
+  - ArduPilot SITL（需要下載，本輪未取得同意）。
+  - 任何實機：Pixhawk、STorM32、Pi 相機 + MediaMTX 串流、兩支 ESP32 韌體（只做過編譯檢查）。
+- **更正**：M1、M2 的 commit 訊息寫「pytest 57」，實際當時是 52 個案例。
+
+**待辦**：
+- SITL 驗證並錄 tlog 重播測試。
+- 實機驗證。
+- companion 當 MAVLink 相機。
+- 地形、ADS-B、MAVLink2 簽章、多操作者租約、角色權限。
 
 ## 11. 娃娃機設定模組（多台機台各自保存）
 

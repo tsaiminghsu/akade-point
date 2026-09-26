@@ -6,24 +6,45 @@ Control Center 的 Vehicles 模組讓管理員監控並控制掛載 **companion 
 
 ## 目標與範圍
 
-- 即時監控載具遙測（連線狀態、解鎖、飛行模式、電量、GPS、座標、航向、速度、心跳）。
-- 下達指令：arm/disarm、切換模式、起飛、飛到座標、返航、開始／上傳／下載任務。
-- 任務（航點）以表格編輯，並相容 MissionPlanner 的 `.waypoints`（QGC WPL 110）。
-- companion 可同時把 MAVLink 轉發給 MissionPlanner。
+2026-09 起，每台載具有一個仿 Mission Planner 的**網頁地面站**（`/iot-control-center/vehicles/{id}`），操作見 [`vehicles-gcs.md`](./vehicles-gcs.md)。
 
-本輪 **不含**：地圖與航點拖曳、地理圍籬、影像串流、多載具同畫面、角色權限實作、ESP32 韌體、IoT Core 遙測路徑（Shadow／Rule）。
+| 頁籤 | 內容 |
+|:---|:---|
+| 飛行資料 | HUD、地圖、狀態列、快捷數值、動作、PreArm 訊息、即時圖表、語音警示 |
+| 任務規劃 | 任務、圍欄、Rally，含測繪航線、續飛與上傳後比對 |
+| 參數 | 含 ArduPilot 參數說明、比對與快照 |
+| 日誌 | tlog 下載 |
+| 設定 | 安全設定健檢、Token、直連與影像網址 |
+
+另外還有：
+- **雲台**：STorM32 經飛控控制。
+- **影像**：MediaMTX WebRTC。
+- **ESP32**：酬載節點、小車底盤、Remote ID 狀態。
+
+**連線方式**：
+- 雲端（HTTPS 1 Hz）與直連（瀏覽器 ⇄ Pi 的 WebSocket，10 Hz）兩條鏈路，自動擇優。
+- 小車搖桿與雲台連續控制只走直連。
+
+**與 MP 共存**：Pi 上的 mavlink-router 讓 Mission Planner/QGC 同時連線。
+
+**不做，交給 MP**：校正、刷韌體、DataFlash 分析。
+
+**尚未實作**：角色權限、多操作者租約、MAVLink2 簽章、地形、ADS-B、companion 當 MAVLink 相機。
 
 ## 系統架構
 
 ```
-瀏覽器 ──2s 輪詢──▶ GET /vehicles、/vehicles/{id}/commands
-       ──POST────▶ /vehicles/{id}/commands            （寫入指令列＝pending）
+瀏覽器（地面站）──1Hz 輪詢──▶ GET /vehicles/{id}/live（狀態、STATUSTEXT、指令、伺服器時間）
+               ──POST──────▶ /vehicles/{id}/commands            （寫入指令列＝pending）
+               ──POST──────▶ /vehicles/{id}/direct-ticket        （直連票證）
+               ══WebSocket══▶ 樹莓派 companion /ws（直連：10Hz 狀態、指令、搖桿、雲台串流、/files）
                                                         │ iot 模式：publish 到 MQTT → sent
-樹莓派 companion ──1Hz POST──▶ /device/vehicles/telemetry ◀┘ 回應夾帶 pending 指令（local 模式的送達通道）
+樹莓派 companion ──1Hz POST──▶ /device/vehicles/telemetry ◀┘ 回應夾帶 pending 指令、伺服器時間
                 ──POST──────▶ /device/vehicles/commands/{id}/ack
-                ──GET───────▶ /device/vehicles/missions/{id}      （mission_upload 取航點）
-                ──POST──────▶ /device/vehicles/missions/download  （mission_download 回傳）
-樹莓派 companion ◀─MAVLink UDP─ SITL／飛控 ─UDP 轉發─▶ MissionPlanner
+                ──GET/POST──▶ /device/vehicles/missions/…、/device/vehicles/params
+樹莓派 companion ◀─UDP─ mavlink-router ◀─序列埠─ 飛控（＋STorM32、ESP32 酬載節點）
+                        mavlink-router ─UDP─▶ Mission Planner / QGC
+MediaMTX（Pi 相機）──WebRTC/WHEP──▶ 瀏覽器
 ```
 
 ## 關鍵設計決策
@@ -35,6 +56,10 @@ Amplify 上的 Next.js 無法常駐訂閱 MQTT，開發機也沒有 IoT Core。�
 發指令時先寫入指令列（`pending`）；`VEHICLE_TRANSPORT=iot` 時 publish 到 `vehicles/{companionId}/cmd`（QoS 1）成功即標 `sent`。此外，**每次遙測 POST 的回應都夾帶該載具尚未執行的指令**——這在本機模式是唯一送達管道（≤1s 延遲），在正式環境是 publish 失敗時的自動備援。companion 以 HTTPS 回報 ack。
 
 **C. 本機開發不需 AWS。** `VEHICLE_TRANSPORT=local`（預設）時 `publishVehicleCommand` 直接回 `{published:false}`，指令改由遙測回應帶回。整個 SITL → companion → `next dev` + DynamoDB Local → 瀏覽器 的迴圈不需 AWS 帳號。
+
+**D. 直連不經雲端。** 瀏覽器用伺服器簽發的短效票證（HMAC）直接連 Pi 的 WebSocket。頁面載入後，雲端或 4G 中斷也能繼續監控與下指令；直連送出的指令由 companion 記下，之後補寫雲端稽核。詳見 [`vehicles-gcs.md`](./vehicles-gcs.md) 與 [`vehicles-security.md`](./vehicles-security.md)。
+
+**E. 缺資料顯示「—」，不顯示 0。** 契約 v2 的欄位在 MAVLink 訊息過期時為 `null`。資料過期時，地面站會停用飛行指令並顯示 LINK LOST；指令帶 `exp`，過期不執行。
 
 ## 名詞
 
@@ -49,7 +74,11 @@ Amplify 上的 Next.js 無法常駐訂閱 MQTT，開發機也沒有 IoT Core。�
 
 ## 後續輪次
 
-- 地圖與航點拖曳（Leaflet + OSM）。
-- ESP32 韌體（訊息契約已在 [`vehicles-message-contract.md`](./vehicles-message-contract.md) 定好、刻意精簡）。
-- IoT Core 遙測路徑（Device Shadow 或 IoT Rule）以降低 HTTPS 輪詢成本。
-- 地理圍籬、影像串流、多載具同畫面。
+- **驗證**：用 ArduPilot SITL 做完整驗證，接著實機驗證（Pixhawk、ArduPilot Rover、STorM32、兩支 ESP32 韌體）。
+- **雲端與安全**：
+  - IoT Core 遙測路徑（Device Shadow 或 IoT Rule），降低 HTTPS 輪詢成本。
+  - 角色權限、多操作者控制權租約、MAVLink2 簽章。
+- **地面站功能**：
+  - companion 當 MAVLink 相機（測繪拍照 + 地理標記）。
+  - 地形資料、ADS-B、Follow-me、KML 匯入。
+  - 雲端軌跡回放、日誌/影像上雲。
