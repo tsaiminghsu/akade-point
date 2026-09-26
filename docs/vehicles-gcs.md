@@ -101,6 +101,46 @@ Mission Planner 的 Flight Plan：左邊是計畫與工具，右邊是可編輯�
 - 上傳後會自動讀回，逐項比對（忽略飛控自己的 Home 與 float32 誤差），一致時顯示綠色勾勾。
 - 「從載具下載」會把飛控上的內容載入編輯器；走雲端時同時存成一筆 `source: download` 的紀錄。
 
+## 參數頁籤
+
+對應 Mission Planner 的 Config/Tuning。參數讀寫都在 companion 的慢速道執行，不會卡住 RTL 或上鎖。
+
+- **從載具讀取全部**：
+  - `param_fetch` 會補抓漏掉的 index，完整表格存成伺服器上的快照（`akade-cc-vehicle-params`）。
+  - 走直連時也會直接帶回網頁。
+  - 快照有歷史，可以切回任一份。
+- **說明**：
+  - 瀏覽器直接抓 ArduPilot 發布的 `apm.pdef.json`（Copter 或 Rover，約 2 MB，有 CORS），整理成名稱 → 說明、單位、範圍、選項、位元遮罩、是否需重開。
+  - 這份說明是 ArduPilot 開發版，少數參數可能和機上韌體不同。
+- **全部參數**：
+  - 可搜尋名稱或說明，可切換只看修改中、隱藏進階。
+  - 選項型參數用下拉選單；位元遮罩展開成勾選框；超出範圍會提示。
+  - 需重開的參數標 ⟳。
+- **安全設定**：
+  - 依機型整理的失控保護相關參數：電池、遙控器、地面站、EKF/震動、圍籬、RTL/降落、解鎖檢查、雲台（Rover 另有 FS_ACTION、導航速度）。
+  - 上方的設定健檢（`configChecks`）會指出：
+    - companion 心跳策略與 `SYSID_MYGCS`/`MAV_GCS_SYSID` 對不上。
+    - 沒有電池監測、解鎖檢查被關閉、遙控器失控保護關閉。
+    - STorM32 那個埠的 SRx 要設 0。
+    - TELEM2 不是 MAVLink2。
+- **比對**（MP 的 Compare Params）：
+  - 載入 `.param`（MP 或 QGC 格式）或選另一份快照，只列出不同的參數。
+  - 勾選後加入待寫入。
+- **寫入**：
+  - 列出「舊值 → 新值」確認後，每 50 個一批送 `param_set`。
+  - companion 以參數名稱比對回聲、以 float32 比較數值。
+  - 寫入後提醒哪些參數要重開飛控才生效。
+- **存成 .param**：MP 格式，含待寫入的修改。
+
+## 日誌頁籤
+
+- **tlog**：
+  - companion 在 Pi 上錄下所有 MAVLink 封包，每次解鎖一個檔，超過容量會刪最舊的。
+  - 日誌頁經直連的 HTTP（`/files/tlogs`，帶 `Authorization: Ticket …`）列出並下載。
+  - Mission Planner、MAVExplorer 都能開。
+- **分析**：連到 ArduPilot 官方的 UAV Log Viewer 與 WebTools，不在這裡重做。
+- **DataFlash（.bin）**：經序列埠下載很慢，解鎖時也會被拒絕，建議取 SD 卡或用 Mission Planner。
+
 ## 影像
 
 設定影像網址（MediaMTX 的 WHEP）後，飛行資料頁右側可以切換地圖/影像主畫面，另一個顯示成子母畫面；影像上可疊 HUD、截圖、控制 Pi 上的錄影。設定方式見 [`vehicles-video.md`](./vehicles-video.md)。

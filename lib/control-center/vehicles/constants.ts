@@ -41,6 +41,7 @@ export const COMMAND_TIMEOUT_MS: Record<VehicleCommandType, number> = {
   mission_clear: 20_000,
   param_get: 60_000,
   param_set: 90_000,
+  param_fetch: 240_000,
   video_record: 10_000,
 };
 
@@ -114,6 +115,7 @@ const COMMON_COMMANDS: VehicleCommandType[] = [
   "reboot",
   "param_get",
   "param_set",
+  "param_fetch",
   "video_record",
 ];
 

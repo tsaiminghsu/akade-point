@@ -49,6 +49,8 @@ class MissionSource(Protocol):
 
     async def post_mission_download(self, command_id: str, items: list[dict], mission_type: int) -> bool: ...
 
+    async def post_params(self, command_id: str, params: dict, fw: Optional[str]) -> bool: ...
+
 
 class CommandFailed(Exception):
     def __init__(self, code: str, msg: str = ""):
@@ -411,6 +413,33 @@ class Handlers:
         values = {n: (None if p is None else display_value(p.value, p.type)) for n, p in got.items()}
         missing = [n for n, v in values.items() if v is None]
         return self.ack(cmd_id, not missing, "OK" if not missing else "PARAM_NOT_FOUND", ", ".join(missing), {"params": values})
+
+    async def _h_param_fetch(self, cmd_id: str, args: dict) -> dict:
+        """The whole parameter table. Stored on the server as a snapshot (for
+        history and Compare); returned inline too when asked (direct link)."""
+        self._hb()
+        table = await self.params.fetch_all()
+        if not table:
+            return self.ack(cmd_id, False, "PARAM_FETCH_FAILED", "no parameters received")
+        compact = {name: [display_value(p.value, p.type), p.type] for name, p in table.items()}
+        total = next(iter(table.values())).count
+        complete = total == 0 or len(table) >= total
+        res: dict = {"count": len(table), "total": total}
+        stored = False
+        if self.mission_source is not None:
+            fw = None
+            try:
+                from ..mav.vehicle import firmware_string
+
+                fw = firmware_string(self.conn.latest("AUTOPILOT_VERSION"), self.conn.heartbeat())
+            except Exception:  # firmware string is a nicety
+                pass
+            stored = await self.mission_source.post_params(cmd_id, compact, fw)
+        res["stored"] = stored
+        if args.get("inline"):
+            res["params"] = compact
+        code = "OK" if complete else "PARAM_FETCH_INCOMPLETE"
+        return self.ack(cmd_id, True, code, "" if complete else f"{len(table)}/{total}", res)
 
     async def _h_param_set(self, cmd_id: str, args: dict) -> dict:
         self._hb()

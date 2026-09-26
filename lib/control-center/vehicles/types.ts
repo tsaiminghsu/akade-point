@@ -184,6 +184,7 @@ export type VehicleCommandType =
   | "reboot"
   | "param_get"
   | "param_set"
+  | "param_fetch"
   | "video_record";
 
 /** Where a command was issued: through this server, or straight to the

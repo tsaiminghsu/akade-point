@@ -182,6 +182,10 @@ class CloudLink:
             body["mtype"] = mission_type
         return await self._post("/api/device/vehicles/missions/download", body) is not None
 
+    async def post_params(self, command_id: str, params: dict, fw: Optional[str]) -> bool:
+        body = {"commandId": command_id, "params": params, "fw": fw}
+        return await self._post("/api/device/vehicles/params", body) is not None
+
     # ---- http ----------------------------------------------------------
 
     async def _post(self, path: str, body: dict) -> Optional[dict]:

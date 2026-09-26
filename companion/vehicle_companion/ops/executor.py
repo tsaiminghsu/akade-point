@@ -25,7 +25,7 @@ from ..clock import Clock
 log = logging.getLogger(__name__)
 
 PRIORITY = frozenset({"disarm", "rtl", "land", "hold", "mission_pause"})
-SLOW = frozenset({"mission_upload", "mission_download", "mission_clear", "param_get", "param_set"})
+SLOW = frozenset({"mission_upload", "mission_download", "mission_clear", "param_get", "param_set", "param_fetch"})
 
 DEFAULT_TIMEOUT_S = 15.0
 TYPE_TIMEOUT_S = {
@@ -35,6 +35,7 @@ TYPE_TIMEOUT_S = {
     "mission_clear": 20.0,
     "param_get": 60.0,
     "param_set": 120.0,
+    "param_fetch": 240.0,
 }
 # Allowance for delivery latency and clock error when checking expiry.
 EXPIRY_GRACE_MS = 1500

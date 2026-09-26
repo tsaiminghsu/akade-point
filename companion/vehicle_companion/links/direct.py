@@ -59,7 +59,7 @@ class Client:
 
 
 class DirectServer:
-    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock):
+    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None):
         self.cfg = cfg
         self.vehicle_id = vehicle_id
         self.build_state = build_state
@@ -68,6 +68,7 @@ class DirectServer:
         self.manual = manual
         self.streams = streams
         self.clock = clock
+        self.tlog = tlog
         self.clients: set[Client] = set()
         self._pin_failures: dict[str, deque] = defaultdict(deque)
         self._runner: Optional[web.AppRunner] = None
@@ -81,6 +82,9 @@ class DirectServer:
         app = web.Application()
         app.router.add_get("/ws", self._ws)
         app.router.add_get("/health", self._health)
+        app.router.add_route("OPTIONS", "/files/{tail:.*}", self._preflight)
+        app.router.add_get("/files/tlogs", self._tlog_list)
+        app.router.add_get("/files/tlogs/{name}", self._tlog_get)
         return app
 
     async def start(self) -> None:
@@ -149,6 +153,55 @@ class DirectServer:
             {"ok": True, "vid": self.vehicle_id, "clients": self.authed_count},
             headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "no-store"},
         )
+
+    # ---- files (tlogs) ------------------------------------------------------
+    # Plain HTTP so the browser can download large files; authorised with the
+    # same ticket as the socket, sent as "Authorization: Ticket <ticket>".
+
+    def _cors(self, request: web.Request) -> dict:
+        origin = request.headers.get("Origin", "")
+        allowed = not self.cfg.allowed_origins or origin in self.cfg.allowed_origins
+        return {
+            "Access-Control-Allow-Origin": origin if (origin and allowed) else "null",
+            "Access-Control-Allow-Headers": "Authorization",
+            "Access-Control-Expose-Headers": "Content-Disposition",
+            "Vary": "Origin",
+        }
+
+    async def _preflight(self, request: web.Request) -> web.Response:
+        return web.Response(status=204, headers=self._cors(request))
+
+    def _file_auth(self, request: web.Request) -> bool:
+        if not self._origin_ok(request):
+            return False
+        header = request.headers.get("Authorization", "")
+        if header.startswith("Ticket "):
+            return tickets.verify(self.cfg.ticket_key, header[7:], self.vehicle_id, self.clock.now_ms()) is not None
+        if header.startswith("Pin ") and self.cfg.pin:
+            remote = request.remote or "?"
+            if self._pin_blocked(remote):
+                return False
+            if header[4:] == self.cfg.pin:
+                return True
+            self._pin_failures[remote].append(time.monotonic())
+        return False
+
+    async def _tlog_list(self, request: web.Request) -> web.Response:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        files = self.tlog.list_files() if self.tlog is not None else []
+        return web.json_response({"files": files, "enabled": self.tlog is not None}, headers=headers)
+
+    async def _tlog_get(self, request: web.Request) -> web.StreamResponse:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        path = self.tlog.resolve(request.match_info["name"]) if self.tlog is not None else None
+        if path is None:
+            return web.json_response({"error": "not found"}, status=404, headers=headers)
+        headers["Content-Disposition"] = f'attachment; filename="{path.name}"'
+        return web.FileResponse(path, headers=headers)
 
     def _origin_ok(self, request: web.Request) -> bool:
         allowed = self.cfg.allowed_origins

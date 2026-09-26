@@ -199,3 +199,15 @@ async def test_no_vehicle_is_reported():
     assert ack["code"] == "NO_VEHICLE"
     ack = await h.run({"id": "y", "type": "fly_to_moon", "args": {}})
     assert ack["code"] == "UNKNOWN_COMMAND"
+
+
+async def test_param_fetch_stores_snapshot_and_returns_inline(copter):
+    await copter.commands.command_long(512, [148])  # AUTOPILOT_VERSION, as StreamManager does
+    await asyncio.sleep(0.1)
+    ack = await run(copter, "param_fetch", inline=True)
+    assert ack["st"] == "acked" and ack["code"] == "OK", ack
+    assert ack["res"]["count"] == len(copter.fake.params)
+    assert ack["res"]["params"]["SYSID_MYGCS"] == [255, 4]
+    assert ack["res"]["params"]["BATT_LOW_VOLT"][0] == 14.0
+    cid, params, fw = copter.handlers.mission_source.params
+    assert cid == "c-param_fetch" and fw == "ArduCopter V4.5.7" and "FENCE_TYPE" in params

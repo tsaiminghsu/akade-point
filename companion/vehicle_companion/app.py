@@ -126,7 +126,7 @@ def build(config: Config) -> Companion:
             entry["msg"] = ack["msg"]
         if ack.get("res"):
             # Inline mission items went to the browser; the log only needs the summary.
-            entry["res"] = {k: v for k, v in ack["res"].items() if k != "items"}
+            entry["res"] = {k: v for k, v in ack["res"].items() if k not in ("items", "params")}
         cloud.audit(entry)
 
     executor.on_finished(audit)
@@ -143,6 +143,7 @@ def build(config: Config) -> Companion:
             manual=manual,
             streams=streams,
             clock=clock,
+            tlog=tlog,
         )
         holder["direct"] = direct
     return Companion(

@@ -446,6 +446,20 @@ await createTable({
   ],
 });
 
+// 21. akade-cc-vehicle-params — parameter tables read off each vehicle (history).
+await createTable({
+  TableName: "akade-cc-vehicle-params",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "vehicleId", AttributeType: "S" },
+    { AttributeName: "capturedAt", AttributeType: "N" },
+  ],
+  KeySchema: [
+    { AttributeName: "vehicleId", KeyType: "HASH" },
+    { AttributeName: "capturedAt", KeyType: "RANGE" },
+  ],
+});
+
 await enableTtl("akade-cc-machine-events", "expiresAt");
 await enableTtl("akade-cc-alerts", "expiresAt");
 await enableTtl("akade-cc-vehicle-telemetry", "expiresAt");

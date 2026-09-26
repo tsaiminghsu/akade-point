@@ -87,6 +87,8 @@ interface GcsState {
   sendAndWait: (request: CommandRequest, opts?: { timeoutMs?: number; directExtra?: Record<string, unknown> }) => Promise<GcsCommand | null>;
   /** True when commands would go over the direct link right now. */
   viaDirect: () => boolean;
+  /** GET a file from the companion's direct-link HTTP server (tlogs), authorised with a ticket. */
+  fileFetch: (path: string) => Promise<Response | null>;
   drive: (vx: number, yr: number) => boolean;
   setControl: (on: boolean) => void;
   reconnectDirect: () => void;
@@ -105,6 +107,7 @@ let cursor: string | undefined;
 let lastCloudStateAt: number | null = null;
 let lastSampleAt = 0;
 let polling = false;
+let ticketCache: { vehicleId: string; ticket: TicketResponse; exp: number } | null = null;
 const staleness: Record<LinkKind, Staleness> = {
   direct: new Staleness(STALE_ENTER_MS.direct, STALE_EXIT_MS.direct),
   cloud: new Staleness(STALE_ENTER_MS.cloud, STALE_EXIT_MS.cloud),
@@ -206,6 +209,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) return { error: body.error ?? String(res.status) };
+      ticketCache = { vehicleId, ticket: body as TicketResponse, exp: (body as { exp?: number }).exp ?? Date.now() + 600_000 };
       return body as TicketResponse;
     } catch {
       return null;
@@ -412,6 +416,26 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     },
 
     viaDirect: () => Boolean(direct?.isOpen && get().link.direct.scope === "control"),
+
+    fileFetch: async (path) => {
+      const id = get().vehicleId;
+      const url = get().vehicle?.directUrl;
+      if (!id || !url) return null;
+      let t = ticketCache && ticketCache.vehicleId === id && ticketCache.exp - Date.now() > 60_000 ? ticketCache.ticket : null;
+      if (!t) {
+        const fresh = await fetchTicket(id);
+        if (!fresh || "error" in fresh) return null;
+        t = fresh;
+      }
+      const base = new URL(url);
+      base.protocol = base.protocol === "wss:" ? "https:" : "http:";
+      base.pathname = path;
+      try {
+        return await fetch(base.toString(), { headers: { Authorization: `Ticket ${t.ticket}` } });
+      } catch {
+        return null;
+      }
+    },
 
     drive: (vx, yr) => (direct?.isOpen ? direct.sendManual(vx, yr) : false),
 

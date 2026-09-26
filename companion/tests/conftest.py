@@ -51,6 +51,10 @@ class MemoryMissionSource:
         self.downloads.append((command_id, items, mission_type))
         return True
 
+    async def post_params(self, command_id, params, fw):
+        self.params = (command_id, params, fw)
+        return True
+
 
 async def make_rig(vehicle: str = "copter", **fake_kwargs) -> Rig:
     import asyncio

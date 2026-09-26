@@ -37,6 +37,8 @@
 | `GET /vehicles/{id}/token` | — | `{ tokens: [{ tokenId, label, createdAt, revokedAt }] }`（無雜湊、無明碼） |
 | `POST /vehicles/{id}/token` | `{ label? }` | `{ token, tokenId, createdAt, directKey }`（明碼**僅此一次**，並撤銷舊 token；`directKey` 是 companion `[direct] ticket_key`，未設簽章密鑰時為 null） |
 | `GET /vehicles/{id}/live` | `?after=<事件 sk>&op=1` | `{ vehicle, events: VehicleEvent[], commands, now }`——地面站每秒輪詢；`op=1`（需 command 權限）表示持有控制權，寫入 `operatorSeenAt` |
+| `GET /vehicles/{id}/params` | — | `{ snapshots: [{ capturedAt, count, fw, commandId }] }`（新到舊，不含參數本體） |
+| `GET /vehicles/{id}/params/{capturedAt}` | — | `{ snapshot: { params: { NAME: [value, type] }, count, fw, … } }` |
 | `POST /vehicles/{id}/direct-ticket` | `{ scope?: "control"\|"view" }` | `{ url, ticket, exp, scope }`；沒設直連網址或沒有 token → 409，未設簽章密鑰 → 503 |
 | `GET /vehicles/{id}/commands` | `?limit`（≤200） | `{ commands: VehicleCommand[] }`（讀取時套用逾時） |
 | `POST /vehicles/{id}/commands` | `CommandRequest`（見下） | `{ command }`；type 不符機型／模式不合法 → 400；mission_upload 找不到任務 → 404 |
@@ -59,6 +61,7 @@
 | `POST /device/vehicles/telemetry` | `{ state: VehicleState(v1\|v2), history?（≤60）, msgs?: STATUSTEXT[]（≤50）, audit?: 直連指令紀錄[]（≤50） }` | `{ ok, commands: VehicleCommandMsg[], timedOut, now, op }`——commands 為待執行指令，回傳後標 sent；`now` 伺服器時間；`op` 最近 5 s 有人持控制權 |
 | `POST /device/vehicles/commands/{commandId}/ack` | `{ v, id, st: acked\|failed, code, msg?, t, res? }` | `{ ok: true }`；非本載具 → 404；已終結 → 409 |
 | `GET /device/vehicles/missions/{missionId}` | — | `{ mission: { id, name, items } }`；非本載具 → 404 |
+| `POST /device/vehicles/params` | `{ commandId?, params: { NAME: [value, type] }（≤3000）, fw? }` | `{ ok, capturedAt }`（param_fetch 後上傳的完整參數表） |
 | `POST /device/vehicles/missions/download` | `{ commandId, items[], mtype? }` | `{ missionId }`（建立 `source:download` 任務） |
 
 欄位定義見 [`vehicles-message-contract.md`](./vehicles-message-contract.md)。

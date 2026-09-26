@@ -45,6 +45,7 @@ export const TABLES = {
   CC_VEHICLE_TELEMETRY: "akade-cc-vehicle-telemetry",
   CC_VEHICLE_MISSIONS: "akade-cc-vehicle-missions",
   CC_VEHICLE_EVENTS: "akade-cc-vehicle-events",
+  CC_VEHICLE_PARAMS: "akade-cc-vehicle-params",
   CC_CLAW_CONFIGS: "akade-cc-claw-configs",
   CC_CLAW_SYNC: "akade-cc-claw-sync",
   CC_MACHINE_TOKENS: "akade-cc-machine-tokens",

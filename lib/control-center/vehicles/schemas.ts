@@ -151,6 +151,7 @@ export const commandRequestSchema = z.discriminatedUnion("type", [
     }),
   z.object({ type: z.literal("run_prearm") }),
   z.object({ type: z.literal("video_record"), on: z.boolean() }),
+  z.object({ type: z.literal("param_fetch") }),
   z.object({ type: z.literal("reboot") }),
   z.object({ type: z.literal("param_get"), names: z.array(paramName).min(1).max(50) }),
   z.object({
@@ -210,6 +211,15 @@ export const missionDownloadSchema = z.object({
   commandId: z.string().min(1),
   items: z.array(missionItemSchema).min(1).max(MAX_MISSION_ITEMS),
   mtype,
+});
+
+/** Device-side: a full parameter table read by param_fetch. */
+export const paramSnapshotSchema = z.object({
+  commandId: z.string().min(1).nullable().optional(),
+  params: z
+    .record(z.string().regex(/^[A-Z0-9_]{1,16}$/), z.tuple([z.number(), z.number().int()]))
+    .refine((p) => Object.keys(p).length <= 3000, "too many parameters"),
+  fw: z.string().max(80).nullable().optional(),
 });
 
 export const historyQuerySchema = z.object({
