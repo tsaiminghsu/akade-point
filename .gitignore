@@ -45,4 +45,6 @@ next-env.d.ts
 /companion/.venv/
 /companion/**/__pycache__/
 /companion/certs/
+/companion/tlogs/
+/companion/.pytest_cache/
 *.egg-info/

@@ -1,0 +1,29 @@
+# systemd template unit for the Akade vehicle companion. One instance per
+# vehicle config: /etc/vehicle-companion/<name>.toml runs as
+# vehicle-companion@<name>. A Pi normally runs one ("drone" or "rover"); a
+# ground Pi or laptop can also relay an ESP32 rover as a second instance.
+#
+# Install (see docs/vehicles-companion.md):
+#   sudo cp deploy/vehicle-companion@.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now vehicle-companion@drone
+# Logs: journalctl -u vehicle-companion@drone -f
+
+[Unit]
+Description=Akade vehicle companion (%i)
+After=network-online.target mavlink-router.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/vehicle-companion
+Environment=MAVLINK20=1
+ExecStart=/opt/vehicle-companion/.venv/bin/python -m vehicle_companion --config /etc/vehicle-companion/%i.toml
+# /var/lib/vehicle-companion/%i, owned by User; point tlog_dir here.
+StateDirectory=vehicle-companion/%i
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

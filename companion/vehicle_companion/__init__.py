@@ -1,3 +1,3 @@
-"""Akade IoT Control Center vehicle companion bridge."""
+"""Akade IoT Control Center vehicle companion: MAVLink ⇄ Control Center bridge."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
