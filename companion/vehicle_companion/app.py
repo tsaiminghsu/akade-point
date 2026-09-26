@@ -11,6 +11,7 @@ from typing import Optional
 from .clock import Clock
 from .config import Config
 from .links.cloud import CloudLink
+from .links.direct import DirectServer
 from .mav.command import CommandClient
 from .mav.connection import MavConnection
 from .mav.heartbeat import GcsHeartbeat
@@ -20,6 +21,7 @@ from .mav.statustext import StatusLog
 from .mav.streams import StreamManager
 from .ops.executor import Executor
 from .ops.handlers import Handlers
+from .ops.manual import ManualDrive
 from .state import StateBuilder
 from .sysinfo import SysInfo
 from .tlog import TlogWriter
@@ -46,6 +48,8 @@ class Companion:
     handlers: Handlers
     executor: Executor
     heartbeat: GcsHeartbeat
+    manual: ManualDrive
+    direct: Optional[DirectServer] = None
     tlog: Optional[TlogWriter] = None
 
 
@@ -73,7 +77,13 @@ def build(config: Config) -> Companion:
         telemetry_interval_s=config.telemetry_interval_s,
         history_every_s=config.history_every_s,
     )
-    heartbeat = GcsHeartbeat(conn, config.gcs_heartbeat, operator_present=lambda: cloud.operator_present)
+    holder: dict = {}
+
+    def operator_present() -> bool:
+        direct = holder.get("direct")
+        return cloud.operator_present or bool(direct and direct.operator_present)
+
+    heartbeat = GcsHeartbeat(conn, config.gcs_heartbeat, operator_present=operator_present)
     builder = StateBuilder(
         conn,
         status,
@@ -83,9 +93,57 @@ def build(config: Config) -> Companion:
         gcs_state=lambda: {"policy": heartbeat.policy, "hb": heartbeat.sending},
     )
     handlers = Handlers(conn, commands, missions, params, status, clock.now_ms, mission_source=cloud)
-    executor = Executor(handlers, cloud.enqueue_ack, clock)
+
+    def ack_sink(ack: dict) -> None:
+        # Direct-link commands ("d_" ids) are unknown to the server; they reach
+        # its log through the audit trail below instead of the ack route.
+        if not ack["id"].startswith("d_"):
+            cloud.enqueue_ack(ack)
+        direct = holder.get("direct")
+        if direct is not None:
+            direct.on_ack(ack)
+
+    executor = Executor(handlers, ack_sink, clock)
+
+    def audit(cmd: dict, ack: dict) -> None:
+        if cmd.get("via") != "direct":
+            return
+        entry = {
+            "id": cmd["id"],
+            "type": cmd["type"],
+            "args": cmd.get("args") or {},
+            "st": ack["st"],
+            "code": ack["code"],
+            "sub": cmd.get("sub", ""),
+            "createdAt": cmd.get("iat", ack["t"]),
+            "ackedAt": ack["t"],
+        }
+        if ack.get("msg"):
+            entry["msg"] = ack["msg"]
+        if ack.get("res"):
+            entry["res"] = ack["res"]
+        cloud.audit(entry)
+
+    executor.on_finished(audit)
     cloud.on_command = executor.submit
-    return Companion(config, clock, conn, commands, missions, params, status, streams, sysinfo, builder, cloud, handlers, executor, heartbeat, tlog)
+    manual = ManualDrive(conn)
+    direct = None
+    if config.direct.enabled:
+        direct = DirectServer(
+            config.direct,
+            config.vehicle_id,
+            build_state=builder.build,
+            executor=executor,
+            status=status,
+            manual=manual,
+            streams=streams,
+            clock=clock,
+        )
+        holder["direct"] = direct
+    return Companion(
+        config, clock, conn, commands, missions, params, status, streams, sysinfo, builder, cloud, handlers, executor,
+        heartbeat, manual, direct, tlog,
+    )
 
 
 async def run(config: Config) -> None:
@@ -100,6 +158,8 @@ async def run(config: Config) -> None:
     log.info("connecting to %s", config.mavlink_url)
     c.conn.start(loop)
     await c.cloud.start()
+    if c.direct is not None:
+        await c.direct.start()
 
     mqtt = None
     if config.transport == "iot" and config.mqtt.enabled:
@@ -133,6 +193,8 @@ async def run(config: Config) -> None:
         await asyncio.gather(*tasks, return_exceptions=True)
         if mqtt is not None:
             mqtt.stop()
+        if c.direct is not None:
+            await c.direct.stop()
         await c.cloud.close()
         c.conn.stop()
         log.info("stopped")

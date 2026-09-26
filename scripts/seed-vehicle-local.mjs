@@ -50,6 +50,19 @@ console.log(`mavlink_url = "udpin:127.0.0.1:14550"`);
 console.log(`telemetry_interval_s = 1.0`);
 console.log(`battery_cells = 4`);
 console.log(`tlog_dir = "tlogs"`);
+if (issued.directKey) {
+  // Local dev: the page is http://localhost, so a plain ws:// direct link works.
+  await api(`/api/control-center/vehicles/${vehicle.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ directUrl: "ws://127.0.0.1:8765" }),
+  });
+  console.log("");
+  console.log("[direct]");
+  console.log("enabled = true");
+  console.log(`host = "127.0.0.1"`);
+  console.log("port = 8765");
+  console.log(`ticket_key = "${issued.directKey}"`);
+}
 console.log("--------------------------------------------------------------");
 console.log("\nNo flight controller? Run the fake autopilot next to the companion:");
 console.log("  python -m vehicle_companion.tools.fake_autopilot --vehicle copter --to 127.0.0.1:14550");

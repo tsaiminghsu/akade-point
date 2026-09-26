@@ -13,7 +13,7 @@ transport = "http"
 
 # Device API version the server speaks. 1 = legacy list/drawer UI,
 # 2 = web ground station (richer state, messages, direct link).
-contract = 1
+contract = 2
 
 # How the companion reaches the flight controller.
 #   With mavlink-router on the Pi (recommended; see deploy/mavlink-router.conf):
@@ -48,6 +48,20 @@ tlog_dir = "/var/lib/vehicle-companion/drone/tlogs"
 tlog_max_mb = 2048
 
 log_level = "INFO"
+
+# Direct link: the ground-station page connects straight to this WebSocket
+# (10 Hz, keeps working when the cloud is down). Put it behind wss:// — e.g.
+#   tailscale serve --bg --https=443 http://127.0.0.1:8765
+# and enter that URL in the vehicle's Setup tab.
+[direct]
+enabled = false
+host = "127.0.0.1"
+port = 8765
+# From the Setup tab, shown once together with the device token.
+ticket_key = ""
+# Optional PIN for use without the Control Center (5 tries per minute).
+pin = ""
+allowed_origins = ["https://your-control-center.example.com"]
 
 # Only used when transport = "iot".
 [mqtt]

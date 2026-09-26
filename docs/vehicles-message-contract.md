@@ -168,3 +168,25 @@ seq  current  frame  command  param1 param2 param3 param4  lat lon alt  autocont
 ```
 
 對映到 MissionItem：`current→cur`、`command→cmd`、`param1..4→p1..4`、`autocontinue→ac`。解析／輸出由 `lib/control-center/vehicles/waypoints.ts` 處理，容錯 CRLF 與空白，seq 0 保留以便原樣來回。
+
+## 直連（Direct）WebSocket
+
+companion 的 `[direct]` 開啟後，監聽 `ws://<host>:<port>/ws`（前面接 Tailscale serve 或反向代理成 `wss://`）。
+
+- 協定是 JSON 文字訊息。
+- 瀏覽器第一則必須在 5 s 內驗證：`{"k":"auth","ticket":"…"}`（票證由 Control Center 簽）或 `{"k":"auth","pin":"…"}`（離線場地用，一分鐘最多試 5 次）。
+- 若設了 `allowed_origins`，`Origin` 不在清單內的連線一律拒絕。
+
+| 方向 | 訊息 | 說明 |
+|:---|:---|:---|
+| ← | `{"k":"hello", vid, scope, sub, contract:2, now, msgs}` | 驗證成功；`msgs` 是最近 50 則 STATUSTEXT |
+| ← | `{"k":"state","s":VehicleStateV2}` | 10 Hz |
+| ← | `{"k":"msg","e":{seq,t,sev,text,comp}}` | 每則 STATUSTEXT |
+| ← | `{"k":"ack","a":Ack}` | 所有指令的 ack（含雲端下的） |
+| → | `{"k":"cmd","cmd":{id:"d_…",type,args}}` | 需 `control` 票證；id 必須以 `d_` 開頭 |
+| → | `{"k":"manual","vx":m/s,"yr":rad/s}` | Rover 搖桿；companion 轉成 GUIDED 的 `SET_POSITION_TARGET_LOCAL_NED`（BODY_NED、type_mask 0x05C7），0.3 s 沒更新就送 0 |
+| → | `{"k":"op","on":true}` | 此操作者持有控制權（`operator` 心跳策略） |
+| → / ← | `{"k":"ping","t"}` / `{"k":"pong","t","now"}` | 應用層 ping；另有每 2 s 的 WebSocket 協定層 ping/pong |
+
+- 票證格式：`base64url(JSON{vid,sub,scope,exp,n}) + "." + base64url(HMAC-SHA256(ticket_key, 第一段))`。
+- 兩端的實作是 `lib/control-center/vehicles/directTicket.ts` 與 `companion/vehicle_companion/links/ticket.py`，用同一組測試向量驗證。

@@ -32,6 +32,27 @@ export async function createCommand(input: CreateCommandInput): Promise<CCVehicl
   return command;
 }
 
+/**
+ * Records a command that was issued over the direct link and already run by
+ * the companion, so the log shows it. Idempotent on id (the companion resends
+ * its audit entries until a telemetry POST succeeds).
+ */
+export async function recordDirectCommand(
+  entry: Pick<CCVehicleCommand, "id" | "vehicleId" | "type" | "args" | "status" | "timeoutMs" | "issuedBy" | "createdAt"> &
+    Partial<Pick<CCVehicleCommand, "ackedAt" | "code" | "msg" | "result">>
+): Promise<void> {
+  const item: CCVehicleCommand = {
+    ...entry,
+    via: "direct",
+    expiresAt: expiresAtFrom(entry.createdAt, VEHICLE_COMMAND_TTL_SECONDS),
+  };
+  await ddb
+    .send(new PutCommand({ TableName: TABLES.CC_VEHICLE_COMMANDS, Item: item, ConditionExpression: "attribute_not_exists(id)" }))
+    .catch((err: { name?: string }) => {
+      if (err?.name !== "ConditionalCheckFailedException") throw err;
+    });
+}
+
 export async function getCommand(id: string): Promise<CCVehicleCommand | null> {
   const res = await ddb.send(new GetCommand({ TableName: TABLES.CC_VEHICLE_COMMANDS, Key: { id } }));
   return (res.Item as CCVehicleCommand) ?? null;

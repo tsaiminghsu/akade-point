@@ -60,11 +60,26 @@ export const statusMessageSchema = z.object({
   comp: z.number().int().min(0).max(255),
 });
 
+/** A command the companion ran for the direct link, reported for the log. */
+export const directAuditSchema = z.object({
+  id: z.string().min(1).max(64),
+  type: z.string().min(1).max(40),
+  args: z.record(z.string(), z.unknown()),
+  st: z.enum(["acked", "failed"]),
+  code: z.string().max(80),
+  msg: z.string().max(500).optional(),
+  sub: z.string().max(100),
+  createdAt: z.number(),
+  ackedAt: z.number(),
+  res: z.record(z.string(), z.unknown()).optional(),
+});
+
 export const telemetryPostSchema = z
   .object({
     state: vehicleStateSchema,
     history: z.array(vehicleStateSchema).max(MAX_HISTORY_POINTS_PER_POST).optional(),
     msgs: z.array(statusMessageSchema).max(MAX_EVENTS_PER_POST).optional(),
+    audit: z.array(directAuditSchema).max(50).optional(),
   })
   .refine((body) => JSON.stringify(body.state).length <= MAX_STATE_BYTES, { message: "state too large" });
 
@@ -75,12 +90,23 @@ export const vehicleCreateSchema = z.object({
   notes: z.string().optional(),
 });
 
+/** "" clears the field; otherwise it must be the right kind of URL. */
+const optionalUrl = (protocols: RegExp) =>
+  z
+    .string()
+    .trim()
+    .max(300)
+    .refine((v) => v === "" || (protocols.test(v) && URL.canParse(v)), "Invalid URL")
+    .optional();
+
 export const vehiclePatchSchema = z
   .object({
     name: z.string().min(1).optional(),
     type: z.enum(["drone", "rover"]).optional(),
     companionId: z.string().min(1).optional(),
     notes: z.string().optional(),
+    directUrl: optionalUrl(/^wss?:\/\//),
+    videoUrl: optionalUrl(/^https?:\/\//),
   })
   .refine((patch) => Object.values(patch).some((v) => v !== undefined), {
     message: "At least one field is required",

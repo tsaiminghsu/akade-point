@@ -23,6 +23,7 @@ export function VehicleTokenPanel({ vehicle }: { vehicle: Vehicle }) {
 
   const [tokens, setTokens] = useState<TokenMeta[]>([]);
   const [plaintext, setPlaintext] = useState<string | null>(null);
+  const [directKey, setDirectKey] = useState<string | null>(null);
 
   async function loadTokens() {
     const res = await apiRequest<{ tokens: TokenMeta[] }>(`/api/control-center/vehicles/${vehicle.id}/token`, undefined, {
@@ -40,6 +41,7 @@ export function VehicleTokenPanel({ vehicle }: { vehicle: Vehicle }) {
     const issued = await issueToken(vehicle.id, "companion");
     if (issued) {
       setPlaintext(issued.token);
+      setDirectKey(issued.directKey ?? null);
       void loadTokens();
     }
   }
@@ -49,13 +51,23 @@ export function VehicleTokenPanel({ vehicle }: { vehicle: Vehicle }) {
     toast.success(t("copyToast"));
   }
 
+  // A ready-to-save /etc/vehicle-companion/<name>.toml. The [direct] block
+  // appears only when the server can sign direct-link tickets.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const toml = plaintext
     ? [
         `vehicle_id = "${vehicle.id}"`,
-        `api_base = "<your-server-url>"`,
+        `api_base = "${origin}"`,
         `token = "${plaintext}"`,
         `transport = "http"`,
-        `mavlink_url = "udpin:127.0.0.1:14550"`,
+        `contract = 2`,
+        `mavlink_url = "udpin:127.0.0.1:14540"   # mavlink-router companion endpoint`,
+        `gcs_heartbeat = "off"`,
+        `battery_cells = 4`,
+        `tlog_dir = "/var/lib/vehicle-companion/${vehicle.companionId}/tlogs"`,
+        ...(directKey
+          ? ["", "[direct]", "enabled = true", "port = 8765", `ticket_key = "${directKey}"`, `allowed_origins = ["${origin}"]`]
+          : []),
       ].join("\n")
     : "";
 

@@ -15,6 +15,8 @@ export function toVehicleView(v: CCVehicle, now: number = Date.now()): Vehicle {
     stateAt: v.stateAt,
     lastSeenAt: v.lastSeenAt,
     linkState: linkStateOf(v.lastSeenAt, now),
+    directUrl: v.directUrl ?? "",
+    videoUrl: v.videoUrl ?? "",
     createdAt: v.createdAt,
     updatedAt: v.updatedAt,
   };

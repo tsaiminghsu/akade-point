@@ -4,11 +4,11 @@ import { requireDeviceToken } from "@/lib/device-auth";
 import { updateVehicleState } from "@/lib/dynamo/cc-vehicles";
 import { putPoints } from "@/lib/dynamo/cc-vehicle-telemetry";
 import { putEvents } from "@/lib/dynamo/cc-vehicle-events";
-import { listPendingByVehicle, markSent, markTimedOut } from "@/lib/dynamo/cc-vehicle-commands";
+import { listPendingByVehicle, markSent, markTimedOut, recordDirectCommand } from "@/lib/dynamo/cc-vehicle-commands";
 import { telemetryPostSchema } from "@/lib/control-center/vehicles/schemas";
 import { resolveTimeouts, toCommandMsg } from "@/lib/control-center/vehicles/commandState";
 import { OPERATOR_PRESENT_MS } from "@/lib/control-center/vehicles/constants";
-import type { VehicleState } from "@/lib/control-center/vehicles/types";
+import type { VehicleCommandType, VehicleState } from "@/lib/control-center/vehicles/types";
 
 /**
  * The companion's 1 Hz heartbeat. Updates the live state, appends any
@@ -29,12 +29,28 @@ export async function POST(req: Request) {
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   const now = Date.now();
-  const { state, history, msgs } = body.data;
+  const { state, history, msgs, audit } = body.data;
   const [{ operatorSeenAt }] = await Promise.all([
     updateVehicleState(auth.vehicleId, state as Record<string, unknown>, state.t, now),
     // The v2 schema is loose (typed where the server reads it), hence the cast.
     history && history.length > 0 ? putPoints(auth.vehicleId, history as VehicleState[]) : Promise.resolve(),
     msgs && msgs.length > 0 ? putEvents(auth.vehicleId, msgs) : Promise.resolve(),
+    ...(audit ?? []).map((a) =>
+      recordDirectCommand({
+        id: a.id,
+        vehicleId: auth.vehicleId,
+        type: a.type as VehicleCommandType,
+        args: a.args,
+        status: a.st,
+        timeoutMs: 0,
+        issuedBy: a.sub,
+        createdAt: a.createdAt,
+        ackedAt: a.ackedAt,
+        code: a.code,
+        msg: a.msg,
+        result: a.res,
+      })
+    ),
   ]);
 
   // Hand back commands the companion hasn't run yet. resolveTimeouts filters out

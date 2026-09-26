@@ -18,7 +18,6 @@ interface VehiclesState {
   commandsByVehicle: Record<string, VehicleCommand[]>;
   telemetryByVehicle: Record<string, TelemetryPoint[]>;
   missionsByVehicle: Record<string, VehicleMission[]>;
-  selectedVehicleId: string | null;
   hydrated: boolean;
   hydrateError: boolean;
 
@@ -27,13 +26,12 @@ interface VehiclesState {
   startPolling: () => void;
   stopPolling: () => void;
 
-  selectVehicle: (id: string | null) => void;
   getVehicle: (id: string) => Vehicle | undefined;
 
   addVehicle: (input: { name: string; type: "drone" | "rover"; companionId: string; notes?: string }) => Promise<Vehicle | null>;
   updateVehicle: (id: string, patch: Partial<Pick<Vehicle, "name" | "type" | "companionId" | "notes">>) => Promise<boolean>;
   removeVehicle: (id: string) => Promise<boolean>;
-  issueToken: (id: string, label?: string) => Promise<{ token: string; tokenId: string; createdAt: number } | null>;
+  issueToken: (id: string, label?: string) => Promise<{ token: string; tokenId: string; createdAt: number; directKey: string | null } | null>;
 
   issueCommand: (vehicleId: string, request: CommandRequest) => Promise<VehicleCommand | null>;
   fetchCommands: (vehicleId: string) => Promise<void>;
@@ -64,7 +62,6 @@ export const useVehiclesStore = create<VehiclesState>()((set, get) => ({
   commandsByVehicle: {},
   telemetryByVehicle: {},
   missionsByVehicle: {},
-  selectedVehicleId: null,
   hydrated: false,
   hydrateError: false,
 
@@ -96,8 +93,6 @@ export const useVehiclesStore = create<VehiclesState>()((set, get) => ({
       return old && old.stateAt === v.stateAt && old.updatedAt === v.updatedAt && old.lastSeenAt === v.lastSeenAt ? old : v;
     });
     set({ vehicles: merged, vehiclesById: byId(merged), hydrated: true, hydrateError: false });
-    const sel = get().selectedVehicleId;
-    if (sel) await get().fetchCommands(sel);
   },
 
   startPolling: () => {
@@ -114,14 +109,6 @@ export const useVehiclesStore = create<VehiclesState>()((set, get) => ({
     }
   },
 
-  selectVehicle: (id) => {
-    set({ selectedVehicleId: id });
-    if (id) {
-      void get().fetchCommands(id);
-      void get().fetchMissions(id);
-      void get().fetchTelemetry(id);
-    }
-  },
   getVehicle: (id) => get().vehiclesById[id],
 
   addVehicle: async (input) => {
@@ -155,17 +142,13 @@ export const useVehiclesStore = create<VehiclesState>()((set, get) => ({
     if (!res) return false;
     set((s) => {
       const vehicles = s.vehicles.filter((v) => v.id !== id);
-      return {
-        vehicles,
-        vehiclesById: byId(vehicles),
-        selectedVehicleId: s.selectedVehicleId === id ? null : s.selectedVehicleId,
-      };
+      return { vehicles, vehiclesById: byId(vehicles) };
     });
     return true;
   },
 
   issueToken: async (id, label) => {
-    return apiRequest<{ token: string; tokenId: string; createdAt: number }>(`/api/control-center/vehicles/${id}/token`, {
+    return apiRequest<{ token: string; tokenId: string; createdAt: number; directKey: string | null }>(`/api/control-center/vehicles/${id}/token`, {
       method: "POST",
       body: JSON.stringify({ label: label ?? "companion" }),
     });

@@ -32,10 +32,12 @@
 | `GET /vehicles` | — | `{ vehicles: Vehicle[] }`（各含推導的 `linkState`） |
 | `POST /vehicles` | `{ name, type: drone\|rover, companionId, notes? }` | `{ vehicle }`；companionId 重複 → 409 |
 | `GET /vehicles/{id}` | — | `{ vehicle }`；不存在 → 404 |
-| `PATCH /vehicles/{id}` | 上述欄位任一（非空） | `{ ok: true }`；companionId 撞其他載具 → 409 |
+| `PATCH /vehicles/{id}` | 上述欄位任一（非空），另可帶 `directUrl`（ws/wss）、`videoUrl`（http/https），`""` 清除 | `{ ok: true }`；companionId 撞其他載具 → 409 |
 | `DELETE /vehicles/{id}` | — | `{ ok: true }`（連帶撤 token、刪任務） |
 | `GET /vehicles/{id}/token` | — | `{ tokens: [{ tokenId, label, createdAt, revokedAt }] }`（無雜湊、無明碼） |
-| `POST /vehicles/{id}/token` | `{ label? }` | `{ token, tokenId, createdAt }`（明碼**僅此一次**，並撤銷舊 token） |
+| `POST /vehicles/{id}/token` | `{ label? }` | `{ token, tokenId, createdAt, directKey }`（明碼**僅此一次**，並撤銷舊 token；`directKey` 是 companion `[direct] ticket_key`，未設簽章密鑰時為 null） |
+| `GET /vehicles/{id}/live` | `?after=<事件 sk>&op=1` | `{ vehicle, events: VehicleEvent[], commands, now }`——地面站每秒輪詢；`op=1`（需 command 權限）表示持有控制權，寫入 `operatorSeenAt` |
+| `POST /vehicles/{id}/direct-ticket` | `{ scope?: "control"\|"view" }` | `{ url, ticket, exp, scope }`；沒設直連網址或沒有 token → 409，未設簽章密鑰 → 503 |
 | `GET /vehicles/{id}/commands` | `?limit`（≤200） | `{ commands: VehicleCommand[] }`（讀取時套用逾時） |
 | `POST /vehicles/{id}/commands` | `CommandRequest`（見下） | `{ command }`；type 不符機型／模式不合法 → 400；mission_upload 找不到任務 → 404 |
 | `GET /vehicles/{id}/telemetry` | `?since&limit`（≤2000，預設 500） | `{ points: TelemetryPoint[] }`（時間遞增） |
@@ -54,10 +56,10 @@
 
 | 方法 路徑 | Body | 回應 |
 |:---|:---|:---|
-| `POST /device/vehicles/telemetry` | `{ state: VehicleState, history?: VehicleState[]（≤60） }` | `{ ok, commands: VehicleCommandMsg[], timedOut }`——commands 為待執行指令，回傳後標 sent |
+| `POST /device/vehicles/telemetry` | `{ state: VehicleState(v1\|v2), history?（≤60）, msgs?: STATUSTEXT[]（≤50）, audit?: 直連指令紀錄[]（≤50） }` | `{ ok, commands: VehicleCommandMsg[], timedOut, now, op }`——commands 為待執行指令，回傳後標 sent；`now` 伺服器時間；`op` 最近 5 s 有人持控制權 |
 | `POST /device/vehicles/commands/{commandId}/ack` | `{ v, id, st: acked\|failed, code, msg?, t, res? }` | `{ ok: true }`；非本載具 → 404；已終結 → 409 |
 | `GET /device/vehicles/missions/{missionId}` | — | `{ mission: { id, name, items } }`；非本載具 → 404 |
-| `POST /device/vehicles/missions/download` | `{ commandId, items[] }` | `{ missionId }`（建立 `source:download` 任務） |
+| `POST /device/vehicles/missions/download` | `{ commandId, items[], mtype? }` | `{ missionId }`（建立 `source:download` 任務） |
 
 欄位定義見 [`vehicles-message-contract.md`](./vehicles-message-contract.md)。
 

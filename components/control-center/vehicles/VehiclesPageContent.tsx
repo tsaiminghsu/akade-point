@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plane, Plus } from "lucide-react";
 
@@ -9,7 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VehiclesTable } from "./VehiclesTable";
 import { VehicleFormDialog } from "./VehicleFormDialog";
-import { VehicleDetailDrawer } from "./VehicleDetailDrawer";
+
+// Leaflet touches window on import.
+const FleetMap = dynamic(() => import("./gcs/map/FleetMap").then((m) => m.FleetMap), {
+  ssr: false,
+  loading: () => <div className="h-full w-full rounded-lg bg-muted/40" />,
+});
 import { useVehiclesStore } from "@/store/useVehiclesStore";
 import type { VehicleLinkState, VehicleType } from "@/lib/control-center/vehicles/types";
 
@@ -24,7 +31,7 @@ export default function VehiclesPageContent() {
   const hydrate = useVehiclesStore((s) => s.hydrate);
   const startPolling = useVehiclesStore((s) => s.startPolling);
   const stopPolling = useVehiclesStore((s) => s.stopPolling);
-  const selectVehicle = useVehiclesStore((s) => s.selectVehicle);
+  const router = useRouter();
 
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<VehicleType | "all">("all");
@@ -53,7 +60,7 @@ export default function VehiclesPageContent() {
   }, [vehicles]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6">
+    <div className="flex h-full flex-col overflow-y-auto p-4 sm:p-6 lg:overflow-hidden">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -94,16 +101,20 @@ export default function VehiclesPageContent() {
         ))}
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <VehiclesTable vehicles={filtered} />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        <div className="h-64 shrink-0 lg:h-auto lg:w-[42%]">
+          <FleetMap vehicles={filtered} />
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <VehiclesTable vehicles={filtered} />
+        </div>
       </div>
 
       <VehicleFormDialog
         open={addOpen}
         onOpenChange={setAddOpen}
-        onCreated={(v) => selectVehicle(v.id)}
+        onCreated={(v) => router.push(`/iot-control-center/vehicles/${v.id}`)}
       />
-      <VehicleDetailDrawer />
     </div>
   );
 }

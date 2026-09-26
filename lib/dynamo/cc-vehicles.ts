@@ -14,8 +14,12 @@ export interface CCVehicle {
   state: Record<string, unknown> | null;
   stateAt: number | null;
   lastSeenAt: number | null;
-  /** last time a ground-station page polled this vehicle live (ms) */
+  /** last time a ground-station page holding control polled this vehicle (ms) */
   operatorSeenAt?: number;
+  /** companion WebSocket for the direct link, e.g. wss://drone.tailnet.ts.net */
+  directUrl?: string;
+  /** WebRTC (WHEP) video endpoint served by MediaMTX on the companion */
+  videoUrl?: string;
   createdAt: number;
   updatedAt: number;
 }

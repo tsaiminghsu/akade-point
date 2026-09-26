@@ -151,6 +151,10 @@ export interface Vehicle {
   lastSeenAt: number | null;
   /** derived from lastSeenAt; present on API responses, not stored */
   linkState: VehicleLinkState;
+  /** companion WebSocket URL for the direct link (wss:// from an https page) */
+  directUrl: string;
+  /** MediaMTX WebRTC (WHEP) URL for live video */
+  videoUrl: string;
   createdAt: number;
   updatedAt: number;
 }

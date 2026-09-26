@@ -4,6 +4,7 @@ import { requireVehicleAccess } from "@/lib/vehicle-access";
 import { getVehicle } from "@/lib/dynamo/cc-vehicles";
 import { issueDeviceToken } from "@/lib/device-auth";
 import { listTokensByVehicle } from "@/lib/dynamo/cc-vehicle-tokens";
+import { deriveDirectKey, masterKey } from "@/lib/control-center/vehicles/directTicket";
 
 /** Token metadata (no hashes, no plaintext). */
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -26,5 +27,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const body = await req.json().catch(() => ({}));
   const label = typeof body?.label === "string" && body.label.trim() ? body.label.trim() : "companion";
   const issued = await issueDeviceToken(params.id, label);
-  return NextResponse.json(issued);
+  // The companion's direct-link key is derived from this token, so it is
+  // shown once alongside it (null when no signing secret is configured).
+  const master = masterKey();
+  const directKey = master ? deriveDirectKey(master, params.id, issued.tokenId) : null;
+  return NextResponse.json({ ...issued, directKey });
 }

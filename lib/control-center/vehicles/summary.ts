@@ -1,4 +1,4 @@
-import type { VehicleState, VehicleSummary } from "./types";
+import type { VehicleState, VehicleStateV2, VehicleSummary, VehicleType } from "./types";
 
 /**
  * Reads the handful of numbers every screen needs from either contract
@@ -55,4 +55,45 @@ export function fixLabel(fix: number | null): string | null {
   if (fix === 3) return "3D";
   if (fix === 2) return "2D";
   return "No fix";
+}
+
+/**
+ * Lifts any snapshot to the v2 shape the ground station renders. A v1
+ * snapshot fills what it has and leaves the rest null (no attitude, EKF,
+ * pre-arm…), so the UI shows "—" instead of inventing values.
+ */
+export function toStateV2(state: VehicleState | null | undefined, vehicleType: VehicleType): VehicleStateV2 | null {
+  if (!state) return null;
+  if (state.v === 2) return state;
+  const s = summarize(state)!;
+  return {
+    v: 2,
+    t: state.t,
+    fc: { ok: true, age: null, id: null },
+    veh: { cls: vehicleType === "drone" ? "copter" : "rover", ap: "ardupilot", mavType: 0 },
+    armed: s.armed,
+    mode: s.mode,
+    sys: s.sys,
+    att: null,
+    bat: { v: s.batV, a: state.bat.a, pct: s.batPct, mah: null, cells: null, cellV: null, cellAvg: false },
+    gps: s.fix === null ? null : { fix: s.fix, sats: s.sats, hdop: s.hdop },
+    pos: s.pos,
+    home: null,
+    hdg: s.hdg,
+    gs: s.gs,
+    as: null,
+    vs: s.vs,
+    thr: null,
+    wp: s.wp ? { cur: s.wp.cur, n: s.wp.n, dist: null, xt: null } : null,
+    ekf: null,
+    vibe: null,
+    rssi: { rc: null, radio: null },
+    health: { prearm: null, bad: [], msgs: [] },
+    fence: null,
+    wind: null,
+    comp: null,
+    caps: ["mission"],
+    gcs: { others: 0 },
+    fw: s.fw,
+  };
 }

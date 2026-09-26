@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Eye, Pencil, Plane, Car, Trash2 } from "lucide-react";
 
@@ -27,7 +28,6 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
   const t = useTranslations("VehiclesTable");
   const tCommon = useTranslations("Common");
   const locale = useLocale();
-  const selectVehicle = useVehiclesStore((s) => s.selectVehicle);
   const removeVehicle = useVehiclesStore((s) => s.removeVehicle);
 
   const [editing, setEditing] = useState<Vehicle | undefined>(undefined);
@@ -67,9 +67,9 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                     <LinkStateBadge state={v.linkState} />
                   </TableCell>
                   <TableCell className="font-medium text-foreground">
-                    <span className="flex items-center gap-1.5">
+                    <Link href={`/iot-control-center/vehicles/${v.id}`} className="flex items-center gap-1.5 hover:text-primary hover:underline">
                       <TypeIcon className="h-3.5 w-3.5 text-muted-foreground" /> {v.name}
-                    </span>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{v.companionId}</TableCell>
                   <TableCell className="text-xs">{s?.armed == null ? "—" : s.armed ? t("armedYes") : t("armedNo")}</TableCell>
@@ -81,8 +81,10 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{relativeTime(v.lastSeenAt, locale, t("never"))}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon-sm" aria-label={t("view", { name: v.name })} onClick={() => selectVehicle(v.id)}>
-                      <Eye aria-hidden className="h-3.5 w-3.5" />
+                    <Button asChild variant="ghost" size="icon-sm" aria-label={t("view", { name: v.name })}>
+                      <Link href={`/iot-control-center/vehicles/${v.id}`}>
+                        <Eye aria-hidden className="h-3.5 w-3.5" />
+                      </Link>
                     </Button>
                     <Button variant="ghost" size="icon-sm" aria-label={t("edit", { name: v.name })} onClick={() => setEditing(v)}>
                       <Pencil aria-hidden className="h-3.5 w-3.5" />

@@ -1,5 +1,6 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 
+import { eventSortKey } from "@/lib/control-center/vehicles/eventKey";
 import type { VehicleEvent } from "@/lib/control-center/vehicles/types";
 import { batchPutAll } from "./batch";
 import { ddb, TABLES } from "./client";
@@ -13,11 +14,7 @@ export interface IncomingStatusMessage {
   comp: number;
 }
 
-/** Sort key: zero-padded time then the companion's sequence number, so
- *  lexical order is time order and same-millisecond messages stay distinct. */
-export function eventSortKey(t: number, seq: number): string {
-  return `${String(Math.max(0, Math.floor(t))).padStart(15, "0")}#${String(seq).padStart(9, "0")}`;
-}
+export { eventSortKey };
 
 export function toEvent(vehicleId: string, m: IncomingStatusMessage): VehicleEvent {
   return {
