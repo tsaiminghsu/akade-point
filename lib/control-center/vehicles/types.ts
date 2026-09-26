@@ -99,6 +99,8 @@ export interface VehicleStateV2 {
   health: { prearm: boolean | null; bad: string[]; msgs: string[] };
   fence: { breach: boolean; count: number; type: number } | null;
   wind: { dir: number; spd: number } | null;
+  /** gimbal attitude, degrees (device = GIMBAL_DEVICE_ATTITUDE_STATUS in body frame, mount = legacy MOUNT_STATUS) */
+  mount?: { p: number; y: number; r: number; src: "device" | "mount" } | null;
   /** companion computer health */
   comp: {
     tempC: number | null;
@@ -185,7 +187,11 @@ export type VehicleCommandType =
   | "param_get"
   | "param_set"
   | "param_fetch"
-  | "video_record";
+  | "video_record"
+  | "gimbal_pitchyaw"
+  | "gimbal_mode"
+  | "roi_location"
+  | "roi_none";
 
 /** Where a command was issued: through this server, or straight to the
  *  companion over the direct link (then reported back for the log). */

@@ -14,6 +14,7 @@ from typing import Callable, Optional
 from .mav.connection import MavConnection
 from .mav.proto import mavlink
 from .mav.statustext import StatusLog
+from .ops.gimbal import gimbal_present, mount_state
 from .mav.vehicle import (
     MAV_STATE_NAMES,
     autopilot_family,
@@ -289,8 +290,9 @@ class StateBuilder:
             if fence is None
             else {"breach": bool(fence.breach_status), "count": int(fence.breach_count), "type": int(fence.breach_type)},
             "wind": None if wind is None else {"dir": round(wind.direction, 0), "spd": round(wind.speed, 1)},
+            "mount": mount_state(c) if linked else None,
             "comp": dict(self.sysinfo.snapshot) if self.sysinfo is not None else None,
-            "caps": capabilities(version, hb),
+            "caps": capabilities(version, hb) + (["gimbal"] if linked and gimbal_present(c) else []),
             "gcs": {"others": len(c.other_gcs()), **self.gcs_state()},
             "video": self.video_state(),
             "fw": firmware_string(version, hb),

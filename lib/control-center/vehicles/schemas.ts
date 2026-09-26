@@ -152,6 +152,10 @@ export const commandRequestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("run_prearm") }),
   z.object({ type: z.literal("video_record"), on: z.boolean() }),
   z.object({ type: z.literal("param_fetch") }),
+  z.object({ type: z.literal("gimbal_pitchyaw"), pitch: z.number().min(-90).max(30), yaw: z.number().min(-180).max(360), lock: z.boolean().optional() }),
+  z.object({ type: z.literal("gimbal_mode"), mode: z.enum(["retract", "neutral", "mavlink", "rc", "gps"]) }),
+  z.object({ type: z.literal("roi_location"), ...latLon, alt: z.number() }),
+  z.object({ type: z.literal("roi_none") }),
   z.object({ type: z.literal("reboot") }),
   z.object({ type: z.literal("param_get"), names: z.array(paramName).min(1).max(50) }),
   z.object({

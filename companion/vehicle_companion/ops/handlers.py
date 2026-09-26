@@ -72,6 +72,7 @@ class Handlers:
         mission_source: Optional[MissionSource] = None,
         mode_confirm_s: float = 3.0,
         video=None,
+        gimbal=None,
     ):
         self.conn = conn
         self.commands = commands
@@ -82,6 +83,7 @@ class Handlers:
         self.mission_source = mission_source
         self.mode_confirm_s = mode_confirm_s
         self.video = video
+        self.gimbal = gimbal
 
     # ---- plumbing ------------------------------------------------------
 
@@ -394,6 +396,35 @@ class Handlers:
         mtype = mission_type_of(args.get("mtype", 0))
         r = await self.missions.clear(mtype)
         return self.ack(cmd_id, r.ok, "MAV_RESULT_ACCEPTED" if r.ok else f"MISSION_CLEAR_FAILED:{r.code}", res={"mtype": mtype})
+
+    # ---- gimbal ----------------------------------------------------------
+
+    def _gimbal(self):
+        self._hb()
+        if self.gimbal is None:
+            raise CommandFailed("NO_GIMBAL", "gimbal control not available")
+        return self.gimbal
+
+    async def _h_gimbal_pitchyaw(self, cmd_id: str, args: dict) -> dict:
+        g = self._gimbal()
+        r = await g.pitch_yaw(float(args.get("pitch", 0)), float(args.get("yaw", 0)), bool(args.get("lock")))
+        return self._from_result(cmd_id, r, res={"pitch": args.get("pitch"), "yaw": args.get("yaw")})
+
+    async def _h_gimbal_mode(self, cmd_id: str, args: dict) -> dict:
+        from .gimbal import MOUNT_MODES
+
+        name = str(args.get("mode", ""))
+        if name not in MOUNT_MODES:
+            return self.ack(cmd_id, False, "BAD_ARGS", f"unknown gimbal mode {name}")
+        return self._from_result(cmd_id, await self._gimbal().mode(name), res={"mode": name})
+
+    async def _h_roi_location(self, cmd_id: str, args: dict) -> dict:
+        g = self._gimbal()
+        lat, lon, alt = float(args["lat"]), float(args["lon"]), float(args.get("alt", 0))
+        return self._from_result(cmd_id, await g.roi(lat, lon, alt), res={"lat": lat, "lon": lon})
+
+    async def _h_roi_none(self, cmd_id: str, args: dict) -> dict:
+        return self._from_result(cmd_id, await self._gimbal().roi_none())
 
     # ---- video -----------------------------------------------------------
 

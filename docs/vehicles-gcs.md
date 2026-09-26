@@ -141,6 +141,15 @@ Mission Planner 的 Flight Plan：左邊是計畫與工具，右邊是可編輯�
 - **分析**：連到 ArduPilot 官方的 UAV Log Viewer 與 WebTools，不在這裡重做。
 - **DataFlash（.bin）**：經序列埠下載很慢，解鎖時也會被拒絕，建議取 SD 卡或用 Mission Planner。
 
+## 雲台
+
+偵測到雲台時，飛行資料多一個「雲台」頁籤：
+- 俯仰/偏航滑桿：直連即時串流，companion 限制每秒 10 次。
+- 快捷按鈕：朝下、朝前、回中、收起、偏航鎖定/跟隨、交給遙控器、取消 ROI。
+- 地圖右鍵「雲台看這裡」（ROI）；影像主畫面點擊瞄準。
+
+STorM32 的接線與參數見 [`vehicles-gimbal-storm32.md`](./vehicles-gimbal-storm32.md)。
+
 ## 影像
 
 設定影像網址（MediaMTX 的 WHEP）後，飛行資料頁右側可以切換地圖/影像主畫面，另一個顯示成子母畫面；影像上可疊 HUD、截圖、控制 Pi 上的錄影。設定方式見 [`vehicles-video.md`](./vehicles-video.md)。

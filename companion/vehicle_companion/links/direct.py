@@ -17,6 +17,7 @@ then
   → {"k":"cmd","cmd":{"id":"d_…","type":…,"args":{…}}}     control scope
   → {"k":"manual","vx":m/s,"yr":rad/s}                       control scope
   → {"k":"op","on":true}       this operator holds control (heartbeat policy)
+  → {"k":"gimbal","p":deg,"y":deg,"lock":bool}  continuous gimbal angles (≤10 Hz sent)
   → {"k":"ping","t":…}  ← {"k":"pong","t":…,"now":…}
 """
 
@@ -59,7 +60,7 @@ class Client:
 
 
 class DirectServer:
-    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None):
+    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None):
         self.cfg = cfg
         self.vehicle_id = vehicle_id
         self.build_state = build_state
@@ -69,6 +70,7 @@ class DirectServer:
         self.streams = streams
         self.clock = clock
         self.tlog = tlog
+        self.gimbal = gimbal
         self.clients: set[Client] = set()
         self._pin_failures: dict[str, deque] = defaultdict(deque)
         self._runner: Optional[web.AppRunner] = None
@@ -295,7 +297,7 @@ class DirectServer:
             await client.ws.send_json({"k": "pong", "t": data.get("t"), "now": self.clock.now_ms()})
             return
         if client.scope != "control":
-            if k in ("cmd", "manual", "op"):
+            if k in ("cmd", "manual", "op", "gimbal"):
                 await client.ws.send_json({"k": "error", "code": "VIEW_ONLY"})
             return
         if k == "cmd":
@@ -323,3 +325,8 @@ class DirectServer:
                 pass
         elif k == "op":
             client.operator = bool(data.get("on"))
+        elif k == "gimbal" and self.gimbal is not None:
+            try:
+                self.gimbal.update(float(data.get("p", 0)), float(data.get("y", 0)), bool(data.get("lock")))
+            except (TypeError, ValueError):
+                pass

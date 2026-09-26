@@ -760,7 +760,8 @@
       "graph": "グラフ",
       "drive": "走行",
       "params": "パラメーター",
-      "logs": "ログ"
+      "logs": "ログ",
+      "gimbal": "ジンバル"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -874,7 +875,11 @@
       "forceType": "DISARM と入力",
       "forceConfirm": "強制ディスアーム",
       "cmd_video_record": "録画の切り替え",
-      "cmd_param_fetch": "全パラメーター読み込み"
+      "cmd_param_fetch": "全パラメーター読み込み",
+      "cmd_gimbal_pitchyaw": "ジンバル角度",
+      "cmd_gimbal_mode": "ジンバルモード",
+      "cmd_roi_location": "カメラをここへ",
+      "cmd_roi_none": "ROI 解除"
     },
     "messages": {
       "prearmTitle": "アーム前チェック未通過（{count}件）",
@@ -1309,6 +1314,25 @@
       "analyseDescription": "ArduPilot 公式の Web ツールで解析できます：グラフは UAV Log Viewer、フィルター・PID・コンパスの確認は WebTools。ファイルをドロップするだけです。",
       "dataflashTitle": "フライトコントローラーの DataFlash ログ（.bin）",
       "dataflashDescription": "シリアル経由のダウンロードは遅く、アーム中は拒否されます。SD カードを取り出すか、ディスアーム中に mavlink-router 経由で Mission Planner から取得してください。"
+    },
+    "gimbal": {
+      "axis_p": "ピッチ",
+      "axis_y": "ヨー",
+      "axis_r": "ロール",
+      "noAttitude": "ジンバル姿勢をまだ受信していません（GIMBAL_DEVICE_ATTITUDE_STATUS / MOUNT_STATUS）。",
+      "pitch": "ピッチ",
+      "yaw": "ヨー（機首基準）",
+      "streamHint": "直接接続中：ドラッグ中はリアルタイム送信（STorM32 の遅延を防ぐためコンパニオンが毎秒10回に制限）、離したときに確認付きで送信します。",
+      "cloudHint": "クラウド経由ではスライダーを離したときだけ送信します。連続操作には直接接続を使ってください。",
+      "nadir": "真下",
+      "forward": "正面",
+      "neutral": "ニュートラル",
+      "retract": "格納",
+      "yawLocked": "ヨーを北に固定",
+      "yawFollow": "ヨーは機首に追従",
+      "rcControl": "送信機に戻す",
+      "roiNone": "ROI 解除",
+      "tips": "地図を右クリックして「カメラをここへ」を選ぶと地上の一点を注視し続けます。映像メイン表示では画面クリックでも照準できます。"
     }
   }
 }

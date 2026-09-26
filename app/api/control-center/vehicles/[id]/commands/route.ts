@@ -86,6 +86,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     case "video_record":
       args = { on: request.on };
       break;
+    case "gimbal_pitchyaw":
+      args = { pitch: request.pitch, yaw: request.yaw, lock: request.lock ?? false };
+      break;
+    case "gimbal_mode":
+      args = { mode: request.mode };
+      break;
+    case "roi_location":
+      args = { lat: request.lat, lon: request.lon, alt: request.alt };
+      break;
     case "mission_upload": {
       const mission = await getMission(request.missionId);
       if (!mission || mission.vehicleId !== params.id) {

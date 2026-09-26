@@ -760,7 +760,8 @@
       "graph": "Graph",
       "drive": "Drive",
       "params": "Parameters",
-      "logs": "Logs"
+      "logs": "Logs",
+      "gimbal": "Gimbal"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -874,7 +875,11 @@
       "forceType": "Type DISARM",
       "forceConfirm": "Force disarm",
       "cmd_video_record": "Recording on/off",
-      "cmd_param_fetch": "Read all parameters"
+      "cmd_param_fetch": "Read all parameters",
+      "cmd_gimbal_pitchyaw": "Gimbal angles",
+      "cmd_gimbal_mode": "Gimbal mode",
+      "cmd_roi_location": "Point camera here",
+      "cmd_roi_none": "Cancel ROI"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -1309,6 +1314,25 @@
       "analyseDescription": "Use ArduPilot's own web tools: UAV Log Viewer for plots; WebTools for filter, PID and compass reviews. Drop the file in.",
       "dataflashTitle": "Autopilot DataFlash logs (.bin)",
       "dataflashDescription": "Downloading over a serial link is slow and refused while armed. Pull the SD card, or use Mission Planner through mavlink-router while disarmed."
+    },
+    "gimbal": {
+      "axis_p": "Pitch",
+      "axis_y": "Yaw",
+      "axis_r": "Roll",
+      "noAttitude": "No gimbal attitude yet (GIMBAL_DEVICE_ATTITUDE_STATUS / MOUNT_STATUS).",
+      "pitch": "Pitch",
+      "yaw": "Yaw (relative to nose)",
+      "streamHint": "Direct link: angles stream while dragging (the companion caps them at 10 per second so a STorM32 does not lag), then one confirmed command on release.",
+      "cloudHint": "Over the cloud only the release is sent. Use the direct link for continuous control.",
+      "nadir": "Straight down",
+      "forward": "Straight ahead",
+      "neutral": "Neutral",
+      "retract": "Retract",
+      "yawLocked": "Yaw locked to north",
+      "yawFollow": "Yaw follows nose",
+      "rcControl": "Hand to RC",
+      "roiNone": "Cancel ROI",
+      "tips": "Right-click the map and choose “Point camera here” to keep the camera on a spot; with video as the main view, click the picture to aim."
     }
   }
 }

@@ -22,6 +22,7 @@ from .mav.statustext import StatusLog
 from .mav.streams import StreamManager
 from .ops.executor import Executor
 from .ops.handlers import Handlers
+from .ops.gimbal import GimbalControl, GimbalStreamer
 from .ops.manual import ManualDrive
 from .state import StateBuilder
 from .sysinfo import SysInfo
@@ -96,7 +97,9 @@ def build(config: Config) -> Companion:
         gcs_state=lambda: {"policy": heartbeat.policy, "hb": heartbeat.sending},
         video_state=(video.state_block if video else (lambda: None)),
     )
-    handlers = Handlers(conn, commands, missions, params, status, clock.now_ms, mission_source=cloud, video=video)
+    handlers = Handlers(
+        conn, commands, missions, params, status, clock.now_ms, mission_source=cloud, video=video, gimbal=GimbalControl(conn, commands)
+    )
 
     def ack_sink(ack: dict) -> None:
         # Direct-link commands ("d_" ids) are unknown to the server; they reach
@@ -144,6 +147,7 @@ def build(config: Config) -> Companion:
             streams=streams,
             clock=clock,
             tlog=tlog,
+            gimbal=GimbalStreamer(conn),
         )
         holder["direct"] = direct
     return Companion(

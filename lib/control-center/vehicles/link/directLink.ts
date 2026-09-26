@@ -191,6 +191,11 @@ export class DirectLink {
     return this.send({ k: "manual", vx, yr });
   }
 
+  /** Continuous gimbal angles; the companion sends at most 10 per second. */
+  sendGimbal(p: number, y: number, lock: boolean): boolean {
+    return this.send({ k: "gimbal", p, y, lock });
+  }
+
   setOperator(on: boolean): boolean {
     return this.send({ k: "op", on });
   }

@@ -25,6 +25,9 @@ from ..clock import Clock
 log = logging.getLogger(__name__)
 
 PRIORITY = frozenset({"disarm", "rtl", "land", "hold", "mission_pause"})
+# Gimbal commands are quick and independent of flight commands; they never
+# wait behind a slow goto or preempt one.
+GIMBAL = frozenset({"gimbal_pitchyaw", "gimbal_mode", "roi_location", "roi_none"})
 SLOW = frozenset({"mission_upload", "mission_download", "mission_clear", "param_get", "param_set", "param_fetch"})
 
 DEFAULT_TIMEOUT_S = 15.0
@@ -46,6 +49,8 @@ def lane_of(ctype: str) -> str:
         return "priority"
     if ctype in SLOW:
         return "slow"
+    if ctype in GIMBAL:
+        return "gimbal"
     return "fast"
 
 
@@ -56,7 +61,7 @@ class Executor:
         self.clock = clock
         self.seen_max = seen_max
         self._seen: OrderedDict[str, Optional[dict]] = OrderedDict()
-        self._queues = {"priority": asyncio.Queue(), "fast": asyncio.Queue(), "slow": asyncio.Queue()}
+        self._queues = {"priority": asyncio.Queue(), "fast": asyncio.Queue(), "slow": asyncio.Queue(), "gimbal": asyncio.Queue()}
         self._fast_current: Optional[tuple[dict, asyncio.Task]] = None
         self._preempted: set[str] = set()
         self._listeners: list[Callable[[dict, dict], None]] = []

@@ -19,6 +19,8 @@ import { Hud } from "./Hud";
 import { CommandLog, MessagesPanel } from "./MessagesPanel";
 import { QuickPanel } from "./QuickPanel";
 import { RoverDrivePad } from "./RoverDrivePad";
+import { GimbalPanel } from "./GimbalPanel";
+import { aimFromClick } from "@/lib/control-center/vehicles/gcs/aim";
 import { VideoPanel } from "./VideoPanel";
 
 /**
@@ -45,6 +47,8 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
   const [main, setMain] = useState<"map" | "video">("map");
   const [hudOnVideo, setHudOnVideo] = useState(true);
   const hasVideo = Boolean(vehicle?.videoUrl);
+  const hasGimbal = Boolean(state?.caps.includes("gimbal") || state?.mount);
+  const directControl = link.direct.status === "open" && link.direct.scope === "control";
 
   const rover = vehicle?.type === "rover";
   const hudLabels = useMemo(
@@ -65,6 +69,9 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
       setFlyTo({ lat: a.lat, lon: a.lon });
     } else if (a.kind === "setHome") {
       setHomeAt({ lat: a.lat, lon: a.lon });
+    } else if (a.kind === "lookAt") {
+      // Point the camera at a spot on the ground (relative altitude 0 = home level).
+      void send({ type: "roi_location", lat: a.lat, lon: a.lon, alt: 0 });
     }
   }
 
@@ -92,6 +99,11 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
             <TabsTrigger value="graph" className="flex-1 text-xs">
               {t("tabs.graph")}
             </TabsTrigger>
+            {hasGimbal && (
+              <TabsTrigger value="gimbal" className="flex-1 text-xs">
+                {t("tabs.gimbal")}
+              </TabsTrigger>
+            )}
             {rover && (
               <TabsTrigger value="drive" className="flex-1 text-xs">
                 {t("tabs.drive")}
@@ -115,9 +127,14 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
             <TabsContent value="graph" className="mt-0 h-full">
               <GraphPanel samples={samples} now={now} />
             </TabsContent>
+            {hasGimbal && (
+              <TabsContent value="gimbal" className="mt-0">
+                <GimbalPanel state={state} canCommand={canCommand} directOpen={directControl} />
+              </TabsContent>
+            )}
             {rover && (
               <TabsContent value="drive" className="mt-0">
-                <RoverDrivePad state={state} canCommand={canCommand} directOpen={link.direct.status === "open" && link.direct.scope === "control"} />
+                <RoverDrivePad state={state} canCommand={canCommand} directOpen={directControl} />
               </TabsContent>
             )}
           </div>
@@ -131,6 +148,14 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
             state={state}
             canCommand={canCommand}
             overlay={hudOnVideo ? <Hud state={state} stale={stale} everReceived={state !== null} labels={hudLabels} transparent className="h-full w-full" /> : undefined}
+            onClickAim={
+              hasGimbal && canCommand && state?.mount
+                ? (nx, ny) => {
+                    const { pitch, yaw } = aimFromClick(nx, ny, state.mount!);
+                    void send({ type: "gimbal_pitchyaw", pitch, yaw });
+                  }
+                : undefined
+            }
           />
         ) : (
           <GcsMap state={state} trail={trail} target={target} canCommand={canCommand} onAction={onMapAction} vehicleLabel={vehicle?.name} />

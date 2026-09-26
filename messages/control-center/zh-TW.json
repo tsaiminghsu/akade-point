@@ -760,7 +760,8 @@
       "graph": "圖表",
       "drive": "駕駛",
       "params": "參數",
-      "logs": "日誌"
+      "logs": "日誌",
+      "gimbal": "雲台"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -874,7 +875,11 @@
       "forceType": "輸入 DISARM",
       "forceConfirm": "強制上鎖",
       "cmd_video_record": "錄影開關",
-      "cmd_param_fetch": "讀取全部參數"
+      "cmd_param_fetch": "讀取全部參數",
+      "cmd_gimbal_pitchyaw": "雲台角度",
+      "cmd_gimbal_mode": "雲台模式",
+      "cmd_roi_location": "雲台看這裡",
+      "cmd_roi_none": "取消注視點"
     },
     "messages": {
       "prearmTitle": "解鎖前檢查未通過（{count} 項）",
@@ -1309,6 +1314,25 @@
       "analyseDescription": "用 ArduPilot 官方的網頁工具分析：UAV Log Viewer 可以畫圖；WebTools 有濾波器、PID、磁力計等檢查。直接把檔案拖進去即可。",
       "dataflashTitle": "飛控的 DataFlash 日誌（.bin）",
       "dataflashDescription": "經序列埠下載很慢，而且解鎖時飛控會拒絕。建議取出 SD 卡，或上鎖後用 Mission Planner 經 mavlink-router 下載。"
+    },
+    "gimbal": {
+      "axis_p": "俯仰",
+      "axis_y": "偏航",
+      "axis_r": "滾轉",
+      "noAttitude": "還沒收到雲台姿態（GIMBAL_DEVICE_ATTITUDE_STATUS / MOUNT_STATUS）。",
+      "pitch": "俯仰",
+      "yaw": "偏航（相對機頭）",
+      "streamHint": "直連中：拖曳時即時送出（companion 限制每秒 10 次，避免 STorM32 堆積延遲），放開時再送一次確認。",
+      "cloudHint": "經雲端：放開滑桿時才送出。連續操作請用直連。",
+      "nadir": "朝正下方",
+      "forward": "朝正前方",
+      "neutral": "回中（Neutral）",
+      "retract": "收起（Retract）",
+      "yawLocked": "偏航鎖定北方",
+      "yawFollow": "偏航跟隨機頭",
+      "rcControl": "交給遙控器",
+      "roiNone": "取消注視點（ROI）",
+      "tips": "在地圖按右鍵選「雲台看這裡」可讓鏡頭持續對準地面一點；影像主畫面時點擊畫面也能瞄準。"
     }
   }
 }

@@ -37,6 +37,8 @@ DEFAULT_RATES: dict[str, float] = {
     "FENCE_STATUS": 1,
     "WIND": 1,
     "SYSTEM_TIME": 0.2,
+    # Gimbal attitude, forwarded by ArduPilot's gimbal manager (ignored when there is no gimbal).
+    "GIMBAL_DEVICE_ATTITUDE_STATUS": 2,
 }
 
 

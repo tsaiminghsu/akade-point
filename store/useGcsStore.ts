@@ -90,6 +90,8 @@ interface GcsState {
   /** GET a file from the companion's direct-link HTTP server (tlogs), authorised with a ticket. */
   fileFetch: (path: string) => Promise<Response | null>;
   drive: (vx: number, yr: number) => boolean;
+  /** Stream gimbal angles over the direct link; false if it is not open. */
+  gimbalStream: (pitch: number, yaw: number, lock: boolean) => boolean;
   setControl: (on: boolean) => void;
   reconnectDirect: () => void;
 }
@@ -438,6 +440,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     },
 
     drive: (vx, yr) => (direct?.isOpen ? direct.sendManual(vx, yr) : false),
+    gimbalStream: (p, y, lock) => (direct?.isOpen && get().link.direct.scope === "control" ? direct.sendGimbal(p, y, lock) : false),
 
     setControl: (on) => {
       set({ control: on });

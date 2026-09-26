@@ -43,6 +43,10 @@ export const COMMAND_TIMEOUT_MS: Record<VehicleCommandType, number> = {
   param_set: 90_000,
   param_fetch: 240_000,
   video_record: 10_000,
+  gimbal_pitchyaw: 10_000,
+  gimbal_mode: 10_000,
+  roi_location: 10_000,
+  roi_none: 10_000,
 };
 
 /**
@@ -117,6 +121,10 @@ const COMMON_COMMANDS: VehicleCommandType[] = [
   "param_set",
   "param_fetch",
   "video_record",
+  "gimbal_pitchyaw",
+  "gimbal_mode",
+  "roi_location",
+  "roi_none",
 ];
 
 /** Commands offered per vehicle type. Rovers do not take off, land or climb. */
