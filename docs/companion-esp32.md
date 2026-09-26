@@ -1,6 +1,12 @@
-# ESP32 Companion（次輪規劃）
+# ESP32 Companion（早期規劃，保留備查）
 
-樹莓派版已完成；ESP32 版尚未實作，但訊息契約已刻意設計得夠精簡，可直接沿用。本文件記錄實作邊界。
+> **現況（2026-09）**：ESP32 目前的實作不是「直接連雲端的 companion」，而是由 Pi 或場邊筆電上的 companion 代為連雲。
+> 目前有三條路：
+> - **數傳橋**：用 DroneBridge 韌體。
+> - **酬載節點**：`firmware/esp32-payload-node`。
+> - **ESP32 小車底盤**：`firmware/esp32-rover-base`。
+>
+> 做法請見 [`vehicles-esp32.md`](./vehicles-esp32.md)。下文是當初「ESP32 直接當雲端 companion」的規劃；那條路尚未實作。
 
 ## 契約子集
 

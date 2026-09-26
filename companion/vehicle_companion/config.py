@@ -52,6 +52,14 @@ class VideoConfig:
 
 
 @dataclass
+class RemoteIdConfig:
+    """Remote ID module (ArduRemoteID). send_operator_location sends
+    OPEN_DRONE_ID_SYSTEM with the takeoff position as operator location."""
+
+    send_operator_location: bool = False
+
+
+@dataclass
 class Config:
     vehicle_id: str
     api_base: str
@@ -83,6 +91,7 @@ class Config:
     mqtt: MqttConfig = field(default_factory=MqttConfig)
     direct: DirectConfig = field(default_factory=DirectConfig)
     video: VideoConfig = field(default_factory=VideoConfig)
+    remote_id: RemoteIdConfig = field(default_factory=RemoteIdConfig)
 
     @staticmethod
     def from_dict(data: dict) -> "Config":
@@ -95,12 +104,13 @@ class Config:
         unknown = set(data) - known - {"forward_udp"}
         if unknown:
             raise ValueError(f"unknown config keys: {', '.join(sorted(unknown))}")
-        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video")}
+        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id")}
         cfg = Config(**kwargs)
         cfg.api_base = cfg.api_base.rstrip("/")
         cfg.mqtt = MqttConfig(**data.get("mqtt", {}))
         cfg.direct = DirectConfig(**data.get("direct", {}))
         cfg.video = VideoConfig(**data.get("video", {}))
+        cfg.remote_id = RemoteIdConfig(**data.get("remote_id", {}))
         if cfg.gcs_heartbeat not in ("off", "always", "operator"):
             raise ValueError("gcs_heartbeat must be off, always or operator")
         if cfg.transport not in ("http", "iot"):

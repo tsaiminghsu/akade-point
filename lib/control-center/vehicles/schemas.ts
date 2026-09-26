@@ -21,6 +21,9 @@ export const vehicleStateV1Schema = z.object({
 
 const num = z.number().nullable();
 const latLon = { lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) };
+const payloadIndex = z.number().int().min(0).max(15);
+/** MAVLink component of the payload node; 25 (MAV_COMP_ID_USER1) by default. */
+const payloadComp = z.number().int().min(1).max(255).optional();
 
 /**
  * Telemetry snapshot, contract v2. The fields the server itself reads are
@@ -156,6 +159,9 @@ export const commandRequestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("gimbal_mode"), mode: z.enum(["retract", "neutral", "mavlink", "rc", "gps"]) }),
   z.object({ type: z.literal("roi_location"), ...latLon, alt: z.number() }),
   z.object({ type: z.literal("roi_none") }),
+  z.object({ type: z.literal("payload_relay"), index: payloadIndex, on: z.boolean(), comp: payloadComp }),
+  z.object({ type: z.literal("payload_pulse"), index: payloadIndex, ms: z.number().int().min(50).max(10_000), comp: payloadComp }),
+  z.object({ type: z.literal("payload_servo"), index: payloadIndex, pwm: z.number().int().min(800).max(2200), comp: payloadComp }),
   z.object({ type: z.literal("reboot") }),
   z.object({ type: z.literal("param_get"), names: z.array(paramName).min(1).max(50) }),
   z.object({

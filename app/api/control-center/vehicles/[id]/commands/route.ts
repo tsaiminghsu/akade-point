@@ -95,6 +95,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     case "roi_location":
       args = { lat: request.lat, lon: request.lon, alt: request.alt };
       break;
+    case "payload_relay":
+      args = { index: request.index, on: request.on, ...(request.comp ? { comp: request.comp } : {}) };
+      break;
+    case "payload_pulse":
+      args = { index: request.index, ms: request.ms, ...(request.comp ? { comp: request.comp } : {}) };
+      break;
+    case "payload_servo":
+      args = { index: request.index, pwm: request.pwm, ...(request.comp ? { comp: request.comp } : {}) };
+      break;
     case "mission_upload": {
       const mission = await getMission(request.missionId);
       if (!mission || mission.vehicleId !== params.id) {

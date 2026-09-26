@@ -47,6 +47,9 @@ export const COMMAND_TIMEOUT_MS: Record<VehicleCommandType, number> = {
   gimbal_mode: 10_000,
   roi_location: 10_000,
   roi_none: 10_000,
+  payload_relay: 10_000,
+  payload_pulse: 10_000,
+  payload_servo: 10_000,
 };
 
 /**
@@ -125,7 +128,13 @@ const COMMON_COMMANDS: VehicleCommandType[] = [
   "gimbal_mode",
   "roi_location",
   "roi_none",
+  "payload_relay",
+  "payload_pulse",
+  "payload_servo",
 ];
+
+/** The ESP32 rover base (MAV_AUTOPILOT_GENERIC) implements only these, with ArduPilot Rover's numbers. */
+export const ESP32_ROVER_MODES = ["MANUAL", "HOLD", "GUIDED"] as const;
 
 /** Commands offered per vehicle type. Rovers do not take off, land or climb. */
 export const COMMANDS_BY_TYPE: Record<VehicleType, VehicleCommandType[]> = {

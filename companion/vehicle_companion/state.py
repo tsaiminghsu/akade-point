@@ -137,6 +137,8 @@ class StateBuilder:
         sysinfo=None,
         gcs_state: Callable[[], dict] = lambda: {},
         video_state: Callable[[], Optional[dict]] = lambda: None,
+        payload_state: Callable[[], Optional[list]] = lambda: None,
+        rid_state: Callable[[], Optional[dict]] = lambda: None,
     ):
         self.conn = conn
         self.status = status
@@ -145,6 +147,8 @@ class StateBuilder:
         self.sysinfo = sysinfo
         self.gcs_state = gcs_state
         self.video_state = video_state
+        self.payload_state = payload_state
+        self.rid_state = rid_state
 
     def build(self) -> dict:
         c = self.conn
@@ -292,9 +296,13 @@ class StateBuilder:
             "wind": None if wind is None else {"dir": round(wind.direction, 0), "spd": round(wind.speed, 1)},
             "mount": mount_state(c) if linked else None,
             "comp": dict(self.sysinfo.snapshot) if self.sysinfo is not None else None,
-            "caps": capabilities(version, hb) + (["gimbal"] if linked and gimbal_present(c) else []),
+            "caps": capabilities(version, hb)
+            + (["gimbal"] if linked and gimbal_present(c) else [])
+            + (["payload"] if linked and self.payload_state() else []),
             "gcs": {"others": len(c.other_gcs()), **self.gcs_state()},
             "video": self.video_state(),
+            "payload": self.payload_state() if linked else None,
+            "rid": self.rid_state() if linked else None,
             "fw": firmware_string(version, hb),
         }
 

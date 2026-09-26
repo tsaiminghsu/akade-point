@@ -761,7 +761,8 @@
       "drive": "走行",
       "params": "パラメーター",
       "logs": "ログ",
-      "gimbal": "ジンバル"
+      "gimbal": "ジンバル",
+      "payload": "ペイロード"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -797,7 +798,10 @@
       "prearmUnknown": "PreArm —",
       "prearmTitle": "フライトコントローラーのアーム前チェック",
       "otherGcs": "他のGCS {count}台",
-      "otherGcsTitle": "他の地上局（Mission Plannerなど）が接続中です"
+      "otherGcsTitle": "他の地上局（Mission Plannerなど）が接続中です",
+      "ridOk": "Remote ID",
+      "ridBad": "Remote ID 異常",
+      "ridTitle": "Remote ID モジュールのアーム状態（OPEN_DRONE_ID_ARM_STATUS）"
     },
     "quick": {
       "alt": "高度",
@@ -879,7 +883,10 @@
       "cmd_gimbal_pitchyaw": "ジンバル角度",
       "cmd_gimbal_mode": "ジンバルモード",
       "cmd_roi_location": "カメラをここへ",
-      "cmd_roi_none": "ROI 解除"
+      "cmd_roi_none": "ROI 解除",
+      "cmd_payload_relay": "ペイロードリレー",
+      "cmd_payload_pulse": "ペイロードパルス",
+      "cmd_payload_servo": "ペイロードサーボ"
     },
     "messages": {
       "prearmTitle": "アーム前チェック未通過（{count}件）",
@@ -1333,6 +1340,20 @@
       "rcControl": "送信機に戻す",
       "roiNone": "ROI 解除",
       "tips": "地図を右クリックして「カメラをここへ」を選ぶと地上の一点を注視し続けます。映像メイン表示では画面クリックでも照準できます。"
+    },
+    "payload": {
+      "component": "コンポーネント {comp}",
+      "sensors": "センサー値",
+      "noValues": "まだ値を受信していません（NAMED_VALUE_FLOAT）。",
+      "relays": "リレー",
+      "relay": "リレー {index}",
+      "on": "オン",
+      "off": "オフ",
+      "pulse": "パルス",
+      "pulseTitle": "{ms} ミリ秒オンにしてからオフ（投下装置やシャッターなど）",
+      "servos": "サーボ出力",
+      "servo": "サーボ {index}",
+      "hint": "コマンドはペイロードノード（既定は MAVLink コンポーネント 25）へ直接送信され、スイッチ状態はノードの報告に従います。フライトコントローラーの該当 TELEM ポートが MAVLink（SERIALx_PROTOCOL=2）の場合のみ転送されます。"
     }
   }
 }

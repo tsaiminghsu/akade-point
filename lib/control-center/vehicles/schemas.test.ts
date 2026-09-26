@@ -163,3 +163,19 @@ describe("commandRequestSchema (ground-station commands)", () => {
     expect(ok({ type: "mission_clear", mtype: 3 })).toBe(false);
   });
 });
+
+describe("commandRequestSchema (payload node)", () => {
+  const ok = (body: unknown) => commandRequestSchema.safeParse(body).success;
+
+  it("bounds relay, pulse and servo arguments", () => {
+    expect(ok({ type: "payload_relay", index: 2, on: true })).toBe(true);
+    expect(ok({ type: "payload_relay", index: 2, on: true, comp: 26 })).toBe(true);
+    expect(ok({ type: "payload_relay", index: 16, on: true })).toBe(false);
+    expect(ok({ type: "payload_relay", index: 0 })).toBe(false);
+    expect(ok({ type: "payload_pulse", index: 0, ms: 500 })).toBe(true);
+    expect(ok({ type: "payload_pulse", index: 0, ms: 60_000 })).toBe(false);
+    expect(ok({ type: "payload_servo", index: 1, pwm: 1900 })).toBe(true);
+    expect(ok({ type: "payload_servo", index: 1, pwm: 3000 })).toBe(false);
+    expect(ok({ type: "payload_servo", index: 1, pwm: 1500, comp: 0 })).toBe(false);
+  });
+});

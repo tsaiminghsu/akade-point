@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Activity, Battery, Cable, Cpu, Radio, Satellite, ShieldAlert, Users, Waves, Wifi } from "lucide-react";
+import { Activity, Battery, Cable, Cpu, Fingerprint, Radio, Satellite, ShieldAlert, Users, Waves, Wifi } from "lucide-react";
 
 import {
   batteryLevel,
@@ -84,6 +84,11 @@ export function StatusBar({ state, stale, link }: { state: VehicleStateV2 | null
       <Chip level={prearm} icon={<ShieldAlert className={ic} />} title={s?.health.msgs.join("\n") || t("prearmTitle")}>
         {prearm === "bad" ? t("prearmFail", { count: Math.max(1, s?.health.msgs.length ?? 0) }) : prearm === "ok" ? t("prearmOk") : t("prearmUnknown")}
       </Chip>
+      {s?.rid && (
+        <Chip level={s.rid.ok ? "ok" : "bad"} icon={<Fingerprint className={ic} />} title={s.rid.error ?? t("ridTitle")}>
+          {s.rid.ok ? t("ridOk") : t("ridBad")}
+        </Chip>
+      )}
       {others > 0 && (
         <Chip level="warn" icon={<Users className={ic} />} title={t("otherGcsTitle")}>
           {t("otherGcs", { count: others })}

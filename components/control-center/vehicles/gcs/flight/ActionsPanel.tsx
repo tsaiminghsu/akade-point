@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MODES_BY_TYPE, PX4_MODES } from "@/lib/control-center/vehicles/constants";
+import { ESP32_ROVER_MODES, MODES_BY_TYPE, PX4_MODES } from "@/lib/control-center/vehicles/constants";
 import type { CommandRequest } from "@/lib/control-center/vehicles/schemas";
 import type { VehicleStateV2, VehicleType } from "@/lib/control-center/vehicles/types";
 import { useGcsStore } from "@/store/useGcsStore";
@@ -30,7 +30,10 @@ export function ActionsPanel({
   const t = useTranslations("Gcs.actions");
   const send = useGcsStore((s) => s.send);
   const px4 = state?.veh?.ap === "px4";
-  const modes = px4 ? PX4_MODES : MODES_BY_TYPE[vehicleType];
+  const generic = state?.veh?.ap === "generic";
+  const modes = px4 ? PX4_MODES : generic && vehicleType === "rover" ? ESP32_ROVER_MODES : MODES_BY_TYPE[vehicleType];
+  // Unknown until the first snapshot; an ESP32 rover reports no mission support.
+  const hasMission = !state || state.caps.includes("mission");
   const copter = vehicleType === "drone";
   const armed = state?.armed === true;
   const prearmFailing = Boolean(state && (state.health.msgs.length > 0 || state.health.prearm === false));
@@ -151,35 +154,37 @@ export function ActionsPanel({
       </div>
 
       {/* Mission */}
-      <div className="space-y-2 rounded-md border border-border/60 p-2">
-        <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <ListChecks className="h-3.5 w-3.5" /> {t("mission")}
-          {state?.wp && <span className="tabular-nums">· {state.wp.cur}/{state.wp.n ?? "—"}</span>}
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          <Button size="sm" className="gap-1.5" disabled={dis} onClick={() => confirm({ type: "mission_start" }, "confirmMissionStart")}>
-            <Play className="h-3.5 w-3.5" /> {t("start")}
-          </Button>
-          <Button variant="secondary" size="sm" className="gap-1.5" disabled={dis} onClick={() => run({ type: "mission_pause" })}>
-            <Pause className="h-3.5 w-3.5" /> {t("pause")}
-          </Button>
-          <Button variant="secondary" size="sm" className="gap-1.5" disabled={dis} onClick={() => run({ type: "mission_resume" })}>
-            <RotateCw className="h-3.5 w-3.5" /> {t("resume")}
-          </Button>
+      {hasMission && (
+        <div className="space-y-2 rounded-md border border-border/60 p-2">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <ListChecks className="h-3.5 w-3.5" /> {t("mission")}
+            {state?.wp && <span className="tabular-nums">· {state.wp.cur}/{state.wp.n ?? "—"}</span>}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <Button size="sm" className="gap-1.5" disabled={dis} onClick={() => confirm({ type: "mission_start" }, "confirmMissionStart")}>
+              <Play className="h-3.5 w-3.5" /> {t("start")}
+            </Button>
+            <Button variant="secondary" size="sm" className="gap-1.5" disabled={dis} onClick={() => run({ type: "mission_pause" })}>
+              <Pause className="h-3.5 w-3.5" /> {t("pause")}
+            </Button>
+            <Button variant="secondary" size="sm" className="gap-1.5" disabled={dis} onClick={() => run({ type: "mission_resume" })}>
+              <RotateCw className="h-3.5 w-3.5" /> {t("resume")}
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input className="h-8 w-20" inputMode="numeric" placeholder="#" value={seq} onChange={(e) => setSeq(e.target.value)} aria-label={t("waypoint")} />
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1.5"
+              disabled={dis || !Number.isInteger(num(seq)) || num(seq) < 0}
+              onClick={() => run({ type: "mission_set_current", seq: num(seq) })}
+            >
+              <SkipForward className="h-3.5 w-3.5" /> {t("setWaypoint")}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Input className="h-8 w-20" inputMode="numeric" placeholder="#" value={seq} onChange={(e) => setSeq(e.target.value)} aria-label={t("waypoint")} />
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1.5"
-            disabled={dis || !Number.isInteger(num(seq)) || num(seq) < 0}
-            onClick={() => run({ type: "mission_set_current", seq: num(seq) })}
-          >
-            <SkipForward className="h-3.5 w-3.5" /> {t("setWaypoint")}
-          </Button>
-        </div>
-      </div>
+      )}
 
       <Button
         variant="ghost"

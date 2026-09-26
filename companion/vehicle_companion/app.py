@@ -24,6 +24,7 @@ from .ops.executor import Executor
 from .ops.handlers import Handlers
 from .ops.gimbal import GimbalControl, GimbalStreamer
 from .ops.manual import ManualDrive
+from .ops.payload import PayloadControl, PayloadMonitor, RemoteId
 from .state import StateBuilder
 from .sysinfo import SysInfo
 from .tlog import TlogWriter
@@ -53,6 +54,7 @@ class Companion:
     manual: ManualDrive
     direct: Optional[DirectServer] = None
     video: Optional[VideoControl] = None
+    remote_id: Optional[RemoteId] = None
     tlog: Optional[TlogWriter] = None
 
 
@@ -88,6 +90,9 @@ def build(config: Config) -> Companion:
 
     heartbeat = GcsHeartbeat(conn, config.gcs_heartbeat, operator_present=operator_present)
     video = VideoControl(config.video.api_url, config.video.path) if config.video.enabled else None
+    payload_monitor = PayloadMonitor(conn)
+    conn.add_listener("NAMED_VALUE_FLOAT", payload_monitor.on_named_value)
+    remote_id = RemoteId(conn, config.remote_id.send_operator_location)
     builder = StateBuilder(
         conn,
         status,
@@ -96,9 +101,20 @@ def build(config: Config) -> Companion:
         sysinfo=sysinfo,
         gcs_state=lambda: {"policy": heartbeat.policy, "hb": heartbeat.sending},
         video_state=(video.state_block if video else (lambda: None)),
+        payload_state=payload_monitor.state_block,
+        rid_state=remote_id.state_block,
     )
     handlers = Handlers(
-        conn, commands, missions, params, status, clock.now_ms, mission_source=cloud, video=video, gimbal=GimbalControl(conn, commands)
+        conn,
+        commands,
+        missions,
+        params,
+        status,
+        clock.now_ms,
+        mission_source=cloud,
+        video=video,
+        gimbal=GimbalControl(conn, commands),
+        payload=PayloadControl(conn, commands),
     )
 
     def ack_sink(ack: dict) -> None:
@@ -152,7 +168,7 @@ def build(config: Config) -> Companion:
         holder["direct"] = direct
     return Companion(
         config, clock, conn, commands, missions, params, status, streams, sysinfo, builder, cloud, handlers, executor,
-        heartbeat, manual, direct, video, tlog,
+        heartbeat, manual, direct, video, remote_id, tlog,
     )
 
 
@@ -198,6 +214,8 @@ async def run(config: Config) -> None:
     ]
     if c.video is not None:
         tasks.append(asyncio.create_task(c.video.run(), name="video"))
+    if c.remote_id is not None:
+        tasks.append(asyncio.create_task(c.remote_id.run(), name="remote-id"))
     log.info("running (contract v%d, gcs heartbeat %s)", config.contract, config.gcs_heartbeat)
     try:
         await stop.wait()

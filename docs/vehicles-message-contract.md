@@ -65,8 +65,12 @@ MQTT 與 HTTPS 共用**同一份 JSON**。欄位定義的真實來源是 `lib/co
 | `rssi` | 遙控 RSSI %；數傳 RADIO_STATUS（SiK、DroneBridge） | RC_CHANNELS、RADIO_STATUS |
 | `health` | `prearm` 飛控 PreArm 位元、`bad` 不健康感測器、`msgs` 目前所有 PreArm/Arm 訊息 | SYS_STATUS、STATUSTEXT |
 | `comp` | Pi 溫度、負載、磁碟、`throttled`（`vcgencmd get_throttled` 欠壓/降頻旗標） | Pi |
-| `caps` | 能力：mission/params/fence/rally/command_int/manual…，UI 依此顯示頁籤 | AUTOPILOT_VERSION |
+| `caps` | 能力：mission/params/fence/rally/command_int/manual/gimbal/payload，UI 依此顯示頁籤（ESP32 小車只有 manual） | AUTOPILOT_VERSION、各元件心跳 |
 | `gcs` | 其他 GCS（如 Mission Planner）數量、companion 自己的心跳策略與是否正在送 | HEARTBEAT |
+| `mount` | 雲台姿態（度）`p/y/r`，`src` 為 device 或 mount | GIMBAL_DEVICE_ATTITUDE_STATUS、MOUNT_STATUS |
+| `video` | MediaMTX：串流就緒、觀看數、是否錄影；未設定或連不上為 `null` | MediaMTX API |
+| `payload` | 酬載元件的數值 `[{ comp, values: {名稱: 值} }]`，只含 5 秒內收到的 | NAMED_VALUE_FLOAT |
+| `rid` | Remote ID 模組解鎖狀態 `{ ok, error }`；沒有模組為 `null` | OPEN_DRONE_ID_ARM_STATUS |
 
 v1 快照的格式見 git 歷史（`VehicleStateV1`）。伺服器端用 `summarize()`（`lib/control-center/vehicles/summary.ts`）同時讀兩版。
 
@@ -128,9 +132,18 @@ v1 快照的格式見 git 歷史（`VehicleStateV1`）。伺服器端用 `summar
 | `reboot` | `{}` | 上鎖時才送 `PREFLIGHT_REBOOT_SHUTDOWN` | 一般 |
 | `param_get` | `{ names }`（≤50） | `PARAM_REQUEST_READ`；`res.params` 為 `{名稱: 值}` | 慢速 |
 | `param_set` | `{ params }`（≤50） | `PARAM_SET`，以名稱比對回聲、float32 比較值 | 慢速 |
+| `param_fetch` | `{}` | `PARAM_REQUEST_LIST`，缺的 index 以 `PARAM_REQUEST_READ` 補抓；完成後以 HTTPS 上傳快照 | 慢速 |
+| `video_record` | `{ on }` | 呼叫 Pi 上 MediaMTX API，切換該路徑的錄影 | 一般 |
+| `gimbal_pitchyaw` | `{ pitch, yaw, lock }` | `DO_GIMBAL_MANAGER_PITCHYAW`（1000）；不支援時 `DO_MOUNT_CONTROL`（205） | 雲台 |
+| `gimbal_mode` | `{ mode }`（retract/neutral/mavlink/rc/gps） | `DO_MOUNT_CONTROL` p7 | 雲台 |
+| `roi_location` / `roi_none` | `{ lat, lon, alt }` / `{}` | `DO_SET_ROI_LOCATION`（195，COMMAND_INT）/ `DO_SET_ROI_NONE`（197） | 雲台 |
+| `payload_relay` | `{ index, on, comp? }` | `DO_SET_RELAY`（181）送到酬載元件（預設 25） | 雲台 |
+| `payload_pulse` | `{ index, ms, comp? }` | `MAV_CMD_USER_1`（31010）：繼電器開啟 ms 毫秒後關閉 | 雲台 |
+| `payload_servo` | `{ index, pwm, comp? }` | `DO_SET_SERVO`（183）送到酬載元件 | 雲台 |
 
 - 逾時：大多 10 s；takeoff 30 s；任務傳輸 90 s；參數讀 60 s、寫 90 s。
 - 優先道指令會取消排在前面或正在執行的一般指令（回 `PREEMPTED`）。
+- 雲台道（雲台與酬載節點）獨立於飛行指令：不會排在慢速的 goto 後面，也不會搶佔它。
 
 **任務不走 MQTT。** 200 個航點約 24 KB，因此 `mission_upload` 只帶 `{missionId, n, sha}`，companion 另以 HTTPS 取回航點。
 

@@ -761,7 +761,8 @@
       "drive": "Drive",
       "params": "Parameters",
       "logs": "Logs",
-      "gimbal": "Gimbal"
+      "gimbal": "Gimbal",
+      "payload": "Payload"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -797,7 +798,10 @@
       "prearmUnknown": "PreArm —",
       "prearmTitle": "Autopilot pre-arm checks",
       "otherGcs": "{count} other GCS",
-      "otherGcsTitle": "Another ground station (e.g. Mission Planner) is connected"
+      "otherGcsTitle": "Another ground station (e.g. Mission Planner) is connected",
+      "ridOk": "Remote ID",
+      "ridBad": "Remote ID fault",
+      "ridTitle": "Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS)"
     },
     "quick": {
       "alt": "Altitude",
@@ -879,7 +883,10 @@
       "cmd_gimbal_pitchyaw": "Gimbal angles",
       "cmd_gimbal_mode": "Gimbal mode",
       "cmd_roi_location": "Point camera here",
-      "cmd_roi_none": "Cancel ROI"
+      "cmd_roi_none": "Cancel ROI",
+      "cmd_payload_relay": "Payload relay",
+      "cmd_payload_pulse": "Payload pulse",
+      "cmd_payload_servo": "Payload servo"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -1333,6 +1340,20 @@
       "rcControl": "Hand to RC",
       "roiNone": "Cancel ROI",
       "tips": "Right-click the map and choose “Point camera here” to keep the camera on a spot; with video as the main view, click the picture to aim."
+    },
+    "payload": {
+      "component": "Component {comp}",
+      "sensors": "Sensor values",
+      "noValues": "No values yet (NAMED_VALUE_FLOAT).",
+      "relays": "Relays",
+      "relay": "Relay {index}",
+      "on": "On",
+      "off": "Off",
+      "pulse": "Pulse",
+      "pulseTitle": "On for {ms} ms, then off (e.g. a dropper or shutter)",
+      "servos": "Servo outputs",
+      "servo": "Servo {index}",
+      "hint": "Commands go straight to the payload node (MAVLink component 25 by default); switch states are what the node reports. The autopilot forwards them only if that TELEM port runs MAVLink (SERIALx_PROTOCOL=2)."
     }
   }
 }

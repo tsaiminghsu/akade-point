@@ -25,9 +25,9 @@ from ..clock import Clock
 log = logging.getLogger(__name__)
 
 PRIORITY = frozenset({"disarm", "rtl", "land", "hold", "mission_pause"})
-# Gimbal commands are quick and independent of flight commands; they never
-# wait behind a slow goto or preempt one.
-GIMBAL = frozenset({"gimbal_pitchyaw", "gimbal_mode", "roi_location", "roi_none"})
+# Gimbal and payload-node commands are quick and independent of flight
+# commands; they never wait behind a slow goto or preempt one.
+GIMBAL = frozenset({"gimbal_pitchyaw", "gimbal_mode", "roi_location", "roi_none", "payload_relay", "payload_pulse", "payload_servo"})
 SLOW = frozenset({"mission_upload", "mission_download", "mission_clear", "param_get", "param_set", "param_fetch"})
 
 DEFAULT_TIMEOUT_S = 15.0

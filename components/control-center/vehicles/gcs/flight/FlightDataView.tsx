@@ -20,6 +20,7 @@ import { CommandLog, MessagesPanel } from "./MessagesPanel";
 import { QuickPanel } from "./QuickPanel";
 import { RoverDrivePad } from "./RoverDrivePad";
 import { GimbalPanel } from "./GimbalPanel";
+import { PayloadPanel } from "./PayloadPanel";
 import { aimFromClick } from "@/lib/control-center/vehicles/gcs/aim";
 import { VideoPanel } from "./VideoPanel";
 
@@ -48,6 +49,7 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
   const [hudOnVideo, setHudOnVideo] = useState(true);
   const hasVideo = Boolean(vehicle?.videoUrl);
   const hasGimbal = Boolean(state?.caps.includes("gimbal") || state?.mount);
+  const hasPayload = Boolean(state?.caps.includes("payload") || state?.payload);
   const directControl = link.direct.status === "open" && link.direct.scope === "control";
 
   const rover = vehicle?.type === "rover";
@@ -104,6 +106,11 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
                 {t("tabs.gimbal")}
               </TabsTrigger>
             )}
+            {hasPayload && (
+              <TabsTrigger value="payload" className="flex-1 text-xs">
+                {t("tabs.payload")}
+              </TabsTrigger>
+            )}
             {rover && (
               <TabsTrigger value="drive" className="flex-1 text-xs">
                 {t("tabs.drive")}
@@ -130,6 +137,11 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
             {hasGimbal && (
               <TabsContent value="gimbal" className="mt-0">
                 <GimbalPanel state={state} canCommand={canCommand} directOpen={directControl} />
+              </TabsContent>
+            )}
+            {hasPayload && (
+              <TabsContent value="payload" className="mt-0">
+                <PayloadPanel state={state} canCommand={canCommand} />
               </TabsContent>
             )}
             {rover && (

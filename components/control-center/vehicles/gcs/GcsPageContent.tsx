@@ -127,7 +127,7 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
       <Tabs defaultValue="flight" className="flex flex-col lg:min-h-0 lg:flex-1">
         <TabsList className="shrink-0 self-start">
           <TabsTrigger value="flight">{t("tabs.flight")}</TabsTrigger>
-          <TabsTrigger value="plan">{t("tabs.plan")}</TabsTrigger>
+          {state?.caps.includes("mission") !== false && <TabsTrigger value="plan">{t("tabs.plan")}</TabsTrigger>}
           {state?.caps.includes("params") !== false && <TabsTrigger value="params">{t("tabs.params")}</TabsTrigger>}
           <TabsTrigger value="logs">{t("tabs.logs")}</TabsTrigger>
           <TabsTrigger value="setup">{t("tabs.setup")}</TabsTrigger>

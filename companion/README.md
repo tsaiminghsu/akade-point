@@ -32,6 +32,9 @@ python -m vehicle_companion.tools.fake_autopilot --vehicle copter --to 127.0.0.1
 python -m vehicle_companion --config companion.local.toml
 ```
 
+Add `--payload` to the fake autopilot to also simulate an ESP32 payload node
+(component 25: relays, servos, `PAY_VBAT`), which brings up the Payload tab.
+
 The vehicle shows **online** within ~2 s. With ArduPilot SITL instead of the
 fake autopilot: `sim_vehicle.py -v ArduCopter --out udp:127.0.0.1:14550`.
 

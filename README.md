@@ -59,8 +59,9 @@ User- and integrator-facing docs live in `docs/`: `user-guide.md`,
 `permissions.md` (role matrix, not yet implemented), `api-reference.md`,
 `claw-machine-configs.md`, `claw-machine-esp32.md`, and the
 `vehicles-*.md` set (overview, message contract, data model, security, IoT
-provisioning, companion setup, local dev & verification) plus
-`companion-esp32.md`.
+provisioning, companion setup, local dev & verification, the web ground
+station `vehicles-gcs.md`, video, STorM32 gimbal and ESP32) plus the earlier
+`companion-esp32.md` plan.
 
 ## Local development
 

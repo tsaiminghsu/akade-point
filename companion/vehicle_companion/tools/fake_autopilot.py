@@ -151,6 +151,7 @@ class FakeAutopilot:
         gimbal: bool = True,
         prearm_fail: Optional[str] = None,
         prearm_every_s: float = 30.0,
+        payload: bool = False,
     ):
         self.vehicle = vehicle
         self.sysid = sysid
@@ -167,6 +168,10 @@ class FakeAutopilot:
         self.mav = mavlink.MAVLink(out, srcSystem=sysid, srcComponent=1)
         self.gimbal_mav = mavlink.MAVLink(out, srcSystem=sysid, srcComponent=154)
         self.gcs_mav = mavlink.MAVLink(out, srcSystem=255, srcComponent=190)
+        self.payload_mav = mavlink.MAVLink(out, srcSystem=sysid, srcComponent=25)
+        self.with_payload = payload
+        self.relays = [False] * 4
+        self.servos = [1500.0] * 2
         self.parser = mavlink.MAVLink(None)
         self.parser.robust_parsing = True
 
@@ -288,6 +293,9 @@ class FakeAutopilot:
         self.mav.send(self.mav.command_ack_encode(command, result, 0, 0, msg.get_srcSystem(), msg.get_srcComponent()))
 
     def _on_command_long(self, msg) -> None:
+        if self.with_payload and msg.target_system == self.sysid and msg.target_component == 25:
+            self._payload_command(msg)
+            return
         if not self._for_me(msg, (0, 1, 154)):
             return
         self.commands.append(("long", msg.command, [msg.param1, msg.param2, msg.param3, msg.param4, msg.param5, msg.param6, msg.param7], msg.confirmation))
@@ -418,6 +426,22 @@ class FakeAutopilot:
             self.gimbal["roi"] = None
             return R.MAV_RESULT_ACCEPTED
         return R.MAV_RESULT_UNSUPPORTED
+
+    def _payload_command(self, msg) -> None:
+        """The ESP32 payload node: relays (181), servos (183), pulse (31010)."""
+        R = mavlink
+        i = int(msg.param1)
+        result = R.MAV_RESULT_UNSUPPORTED
+        if msg.command in (181, 31010):
+            result = R.MAV_RESULT_ACCEPTED if 0 <= i < len(self.relays) else R.MAV_RESULT_DENIED
+            if result == R.MAV_RESULT_ACCEPTED:
+                self.relays[i] = msg.command == 31010 or msg.param2 >= 0.5
+        elif msg.command == 183:
+            result = R.MAV_RESULT_ACCEPTED if 0 <= i < len(self.servos) and 500 <= msg.param2 <= 2500 else R.MAV_RESULT_DENIED
+            if result == R.MAV_RESULT_ACCEPTED:
+                self.servos[i] = msg.param2
+        self.commands.append(("payload", msg.command, [msg.param1, msg.param2], 0))
+        self.payload_mav.send(self.payload_mav.command_ack_encode(msg.command, result, 0, 0, msg.get_srcSystem(), msg.get_srcComponent()))
 
     def _arm_disarm(self, arm: bool, force: bool) -> int:
         R = mavlink
@@ -710,6 +734,12 @@ class FakeAutopilot:
         self.mav.send(self.mav.heartbeat_encode(self.mav_type, mavlink.MAV_AUTOPILOT_ARDUPILOTMEGA, base, self.custom_mode, status))
         if self.with_gimbal:
             self.gimbal_mav.send(self.gimbal_mav.heartbeat_encode(mavlink.MAV_TYPE_GIMBAL, mavlink.MAV_AUTOPILOT_INVALID, 0, 0, mavlink.MAV_STATE_ACTIVE))
+        if self.with_payload:
+            self.payload_mav.send(self.payload_mav.heartbeat_encode(mavlink.MAV_TYPE_ONBOARD_CONTROLLER, mavlink.MAV_AUTOPILOT_INVALID, 0, 0, mavlink.MAV_STATE_ACTIVE))
+            tb = self.time_boot_ms()
+            self.payload_mav.send(self.payload_mav.named_value_float_encode(tb, b"PAY_VBAT", 12.4))
+            for i, on in enumerate(self.relays):
+                self.payload_mav.send(self.payload_mav.named_value_float_encode(tb, f"RELAY{i}".encode(), 1.0 if on else 0.0))
         if self.inject_gcs_heartbeat:
             self.gcs_mav.send(self.gcs_mav.heartbeat_encode(mavlink.MAV_TYPE_GCS, mavlink.MAV_AUTOPILOT_INVALID, 0, 0, mavlink.MAV_STATE_ACTIVE))
 
@@ -809,11 +839,12 @@ def main() -> None:
     ap.add_argument("--speedup", type=float, default=1.0)
     ap.add_argument("--prearm-fail", default=None, help="make arming fail with this pre-arm reason")
     ap.add_argument("--no-gimbal", action="store_true")
+    ap.add_argument("--payload", action="store_true", help="also simulate an ESP32 payload node (component 25)")
     args = ap.parse_args()
     host, port = args.to.rsplit(":", 1)
     lat, lon, alt = (float(x) for x in args.home.split(","))
     fake = FakeAutopilot((host, int(port)), vehicle=args.vehicle, home=(lat, lon, alt), sysid=args.sysid,
-                         speedup=args.speedup, prearm_fail=args.prearm_fail, gimbal=not args.no_gimbal).start()
+                         speedup=args.speedup, prearm_fail=args.prearm_fail, gimbal=not args.no_gimbal, payload=args.payload).start()
     print(f"fake {args.vehicle} (sysid {args.sysid}) sending to {args.to}; Ctrl+C to stop")
     try:
         while True:

@@ -48,6 +48,8 @@ EVENT_TYPES = frozenset(
         "STATUSTEXT",
         "LOG_ENTRY",
         "LOG_DATA",
+        # Several names per component: the per-type cache would keep only the last.
+        "NAMED_VALUE_FLOAT",
     }
 )
 

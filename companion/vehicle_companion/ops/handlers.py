@@ -73,6 +73,7 @@ class Handlers:
         mode_confirm_s: float = 3.0,
         video=None,
         gimbal=None,
+        payload=None,
     ):
         self.conn = conn
         self.commands = commands
@@ -84,6 +85,7 @@ class Handlers:
         self.mode_confirm_s = mode_confirm_s
         self.video = video
         self.gimbal = gimbal
+        self.payload = payload
 
     # ---- plumbing ------------------------------------------------------
 
@@ -425,6 +427,26 @@ class Handlers:
 
     async def _h_roi_none(self, cmd_id: str, args: dict) -> dict:
         return self._from_result(cmd_id, await self._gimbal().roi_none())
+
+    # ---- payload ---------------------------------------------------------
+
+    def _payload(self):
+        self._hb()
+        if self.payload is None:
+            raise CommandFailed("NO_PAYLOAD", "payload control not available")
+        return self.payload
+
+    async def _h_payload_relay(self, cmd_id: str, args: dict) -> dict:
+        r = await self._payload().relay(int(args["index"]), bool(args.get("on")), int(args.get("comp", 25)))
+        return self._from_result(cmd_id, r, res={"index": args["index"], "on": bool(args.get("on"))})
+
+    async def _h_payload_pulse(self, cmd_id: str, args: dict) -> dict:
+        r = await self._payload().pulse(int(args["index"]), float(args.get("ms", 500)), int(args.get("comp", 25)))
+        return self._from_result(cmd_id, r, res={"index": args["index"]})
+
+    async def _h_payload_servo(self, cmd_id: str, args: dict) -> dict:
+        r = await self._payload().servo(int(args["index"]), float(args["pwm"]), int(args.get("comp", 25)))
+        return self._from_result(cmd_id, r, res={"index": args["index"], "pwm": args["pwm"]})
 
     # ---- video -----------------------------------------------------------
 

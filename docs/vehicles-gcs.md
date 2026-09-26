@@ -150,6 +150,14 @@ Mission Planner 的 Flight Plan：左邊是計畫與工具，右邊是可編輯�
 
 STorM32 的接線與參數見 [`vehicles-gimbal-storm32.md`](./vehicles-gimbal-storm32.md)。
 
+## 酬載與 Remote ID
+
+- 接了 ESP32 酬載節點（或任何送 NAMED_VALUE_FLOAT 的元件）時，飛行資料多一個「酬載」頁籤：感測值、繼電器開關與脈衝、伺服輸出。
+- 飛控有 Remote ID 模組時，狀態列會多一個 Remote ID 徽章。
+- ESP32 小車（沒有飛控）只回報 `manual` 能力：隱藏任務規劃與參數頁籤，模式只列 MANUAL/HOLD/GUIDED。
+
+接線與韌體見 [`vehicles-esp32.md`](./vehicles-esp32.md)。
+
 ## 影像
 
 設定影像網址（MediaMTX 的 WHEP）後，飛行資料頁右側可以切換地圖/影像主畫面，另一個顯示成子母畫面；影像上可疊 HUD、截圖、控制 Pi 上的錄影。設定方式見 [`vehicles-video.md`](./vehicles-video.md)。

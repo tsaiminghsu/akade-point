@@ -69,6 +69,14 @@ allowed_origins = ["https://your-control-center.example.com"]
 api_url = "http://127.0.0.1:9997"
 path = "cam"
 
+# Remote ID module (ArduRemoteID on an ESP32-S3/C3, see docs/vehicles-esp32.md).
+# Its arming status is always shown when the module is heard. Set
+# send_operator_location only if the autopilot has DID_ENABLE=1 and local rules
+# require an operator location: the takeoff (home) position is sent as
+# OPEN_DRONE_ID_SYSTEM once a second.
+[remote_id]
+send_operator_location = false
+
 # Only used when transport = "iot".
 [mqtt]
 endpoint = "xxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com"

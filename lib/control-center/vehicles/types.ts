@@ -44,7 +44,7 @@ export interface VehicleStateV1 {
 
 export type VehicleClass = "copter" | "rover" | "plane" | "other";
 export type AutopilotFamily = "ardupilot" | "px4" | "generic" | "other";
-export type VehicleCap = "mission" | "fence" | "rally" | "params" | "command_int" | "manual" | "gimbal" | "logs";
+export type VehicleCap = "mission" | "fence" | "rally" | "params" | "command_int" | "manual" | "gimbal" | "logs" | "payload";
 
 /**
  * Telemetry snapshot, contract v2 (the web ground station). Anything the
@@ -115,6 +115,10 @@ export interface VehicleStateV2 {
   gcs: { others: number; policy?: "off" | "always" | "operator"; hb?: boolean };
   /** MediaMTX on the companion: stream ready, viewers, recording (null = not configured / unreachable) */
   video?: { ready: boolean; readers: number; rec: boolean | null } | null;
+  /** NAMED_VALUE_FLOAT values per payload component (e.g. the ESP32 payload node, comp 25), fresh ones only */
+  payload?: { comp: number; values: Record<string, number> }[] | null;
+  /** Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS); null = no module heard */
+  rid?: { ok: boolean; error: string | null } | null;
   fw: string | null;
 }
 
@@ -191,7 +195,10 @@ export type VehicleCommandType =
   | "gimbal_pitchyaw"
   | "gimbal_mode"
   | "roi_location"
-  | "roi_none";
+  | "roi_none"
+  | "payload_relay"
+  | "payload_pulse"
+  | "payload_servo";
 
 /** Where a command was issued: through this server, or straight to the
  *  companion over the direct link (then reported back for the log). */
