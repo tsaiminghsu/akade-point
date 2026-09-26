@@ -41,12 +41,23 @@ function readLayer(): string {
   }
 }
 
-function ContextMenuCatcher({ onMenu, onClose }: { onMenu: (m: MenuState) => void; onClose: () => void }) {
+function ClickCatcher({
+  onMenu,
+  onClose,
+  onClick,
+}: {
+  onMenu: ((m: MenuState) => void) | null;
+  onClose: () => void;
+  onClick?: (lat: number, lon: number) => void;
+}) {
   useMapEvents({
     contextmenu(e) {
-      onMenu({ lat: e.latlng.lat, lon: e.latlng.lng, x: e.containerPoint.x, y: e.containerPoint.y });
+      if (onMenu) onMenu({ lat: e.latlng.lat, lon: e.latlng.lng, x: e.containerPoint.x, y: e.containerPoint.y });
     },
-    click: onClose,
+    click(e) {
+      onClose();
+      onClick?.(e.latlng.lat, e.latlng.lng);
+    },
     movestart: onClose,
   });
   return null;
@@ -101,20 +112,30 @@ export function GcsMap({
   target,
   canCommand,
   onAction,
+  onMapClick,
+  contextMenu = true,
+  follow: followInitial = true,
   children,
   vehicleLabel,
+  cursor,
 }: {
   state: VehicleStateV2 | null;
   trail: [number, number][];
   target: { lat: number; lon: number } | null;
   canCommand: boolean;
-  onAction: (a: MapAction) => void;
+  onAction?: (a: MapAction) => void;
+  /** left click on empty map (plan editing) */
+  onMapClick?: (lat: number, lon: number) => void;
+  contextMenu?: boolean;
+  follow?: boolean;
   children?: React.ReactNode;
   vehicleLabel?: string;
+  /** CSS cursor over the map, e.g. "crosshair" while adding points */
+  cursor?: string;
 }) {
   const t = useTranslations("Gcs.map");
   const [layerId, setLayerId] = useState(DEFAULT_LAYER_ID);
-  const [follow, setFollow] = useState(true);
+  const [follow, setFollow] = useState(followInitial);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [measure, setMeasure] = useState<{ lat: number; lon: number } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -149,18 +170,18 @@ export function GcsMap({
 
   function act(kind: MapAction["kind"]) {
     if (!menu) return;
-    onAction({ kind, lat: menu.lat, lon: menu.lon });
+    onAction?.({ kind, lat: menu.lat, lon: menu.lon });
     setMenu(null);
   }
 
   return (
-    <div ref={boxRef} className="gcs-map relative h-full w-full overflow-hidden rounded-md">
+    <div ref={boxRef} className="gcs-map relative h-full w-full overflow-hidden rounded-md" style={cursor ? ({ "--gcs-cursor": cursor } as React.CSSProperties) : undefined} data-cursor={cursor ? "" : undefined}>
       <MapContainer center={pos ? [pos.lat, pos.lon] : TAIPEI} zoom={pos ? 17 : 12} maxZoom={21} className="h-full w-full" zoomControl>
         <TileLayer key={layer.id} url={layer.url} attribution={layer.attribution} maxZoom={layer.maxZoom} maxNativeZoom={layer.maxNativeZoom} crossOrigin="anonymous" />
         <AutoResize />
         <InitialView lat={pos?.lat ?? null} lon={pos?.lon ?? null} />
         <FollowView lat={pos?.lat ?? null} lon={pos?.lon ?? null} enabled={follow} />
-        <ContextMenuCatcher onMenu={setMenu} onClose={() => setMenu(null)} />
+        <ClickCatcher onMenu={contextMenu ? setMenu : null} onClose={() => setMenu(null)} onClick={onMapClick} />
         {trail.length > 1 && <Polyline positions={trail} pathOptions={{ color: "#f97316", weight: 2, opacity: 0.85 }} />}
         {home && <Marker position={[home.lat, home.lon]} icon={homeIcon()} />}
         {target && <Marker position={[target.lat, target.lon]} icon={targetIcon()} />}

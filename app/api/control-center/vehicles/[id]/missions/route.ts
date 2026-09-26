@@ -24,6 +24,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     name: body.data.name,
     items: body.data.items,
     source: body.data.source ?? "editor",
+    kind: body.data.kind ?? "mission",
   });
   return NextResponse.json({ mission });
 }

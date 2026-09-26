@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { createId } from "@paralleldrive/cuid2";
 
-import type { MissionItem, MissionSource, VehicleMission } from "@/lib/control-center/vehicles/types";
+import type { MissionItem, MissionKind, MissionSource, VehicleMission } from "@/lib/control-center/vehicles/types";
 import { buildUpdateExpression, ddb, TABLES } from "./client";
 
 export type CCVehicleMission = VehicleMission;
@@ -38,6 +38,7 @@ export async function createMission(input: {
   name: string;
   items: MissionItem[];
   source: MissionSource;
+  kind?: MissionKind;
 }): Promise<CCVehicleMission> {
   const now = Date.now();
   const mission: CCVehicleMission = {
@@ -46,6 +47,7 @@ export async function createMission(input: {
     name: input.name,
     items: input.items,
     source: input.source,
+    kind: input.kind ?? "mission",
     createdAt: now,
     updatedAt: now,
   };

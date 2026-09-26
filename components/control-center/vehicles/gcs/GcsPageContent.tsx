@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorState } from "@/components/control-center/shared/ErrorState";
 import { useGcsStore } from "@/store/useGcsStore";
 import { LinkStateBadge } from "../LinkStateBadge";
-import { MissionList } from "../missions/MissionList";
 import { FlightDataView } from "./flight/FlightDataView";
+import { FlightPlanView } from "./plan/FlightPlanView";
 import { StatusBar } from "./flight/StatusBar";
 import { VehicleSetupPanel } from "./setup/VehicleSetupPanel";
 import { useVoiceAlerts } from "./useVoiceAlerts";
@@ -131,8 +131,8 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
         <TabsContent value="flight" className="mt-3 lg:min-h-0 lg:flex-1">
           <FlightDataView canCommand={canCommand} />
         </TabsContent>
-        <TabsContent value="plan" className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          <MissionList vehicleId={vehicleId} />
+        <TabsContent value="plan" className="mt-3 lg:min-h-0 lg:flex-1">
+          {vehicle && <FlightPlanView vehicle={vehicle} canCommand={canCommand} />}
         </TabsContent>
         <TabsContent value="setup" className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           {vehicle && <VehicleSetupPanel vehicle={vehicle} />}

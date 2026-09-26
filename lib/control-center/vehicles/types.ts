@@ -263,12 +263,18 @@ export interface MissionItem {
 
 export type MissionSource = "editor" | "import" | "download";
 
+/** Which of the autopilot's three plans a stored list is: the flight mission,
+ *  the geofence, or rally points (MAVLink mission_type 0/1/2). */
+export type MissionKind = "mission" | "fence" | "rally";
+
 export interface VehicleMission {
   id: string;
   vehicleId: string;
   name: string;
   items: MissionItem[];
   source: MissionSource;
+  /** absent on rows saved before fences and rally points existed = "mission" */
+  kind?: MissionKind;
   createdAt: number;
   updatedAt: number;
 }

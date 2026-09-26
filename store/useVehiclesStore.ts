@@ -5,6 +5,7 @@ import { resolveTimeouts } from "@/lib/control-center/vehicles/commandState";
 import { VEHICLE_POLL_MS } from "@/lib/control-center/vehicles/constants";
 import type {
   MissionItem,
+  MissionKind,
   TelemetryPoint,
   Vehicle,
   VehicleCommand,
@@ -38,7 +39,13 @@ interface VehiclesState {
   fetchTelemetry: (vehicleId: string, since?: number) => Promise<void>;
 
   fetchMissions: (vehicleId: string) => Promise<void>;
-  createMission: (vehicleId: string, name: string, items: MissionItem[], source?: "editor" | "import") => Promise<VehicleMission | null>;
+  createMission: (
+    vehicleId: string,
+    name: string,
+    items: MissionItem[],
+    source?: "editor" | "import",
+    kind?: MissionKind
+  ) => Promise<VehicleMission | null>;
   updateMission: (vehicleId: string, missionId: string, patch: { name?: string; items?: MissionItem[] }) => Promise<boolean>;
   deleteMission: (vehicleId: string, missionId: string) => Promise<boolean>;
 }
@@ -201,10 +208,10 @@ export const useVehiclesStore = create<VehiclesState>()((set, get) => ({
     set((s) => ({ missionsByVehicle: { ...s.missionsByVehicle, [vehicleId]: res.missions } }));
   },
 
-  createMission: async (vehicleId, name, items, source) => {
+  createMission: async (vehicleId, name, items, source, kind) => {
     const res = await apiRequest<{ mission: VehicleMission }>(`/api/control-center/vehicles/${vehicleId}/missions`, {
       method: "POST",
-      body: JSON.stringify({ name, items, source }),
+      body: JSON.stringify({ name, items, source, kind }),
     });
     if (!res) return null;
     set((s) => {

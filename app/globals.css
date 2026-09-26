@@ -265,6 +265,9 @@
   background: hsl(var(--muted));
   font-family: inherit;
 }
+.gcs-map[data-cursor] .leaflet-container {
+  cursor: var(--gcs-cursor);
+}
 .gcs-map .leaflet-control-attribution {
   font-size: 10px;
 }

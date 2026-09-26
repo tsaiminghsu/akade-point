@@ -77,7 +77,16 @@ interface GcsState {
 
   open: (vehicleId: string) => void;
   close: () => void;
-  send: (request: CommandRequest) => Promise<boolean>;
+  /**
+   * Sends a command over the direct link when it is open with control scope,
+   * otherwise through the server. `directExtra` args (e.g. mission items
+   * inline) only travel on the direct link. Resolves true once issued.
+   */
+  send: (request: CommandRequest, directExtra?: Record<string, unknown>) => Promise<boolean>;
+  /** Like send, then waits for the command to settle (acked/failed/timeout). */
+  sendAndWait: (request: CommandRequest, opts?: { timeoutMs?: number; directExtra?: Record<string, unknown> }) => Promise<GcsCommand | null>;
+  /** True when commands would go over the direct link right now. */
+  viaDirect: () => boolean;
   drive: (vx: number, yr: number) => boolean;
   setControl: (on: boolean) => void;
   reconnectDirect: () => void;
@@ -201,6 +210,26 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     } catch {
       return null;
     }
+  }
+
+  /** Issues a command; returns its id, or null if it could not be sent. */
+  async function issue(request: CommandRequest, directExtra?: Record<string, unknown>): Promise<string | null> {
+    const id = get().vehicleId;
+    if (!id) return null;
+    const { type, ...args } = request as CommandRequest & Record<string, unknown>;
+    if (direct?.isOpen && get().link.direct.scope === "control") {
+      const cmdId = directCommandId();
+      upsertCommand({ id: cmdId, type: type as VehicleCommandType, status: "sent", createdAt: Date.now(), via: "direct" });
+      if (direct.sendCommand({ id: cmdId, type, args: { ...args, ...directExtra } })) return cmdId;
+      set((s) => ({ commands: s.commands.filter((c) => c.id !== cmdId) }));
+    }
+    const res = await apiRequest<{ command: VehicleCommand }>(`/api/control-center/vehicles/${id}/commands`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+    if (!res) return null;
+    upsertCommand(fromCloudCommand(res.command));
+    return res.command.id;
   }
 
   function startDirect(vehicleId: string) {
@@ -357,23 +386,32 @@ export const useGcsStore = create<GcsState>()((set, get) => {
       });
     },
 
-    send: async (request) => {
-      const id = get().vehicleId;
-      if (!id) return false;
-      const { type, ...args } = request as CommandRequest & Record<string, unknown>;
-      if (direct?.isOpen && get().link.direct.scope === "control") {
-        const cmdId = directCommandId();
-        upsertCommand({ id: cmdId, type: type as VehicleCommandType, status: "sent", createdAt: Date.now(), via: "direct" });
-        if (direct.sendCommand({ id: cmdId, type, args })) return true;
-      }
-      const res = await apiRequest<{ command: VehicleCommand }>(`/api/control-center/vehicles/${id}/commands`, {
-        method: "POST",
-        body: JSON.stringify(request),
+    send: async (request, directExtra) => (await issue(request, directExtra)) !== null,
+
+    sendAndWait: async (request, opts = {}) => {
+      const cmdId = await issue(request, opts.directExtra);
+      if (!cmdId) return null;
+      const timeoutMs = opts.timeoutMs ?? 30_000;
+      const settled = (c?: GcsCommand) => c && (c.status === "acked" || c.status === "failed" || c.status === "timeout");
+      const now = get().commands.find((c) => c.id === cmdId);
+      if (settled(now)) return now!;
+      return new Promise<GcsCommand | null>((resolve) => {
+        const timer = setTimeout(() => {
+          unsub();
+          resolve(get().commands.find((c) => c.id === cmdId) ?? null);
+        }, timeoutMs);
+        const unsub = useGcsStore.subscribe((s) => {
+          const c = s.commands.find((x) => x.id === cmdId);
+          if (settled(c)) {
+            clearTimeout(timer);
+            unsub();
+            resolve(c!);
+          }
+        });
       });
-      if (!res) return false;
-      upsertCommand(fromCloudCommand(res.command));
-      return true;
     },
+
+    viaDirect: () => Boolean(direct?.isOpen && get().link.direct.scope === "control"),
 
     drive: (vx, yr) => (direct?.isOpen ? direct.sendManual(vx, yr) : false),
 

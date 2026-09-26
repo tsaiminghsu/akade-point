@@ -88,7 +88,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       if (!mission || mission.vehicleId !== params.id) {
         return NextResponse.json({ error: "Mission not found for this vehicle" }, { status: 404 });
       }
-      args = { missionId: mission.id, n: mission.items.length, sha: missionChecksum(mission.items), mtype: 0 };
+      const mtype = { mission: 0, fence: 1, rally: 2 }[mission.kind ?? "mission"];
+      args = { missionId: mission.id, n: mission.items.length, sha: missionChecksum(mission.items), mtype };
       break;
     }
     default:

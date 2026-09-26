@@ -22,11 +22,14 @@ export async function POST(req: Request) {
 
   const vehicle = await getVehicle(auth.vehicleId);
   const stamp = new Date().toISOString().replace("T", " ").slice(0, 16);
+  const kind = (["mission", "fence", "rally"] as const)[body.data.mtype ?? 0];
+  const label = kind === "mission" ? "" : ` ${kind}`;
   const mission = await createMission({
     vehicleId: auth.vehicleId,
-    name: `Downloaded ${vehicle?.name ?? "vehicle"} ${stamp}`,
+    name: `Downloaded${label} ${vehicle?.name ?? "vehicle"} ${stamp}`,
     items: body.data.items,
     source: "download",
+    kind,
   });
   return NextResponse.json({ missionId: mission.id });
 }

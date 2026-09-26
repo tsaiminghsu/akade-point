@@ -121,7 +121,8 @@ def build(config: Config) -> Companion:
         if ack.get("msg"):
             entry["msg"] = ack["msg"]
         if ack.get("res"):
-            entry["res"] = ack["res"]
+            # Inline mission items went to the browser; the log only needs the summary.
+            entry["res"] = {k: v for k, v in ack["res"].items() if k != "items"}
         cloud.audit(entry)
 
     executor.on_finished(audit)

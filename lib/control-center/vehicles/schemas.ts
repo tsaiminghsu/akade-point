@@ -186,10 +186,13 @@ export const missionItemSchema = z.object({
   ac: z.number().int(),
 });
 
+export const missionKindSchema = z.enum(["mission", "fence", "rally"]);
+
 export const missionCreateSchema = z.object({
   name: z.string().min(1),
   items: z.array(missionItemSchema).min(1).max(MAX_MISSION_ITEMS),
   source: z.enum(["editor", "import"]).optional(),
+  kind: missionKindSchema.optional(),
 });
 
 export const missionPatchSchema = z
