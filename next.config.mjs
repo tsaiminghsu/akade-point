@@ -29,8 +29,9 @@ const nextConfig = {
     ],
   },
   // asyncWebAssembly was only needed by @react-three/rapier, which is no longer
-  // a dependency. @dimforge/rapier3d-compat is now a devDependency used solely
-  // by scripts/test-ball-physics.ts, which never enters the webpack bundle.
+  // a dependency. @dimforge/rapier3d-compat (the claw machine's physics, and
+  // scripts/test-ball-physics.ts) inlines its WASM as base64, so it bundles
+  // without any webpack WebAssembly config.
 };
 
 export default nextConfig;

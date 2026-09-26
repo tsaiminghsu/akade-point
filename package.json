@@ -18,12 +18,15 @@
     "test:watch": "vitest --project unit --project dom",
     "test:coverage": "vitest run --project unit --project dom --coverage",
     "verify": "npm run typecheck && npm run lint && npm test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "prepare": "husky",
     "test:db": "vitest run --project integration"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1073.0",
     "@aws-sdk/lib-dynamodb": "^3.1073.0",
+    "@dimforge/rapier3d-compat": "^0.19.3",
     "@next-auth/dynamodb-adapter": "^3.0.2",
     "@paralleldrive/cuid2": "^3.3.0",
     "@pixi/filter-bloom": "^5.1.1",
@@ -48,7 +51,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@dimforge/rapier3d-compat": "^0.19.2",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",

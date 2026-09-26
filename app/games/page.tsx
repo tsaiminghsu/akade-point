@@ -32,6 +32,14 @@ const GAMES = [
     icon: '🏙️',
   },
   {
+    slug: 'claw-machine',
+    name: '二代選物販賣機',
+    description: '搖桿操作天車夾娃娃，可進入主機板設定調整強弱爪力與保夾',
+    tag: '夾物',
+    tagColor: 'text-pink-400 bg-pink-400/10',
+    icon: '🧸',
+  },
+  {
     slug: 'da-nu-shen',
     name: '3D 骰子大女神',
     description: '3D 物理骰子搖動，祈求幸運數字',
