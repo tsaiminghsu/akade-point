@@ -1,0 +1,119 @@
+{
+  "v": 2,
+  "t": 1790000000000,
+  "fc": {
+    "ok": true,
+    "age": 0.5,
+    "id": [
+      1,
+      1
+    ]
+  },
+  "veh": {
+    "cls": "copter",
+    "ap": "ardupilot",
+    "mavType": 2
+  },
+  "armed": false,
+  "mode": "STABILIZE",
+  "sys": "STANDBY",
+  "att": {
+    "r": 0.0,
+    "p": 0.0,
+    "y": 0.0
+  },
+  "bat": {
+    "v": 16.8,
+    "a": 0.5,
+    "pct": 100.0,
+    "mah": 0.0,
+    "cells": 4,
+    "cellV": 4.2,
+    "cellAvg": true
+  },
+  "gps": {
+    "fix": 3,
+    "sats": 14,
+    "hdop": 0.8
+  },
+  "pos": {
+    "lat": 25.033,
+    "lon": 121.5654,
+    "alt": 12.0,
+    "rel": 0.0
+  },
+  "home": {
+    "lat": 25.033,
+    "lon": 121.5654,
+    "alt": 12.0
+  },
+  "hdg": 0.0,
+  "gs": 0.0,
+  "as": 0.0,
+  "vs": 0.0,
+  "thr": 0,
+  "wp": {
+    "cur": 0,
+    "n": 0,
+    "dist": 0,
+    "xt": 0.0
+  },
+  "ekf": {
+    "flags": 1023,
+    "vel": 0.05,
+    "posH": 0.08,
+    "posV": 0.04,
+    "compass": 0.03,
+    "terrain": 0.0,
+    "worst": 0.08
+  },
+  "vibe": {
+    "x": 0.5,
+    "y": 0.6,
+    "z": 0.7,
+    "clip": [
+      0,
+      0,
+      0
+    ]
+  },
+  "rssi": {
+    "rc": 91,
+    "radio": null
+  },
+  "health": {
+    "prearm": true,
+    "bad": [],
+    "msgs": []
+  },
+  "fence": {
+    "breach": false,
+    "count": 0,
+    "type": 0
+  },
+  "wind": {
+    "dir": 270.0,
+    "spd": 3.2
+  },
+  "comp": {
+    "tempC": 52.1,
+    "load": 0.4,
+    "cpus": 4,
+    "diskFreeMb": 12000,
+    "throttled": [],
+    "uptimeS": 120
+  },
+  "caps": [
+    "mission",
+    "params",
+    "fence",
+    "rally",
+    "command_int"
+  ],
+  "gcs": {
+    "others": 0,
+    "policy": "off",
+    "hb": false
+  },
+  "fw": "ArduCopter V4.5.7"
+}

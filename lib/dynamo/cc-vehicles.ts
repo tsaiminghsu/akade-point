@@ -14,6 +14,8 @@ export interface CCVehicle {
   state: Record<string, unknown> | null;
   stateAt: number | null;
   lastSeenAt: number | null;
+  /** last time a ground-station page polled this vehicle live (ms) */
+  operatorSeenAt?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -72,20 +74,38 @@ export async function updateVehicle(id: string, patch: Partial<Omit<CCVehicle, "
 }
 
 /** Fast path used by the telemetry ingest route: overwrite live state + timers
- *  without bumping updatedAt (which is for operator edits, not telemetry). */
+ *  without bumping updatedAt (which is for operator edits, not telemetry).
+ *  Returns when a ground-station page last watched this vehicle. */
 export async function updateVehicleState(
   id: string,
   state: Record<string, unknown>,
   stateAt: number,
   lastSeenAt: number
-): Promise<void> {
-  await ddb.send(
+): Promise<{ operatorSeenAt: number | null }> {
+  const res = await ddb.send(
     new UpdateCommand({
       TableName: TABLES.CC_VEHICLES,
       Key: { id },
       UpdateExpression: "SET #st = :st, stateAt = :sa, lastSeenAt = :ls",
       ExpressionAttributeNames: { "#st": "state" },
       ExpressionAttributeValues: { ":st": state, ":sa": stateAt, ":ls": lastSeenAt },
+      // One round trip: the write also hands back operatorSeenAt.
+      ReturnValues: "ALL_NEW",
+    })
+  );
+  const at = (res.Attributes as { operatorSeenAt?: number } | undefined)?.operatorSeenAt;
+  return { operatorSeenAt: typeof at === "number" ? at : null };
+}
+
+/** Stamps that a ground-station page is watching this vehicle right now. */
+export async function markOperatorSeen(id: string, at: number): Promise<void> {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLES.CC_VEHICLES,
+      Key: { id },
+      UpdateExpression: "SET operatorSeenAt = :at",
+      ConditionExpression: "attribute_exists(id)",
+      ExpressionAttributeValues: { ":at": at },
     })
   );
 }

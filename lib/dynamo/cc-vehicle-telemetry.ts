@@ -1,35 +1,39 @@
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 import type { TelemetryPoint, VehicleState } from "@/lib/control-center/vehicles/types";
+import { summarize } from "@/lib/control-center/vehicles/summary";
 import { batchPutAll } from "./batch";
 import { ddb, TABLES } from "./client";
 import { VEHICLE_TELEMETRY_TTL_SECONDS, expiresAtFrom } from "./ttl";
 
-/** Flattens a telemetry snapshot into a stored history row. */
-export function toPoint(vehicleId: string, s: VehicleState): TelemetryPoint {
+/** Flattens a telemetry snapshot into a stored history row, or null when the
+ *  snapshot has no position (such a point would draw a line to 0,0). */
+export function toPoint(vehicleId: string, s: VehicleState): TelemetryPoint | null {
+  const sum = summarize(s);
+  if (!sum?.pos) return null;
   return {
     vehicleId,
     t: s.t,
-    lat: s.pos.lat,
-    lon: s.pos.lon,
-    alt: s.pos.alt,
-    rel: s.pos.rel,
-    hdg: s.hdg,
-    gs: s.gs,
-    batPct: s.bat.pct,
-    batV: s.bat.v,
-    mode: s.mode,
-    armed: s.armed,
-    sats: s.gps.sats,
-    fix: s.gps.fix,
+    lat: sum.pos.lat,
+    lon: sum.pos.lon,
+    alt: sum.pos.alt,
+    rel: sum.pos.rel,
+    hdg: sum.hdg,
+    gs: sum.gs,
+    batPct: sum.batPct,
+    batV: sum.batV,
+    mode: sum.mode,
+    armed: sum.armed,
+    sats: sum.sats,
+    fix: sum.fix,
     expiresAt: expiresAtFrom(s.t, VEHICLE_TELEMETRY_TTL_SECONDS),
   };
 }
 
 /** Appends downsampled history points for a vehicle. */
 export async function putPoints(vehicleId: string, states: VehicleState[]): Promise<void> {
-  if (states.length === 0) return;
-  const points = states.map((s) => toPoint(vehicleId, s));
+  const points = states.map((s) => toPoint(vehicleId, s)).filter((p): p is TelemetryPoint => p !== null);
+  if (points.length === 0) return;
   await batchPutAll(TABLES.CC_VEHICLE_TELEMETRY, points as unknown as Record<string, unknown>[]);
 }
 

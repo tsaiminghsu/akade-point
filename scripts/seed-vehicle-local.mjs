@@ -45,6 +45,7 @@ console.log(`vehicle_id = "${vehicle.id}"`);
 console.log(`api_base = "${BASE}"`);
 console.log(`token = "${issued.token}"`);
 console.log(`transport = "http"`);
+console.log(`contract = 2`);
 console.log(`mavlink_url = "udpin:127.0.0.1:14550"`);
 console.log(`telemetry_interval_s = 1.0`);
 console.log(`battery_cells = 4`);

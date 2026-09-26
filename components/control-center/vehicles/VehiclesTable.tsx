@@ -12,6 +12,7 @@ import { PaginationBar, usePagination } from "@/components/control-center/shared
 import { LinkStateBadge } from "./LinkStateBadge";
 import { VehicleFormDialog } from "./VehicleFormDialog";
 import { useVehiclesStore } from "@/store/useVehiclesStore";
+import { fixLabel, summarize } from "@/lib/control-center/vehicles/summary";
 import type { Vehicle } from "@/lib/control-center/vehicles/types";
 
 function relativeTime(ts: number | null, locale: string, never: string): string {
@@ -58,7 +59,7 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
           </TableHeader>
           <TableBody>
             {pagination.pageItems.map((v) => {
-              const s = v.state;
+              const s = summarize(v.state);
               const TypeIcon = v.type === "drone" ? Plane : Car;
               return (
                 <TableRow key={v.id}>
@@ -71,12 +72,12 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{v.companionId}</TableCell>
-                  <TableCell className="text-xs">{s ? (s.armed ? t("armedYes") : t("armedNo")) : "—"}</TableCell>
+                  <TableCell className="text-xs">{s?.armed == null ? "—" : s.armed ? t("armedYes") : t("armedNo")}</TableCell>
                   <TableCell className="text-xs">{s?.mode ?? "—"}</TableCell>
-                  <TableCell className="text-xs tabular-nums">{s ? `${Math.round(s.bat.pct)}%` : "—"}</TableCell>
-                  <TableCell className="text-xs tabular-nums">{s ? `${s.gps.fix >= 3 ? "3D" : s.gps.fix + "D"} · ${s.gps.sats}` : "—"}</TableCell>
+                  <TableCell className="text-xs tabular-nums">{s?.batPct == null ? "—" : `${Math.round(s.batPct)}%`}</TableCell>
+                  <TableCell className="text-xs tabular-nums">{s?.fix == null ? "—" : `${fixLabel(s.fix)} · ${s.sats ?? "—"}`}</TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    {s ? `${s.pos.lat.toFixed(5)}, ${s.pos.lon.toFixed(5)}` : "—"}
+                    {s?.pos ? `${s.pos.lat.toFixed(5)}, ${s.pos.lon.toFixed(5)}` : "—"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{relativeTime(v.lastSeenAt, locale, t("never"))}</TableCell>
                   <TableCell className="text-right">

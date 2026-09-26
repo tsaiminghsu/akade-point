@@ -430,9 +430,26 @@ await createTable({
   ],
 });
 
+// 20. akade-cc-vehicle-events — STATUSTEXT messages from each vehicle (7 d TTL).
+// sk = zero-padded t + "#" + companion seq, so two messages in the same
+// millisecond never overwrite each other and sk doubles as a paging cursor.
+await createTable({
+  TableName: "akade-cc-vehicle-events",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "vehicleId", AttributeType: "S" },
+    { AttributeName: "sk", AttributeType: "S" },
+  ],
+  KeySchema: [
+    { AttributeName: "vehicleId", KeyType: "HASH" },
+    { AttributeName: "sk", KeyType: "RANGE" },
+  ],
+});
+
 await enableTtl("akade-cc-machine-events", "expiresAt");
 await enableTtl("akade-cc-alerts", "expiresAt");
 await enableTtl("akade-cc-vehicle-telemetry", "expiresAt");
 await enableTtl("akade-cc-vehicle-commands", "expiresAt");
+await enableTtl("akade-cc-vehicle-events", "expiresAt");
 
 console.log("\n✅ All tables ready.");

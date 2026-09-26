@@ -80,8 +80,23 @@ describe("applyAck", () => {
 
 describe("toCommandMsg", () => {
   it("produces a compact envelope under 1 KB", () => {
-    const msg = toCommandMsg(cmd({ type: "goto", args: { lat: 24.1, lon: 121.2, alt: 30 } }));
-    expect(msg).toEqual({ v: 1, id: "c1", type: "goto", args: { lat: 24.1, lon: 121.2, alt: 30 }, iat: 1000, to: 10_000 });
+    const msg = toCommandMsg(cmd({ type: "goto", args: { lat: 24.1, lon: 121.2, alt: 30 } }), 5000);
+    expect(msg).toEqual({
+      v: 1,
+      id: "c1",
+      type: "goto",
+      args: { lat: 24.1, lon: 121.2, alt: 30 },
+      iat: 1000,
+      to: 10_000,
+      exp: 15_000,
+    });
     expect(JSON.stringify(msg).length).toBeLessThan(1024);
+  });
+
+  it("measures the start deadline from when the command was first sent", () => {
+    // Re-delivered every second until acked: the deadline must not slide.
+    expect(toCommandMsg(cmd({ sentAt: 2000 }), 9000).exp).toBe(12_000);
+    // Being sent now (never sent before): deadline from now.
+    expect(toCommandMsg(cmd(), 9000).exp).toBe(19_000);
   });
 });

@@ -55,7 +55,8 @@ async function waitRelAlt(id, target, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const { vehicle } = await api(`/api/control-center/vehicles/${id}`);
-    if (vehicle.state && vehicle.state.pos.rel >= target) return;
+    // pos is null in a contract-v2 snapshot until the vehicle has a position.
+    if ((vehicle.state?.pos?.rel ?? -Infinity) >= target) return;
     await sleep(1000);
   }
   throw new Error(`relative altitude never reached ${target}m`);
@@ -65,7 +66,7 @@ async function waitRelAlt(id, target, timeoutMs = 30_000) {
   const v = await findVehicle();
   console.log(`Vehicle ${v.name} (${v.id})`);
   const online = await waitOnline(v.id);
-  console.log(`✓ online — mode ${online.state?.mode}, GPS fix ${online.state?.gps.fix}`);
+  console.log(`✓ online — contract v${online.state?.v}, mode ${online.state?.mode}, GPS fix ${online.state?.gps?.fix}`);
 
   await sendAndWait(v.id, { type: "set_mode", mode: "GUIDED" }, "set_mode GUIDED");
   await sendAndWait(v.id, { type: "arm" }, "arm");
@@ -75,6 +76,9 @@ async function waitRelAlt(id, target, timeoutMs = 30_000) {
 
   const cur = (await api(`/api/control-center/vehicles/${v.id}`)).vehicle.state.pos;
   await sendAndWait(v.id, { type: "goto", lat: cur.lat + 0.0003, lon: cur.lon, alt: 10 }, "goto");
+  await sendAndWait(v.id, { type: "change_speed", speed: 3 }, "change_speed 3");
+  await sendAndWait(v.id, { type: "hold" }, "hold");
+  await sendAndWait(v.id, { type: "param_get", names: ["SYSID_MYGCS", "FS_GCS_ENABLE"] }, "param_get");
   await sendAndWait(v.id, { type: "rtl" }, "rtl");
 
   console.log("\n✅ smoke test passed");

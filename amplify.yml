@@ -6,6 +6,10 @@ frontend:
         - npm ci
     build:
       commands:
+        # Amplify's SSR compute runtime does not see console env vars unless they
+        # are written into .env.production at build time. AWS_* is deliberately
+        # excluded: credentials and region come from the compute role.
+        - env | grep -e '^NEXTAUTH_' -e '^LINE_CLIENT_' -e '^VEHICLE_' -e '^IOT_DATA_ENDPOINT' -e '^CLAW_' -e '^NEXT_PUBLIC_' >> .env.production || true
         - npm run build
   artifacts:
     baseDirectory: .next

@@ -20,6 +20,7 @@ import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog"
 import { MODES_BY_TYPE } from "@/lib/control-center/vehicles/constants";
 import type { CommandRequest } from "@/lib/control-center/vehicles/schemas";
 import { useVehiclesStore } from "@/store/useVehiclesStore";
+import { summarize } from "@/lib/control-center/vehicles/summary";
 import type { Vehicle } from "@/lib/control-center/vehicles/types";
 
 export function VehicleCommandBar({ vehicle }: { vehicle: Vehicle }) {
@@ -44,9 +45,10 @@ export function VehicleCommandBar({ vehicle }: { vehicle: Vehicle }) {
   }
 
   function openGoto() {
-    if (vehicle.state) {
-      setGotoLat(vehicle.state.pos.lat.toFixed(7));
-      setGotoLon(vehicle.state.pos.lon.toFixed(7));
+    const pos = summarize(vehicle.state)?.pos;
+    if (pos) {
+      setGotoLat(pos.lat.toFixed(7));
+      setGotoLon(pos.lon.toFixed(7));
     }
     setGotoOpen(true);
   }

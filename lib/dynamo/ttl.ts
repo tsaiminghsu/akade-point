@@ -18,6 +18,9 @@ export const ALERT_TTL_SECONDS = 90 * 24 * 60 * 60;
  *  this table is only the recent flight-path window. */
 export const VEHICLE_TELEMETRY_TTL_SECONDS = 7 * 24 * 60 * 60;
 
+/** Vehicle STATUSTEXT messages (events table): 7 days, like telemetry. */
+export const VEHICLE_EVENT_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 /** Vehicle command log: 30 days. */
 export const VEHICLE_COMMAND_TTL_SECONDS = 30 * 24 * 60 * 60;
 

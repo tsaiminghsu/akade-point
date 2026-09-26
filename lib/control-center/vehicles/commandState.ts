@@ -48,8 +48,14 @@ export function applyAck(command: VehicleCommand, ack: VehicleAck, now: number =
   };
 }
 
-/** Projects a stored command down to the compact envelope the companion runs. */
-export function toCommandMsg(command: VehicleCommand): VehicleCommandMsg {
+/**
+ * Projects a stored command down to the compact envelope the companion runs.
+ * `exp` is the same deadline resolveTimeouts applies (from when it was sent,
+ * or from `now` for a command being sent right now): past it the server has
+ * already given up, so the companion must not start it either — a goto that
+ * reaches the vehicle after a 4G outage would otherwise fly minutes late.
+ */
+export function toCommandMsg(command: VehicleCommand, now: number = Date.now()): VehicleCommandMsg {
   return {
     v: 1,
     id: command.id,
@@ -57,5 +63,6 @@ export function toCommandMsg(command: VehicleCommand): VehicleCommandMsg {
     args: command.args,
     iat: command.createdAt,
     to: command.timeoutMs,
+    exp: (command.sentAt ?? now) + command.timeoutMs,
   };
 }

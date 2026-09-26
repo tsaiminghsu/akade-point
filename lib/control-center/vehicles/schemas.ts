@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { MAX_HISTORY_POINTS_PER_POST, MAX_MISSION_ITEMS } from "./constants";
+import { MAX_EVENTS_PER_POST, MAX_HISTORY_POINTS_PER_POST, MAX_MISSION_ITEMS, MAX_STATE_BYTES } from "./constants";
 
-/** A telemetry snapshot (companion → server). Mirrors VehicleState. */
-export const vehicleStateSchema = z.object({
+/** Telemetry snapshot, contract v1 (companion → server). Mirrors VehicleStateV1. */
+export const vehicleStateV1Schema = z.object({
   v: z.literal(1),
   t: z.number(),
   armed: z.boolean(),
@@ -19,10 +19,54 @@ export const vehicleStateSchema = z.object({
   fw: z.string(),
 });
 
-export const telemetryPostSchema = z.object({
-  state: vehicleStateSchema,
-  history: z.array(vehicleStateSchema).max(MAX_HISTORY_POINTS_PER_POST).optional(),
+const num = z.number().nullable();
+const latLon = { lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) };
+
+/**
+ * Telemetry snapshot, contract v2. The fields the server itself reads are
+ * typed; the object is loose so a newer companion's extra fields reach the
+ * ground station without a server deploy (the route caps the total size).
+ */
+export const vehicleStateV2Schema = z.looseObject({
+  v: z.literal(2),
+  t: z.number(),
+  fc: z.looseObject({ ok: z.boolean(), age: num, id: z.tuple([z.number(), z.number()]).nullable() }),
+  veh: z
+    .looseObject({ cls: z.enum(["copter", "rover", "plane", "other"]), ap: z.enum(["ardupilot", "px4", "generic", "other"]), mavType: z.number() })
+    .nullable(),
+  armed: z.boolean().nullable(),
+  mode: z.string().nullable(),
+  sys: z.string().nullable(),
+  bat: z.looseObject({ v: num, a: num, pct: num }).nullable(),
+  gps: z.looseObject({ fix: z.number().int(), sats: num, hdop: num }).nullable(),
+  pos: z.looseObject({ ...latLon, alt: z.number(), rel: z.number() }).nullable(),
+  hdg: num,
+  gs: num,
+  vs: num,
+  wp: z.looseObject({ cur: z.number().int(), n: num }).nullable(),
+  health: z.looseObject({ prearm: z.boolean().nullable(), bad: z.array(z.string()), msgs: z.array(z.string()) }),
+  caps: z.array(z.string()),
+  fw: z.string().nullable(),
 });
+
+export const vehicleStateSchema = z.discriminatedUnion("v", [vehicleStateV1Schema, vehicleStateV2Schema]);
+
+/** A STATUSTEXT forwarded by the companion. */
+export const statusMessageSchema = z.object({
+  seq: z.number().int().min(0),
+  t: z.number(),
+  sev: z.number().int().min(0).max(7),
+  text: z.string().min(1).max(500),
+  comp: z.number().int().min(0).max(255),
+});
+
+export const telemetryPostSchema = z
+  .object({
+    state: vehicleStateSchema,
+    history: z.array(vehicleStateSchema).max(MAX_HISTORY_POINTS_PER_POST).optional(),
+    msgs: z.array(statusMessageSchema).max(MAX_EVENTS_PER_POST).optional(),
+  })
+  .refine((body) => JSON.stringify(body.state).length <= MAX_STATE_BYTES, { message: "state too large" });
 
 export const vehicleCreateSchema = z.object({
   name: z.string().min(1),
@@ -42,6 +86,9 @@ export const vehiclePatchSchema = z
     message: "At least one field is required",
   });
 
+const mtype = z.union([z.literal(0), z.literal(1), z.literal(2)]).optional();
+const paramName = z.string().regex(/^[A-Z0-9_]{1,16}$/, "ArduPilot parameter names are up to 16 A-Z, 0-9, _");
+
 /**
  * Command request from the browser. Discriminated on `type` so each command
  * validates only the args it needs. The route additionally checks the command
@@ -51,12 +98,41 @@ export const commandRequestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("arm") }),
   z.object({ type: z.literal("disarm"), force: z.boolean().optional() }),
   z.object({ type: z.literal("set_mode"), mode: z.string().min(1) }),
-  z.object({ type: z.literal("takeoff"), alt: z.number().positive() }),
-  z.object({ type: z.literal("goto"), lat: z.number(), lon: z.number(), alt: z.number() }),
+  z.object({ type: z.literal("takeoff"), alt: z.number().positive().max(1000) }),
+  z.object({ type: z.literal("land") }),
+  z.object({ type: z.literal("hold") }),
+  z.object({ type: z.literal("goto"), ...latLon, alt: z.number().min(-100).max(10_000) }),
+  z.object({ type: z.literal("change_alt"), alt: z.number().min(0).max(10_000) }),
+  z.object({ type: z.literal("change_speed"), speed: z.number().positive().max(100) }),
   z.object({ type: z.literal("rtl") }),
   z.object({ type: z.literal("mission_start") }),
+  z.object({ type: z.literal("mission_pause") }),
+  z.object({ type: z.literal("mission_resume") }),
+  z.object({ type: z.literal("mission_set_current"), seq: z.number().int().min(0).max(MAX_MISSION_ITEMS) }),
   z.object({ type: z.literal("mission_upload"), missionId: z.string().min(1) }),
-  z.object({ type: z.literal("mission_download") }),
+  z.object({ type: z.literal("mission_download"), mtype }),
+  z.object({ type: z.literal("mission_clear"), mtype }),
+  z
+    .object({
+      type: z.literal("set_home"),
+      current: z.boolean().optional(),
+      lat: latLon.lat.optional(),
+      lon: latLon.lon.optional(),
+      alt: z.number().optional(),
+    })
+    .refine((v) => v.current === true || (v.lat !== undefined && v.lon !== undefined && v.alt !== undefined), {
+      message: "set_home needs current: true or lat, lon and alt",
+    }),
+  z.object({ type: z.literal("run_prearm") }),
+  z.object({ type: z.literal("reboot") }),
+  z.object({ type: z.literal("param_get"), names: z.array(paramName).min(1).max(50) }),
+  z.object({
+    type: z.literal("param_set"),
+    params: z.record(paramName, z.number().finite()).refine((p) => {
+      const n = Object.keys(p).length;
+      return n >= 1 && n <= 50;
+    }, "1 to 50 parameters"),
+  }),
 ]);
 
 export const ackPostSchema = z.object({
@@ -103,6 +179,7 @@ export const missionPatchSchema = z
 export const missionDownloadSchema = z.object({
   commandId: z.string().min(1),
   items: z.array(missionItemSchema).min(1).max(MAX_MISSION_ITEMS),
+  mtype,
 });
 
 export const historyQuerySchema = z.object({
