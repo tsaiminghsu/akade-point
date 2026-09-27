@@ -4,3 +4,5 @@ out/
 coverage/
 public/
 package-lock.json
+# Its own app, formatted by its own conventions.
+iot-control-center/

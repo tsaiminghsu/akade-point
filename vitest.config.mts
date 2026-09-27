@@ -13,6 +13,8 @@ const baseExclude = [
   '.dynamodb-local*/**',
   'backend/**',
   'e2e/**',
+  // Its own app with its own vitest config and "@/" root.
+  'iot-control-center/**',
 ];
 
 export default defineConfig({

@@ -9,12 +9,16 @@
 >
 > | 專案 | 位置 | 內容 |
 > |:---|:---|:---|
-> | **IoT Control Center** | `D:\akade-iot-control-center` | 機台即時監控、樓層平面圖編輯器、警報／分析／歷史 |
+> | **IoT Control Center** | `iot-control-center/`（本 repo 子資料夾，git subtree；本機開發 repo 為 `D:\akade-iot-control-center`） | 機台即時監控、樓層平面圖編輯器、警報／分析／歷史、無人機／無人車地面站、娃娃機設定 |
 > | **ARIP** | `D:\akade-arip` | AI Robotics Integration Platform（Next.js 控制台 + NestJS 後端） |
 >
 > 拆分前的完整快照留在 tag `pre-split`。Control Center 仍與本專案共用
 > `akade-auth` / `akade-users` 兩張 DynamoDB 表（同一批 LINE 帳號、同一個 `isAdmin` 旗標），
 > 其餘程式碼與資料表已完全分離。
+>
+> `iot-control-center/` 是獨立的 Next.js 14 app（自己的 `package.json`、測試與 `amplify.yml`），
+> 根目錄的 typecheck／lint／test／build 都排除它；在該資料夾內執行 `npm ci` 後照它的 README 開發。
+> 從獨立 repo 同步：`git subtree pull --prefix=iot-control-center D:/akade-iot-control-center <branch>`。
 
 ---
 
