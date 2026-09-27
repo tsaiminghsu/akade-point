@@ -10,7 +10,7 @@
  */
 
 import type { MissionItem } from "../types";
-import { cmdMeta } from "./mavCmdMeta";
+import { cmdMeta, hasLocation } from "./mavCmdMeta";
 
 export interface PlanItem {
   /** stable key for the editor */
@@ -167,7 +167,10 @@ const close = (a: number, b: number, eps: number) => {
 /**
  * Items that differ between two lists, by sequence number. The mission's home
  * item (seq 0) is ignored: ArduPilot replaces it with its own home. Float32
- * round-trips are tolerated.
+ * round-trips are tolerated. For commands without a position (DO_CHANGE_SPEED,
+ * RTL, DO_JUMP…) ArduPilot keeps only the command's own parameters and hands
+ * back frame 0 and a zero position, so only p1–p4 are compared (seen against
+ * ArduCopter 4.7.1 SITL).
  */
 export function diffItems(sent: MissionItem[], got: MissionItem[], kind: "mission" | "fence" | "rally"): number[] {
   const skipHome = kind === "mission";
@@ -180,12 +183,10 @@ export function diffItems(sent: MissionItem[], got: MissionItem[], kind: "missio
       out.push(i);
       continue;
     }
+    const positioned = hasLocation(a.cmd);
     const same =
       a.cmd === b.cmd &&
-      a.frame === b.frame &&
-      close(a.lat, b.lat, 2e-7) &&
-      close(a.lon, b.lon, 2e-7) &&
-      close(a.alt, b.alt, 0.01) &&
+      (!positioned || (a.frame === b.frame && close(a.lat, b.lat, 2e-7) && close(a.lon, b.lon, 2e-7) && close(a.alt, b.alt, 0.01))) &&
       close(a.p1, b.p1, 1e-3) &&
       close(a.p2, b.p2, 1e-3) &&
       close(a.p3, b.p3, 1e-3) &&

@@ -1273,9 +1273,9 @@
       "problem_notInList": "Not one of the documented values",
       "problem_notInteger": "A bitmask must be an integer",
       "check": {
-        "operatorSysid": "The companion sends an “operator” heartbeat as sysid {sysid}, but SYSID_MYGCS is {current}, so the GCS failsafe will not recognise it.",
+        "operatorSysid": "The companion sends an “operator” heartbeat as sysid {sysid}, but MAV_GCS_SYSID (SYSID_MYGCS before 4.7) is {current}, so the GCS failsafe will not recognise it.",
         "operatorNoFs": "FS_GCS_ENABLE is 0: the operator heartbeat triggers nothing.",
-        "alwaysMasks": "The companion sends heartbeats always and SYSID_MYGCS matches it: losing the operator will not trigger the GCS failsafe.",
+        "alwaysMasks": "The companion sends heartbeats always and MAV_GCS_SYSID (SYSID_MYGCS before 4.7) matches it: losing the operator will not trigger the GCS failsafe.",
         "noBattery": "BATT_MONITOR is 0: no battery monitoring, so battery failsafes cannot act.",
         "battNoAction": "A low voltage is set but BATT_FS_LOW_ACT is 0 (no action).",
         "armingOff": "ARMING_CHECK is 0: pre-arm checks are disabled.",

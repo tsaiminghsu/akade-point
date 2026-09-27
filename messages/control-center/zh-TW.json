@@ -1273,9 +1273,9 @@
       "problem_notInList": "不在選項清單中",
       "problem_notInteger": "位元遮罩必須是整數",
       "check": {
-        "operatorSysid": "companion 用「operator」心跳（sysid {sysid}），但飛控的 SYSID_MYGCS 是 {current}，GCS 失控保護不會認得它。",
+        "operatorSysid": "companion 用「operator」心跳（sysid {sysid}），但飛控的 MAV_GCS_SYSID（4.7 以前為 SYSID_MYGCS）是 {current}，GCS 失控保護不會認得它。",
         "operatorNoFs": "FS_GCS_ENABLE 是 0：operator 心跳不會觸發任何保護。",
-        "alwaysMasks": "companion 設成 always 心跳且 SYSID_MYGCS 對上它：操作者斷線時飛控仍會以為 GCS 在線。",
+        "alwaysMasks": "companion 設成 always 心跳且 MAV_GCS_SYSID（4.7 以前為 SYSID_MYGCS）對上它：操作者斷線時飛控仍會以為 GCS 在線。",
         "noBattery": "BATT_MONITOR 是 0：沒有電池監測，電池失控保護不會動作。",
         "battNoAction": "有設低電壓，但 BATT_FS_LOW_ACT 是 0（不動作）。",
         "armingOff": "ARMING_CHECK 是 0：已關閉解鎖前檢查。",

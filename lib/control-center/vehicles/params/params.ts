@@ -187,6 +187,13 @@ export interface SafetyGroup {
   params: string[];
 }
 
+/**
+ * Curated safety parameters. ArduPilot 4.7 renamed many of them into SI units
+ * (RTL_ALT cm → RTL_ALT_M m, WPNAV_SPEED → WP_SPD, SYSID_MYGCS → MAV_GCS_SYSID,
+ * ARMING_CHECK → ARMING_SKIPCHK with the bits inverted…), so each group lists
+ * both spellings and the page shows the ones the vehicle has. Checked against
+ * ArduCopter and ArduRover 4.7.1 SITL (Rover kept its speed names).
+ */
 export const SAFETY_GROUPS: Record<"copter" | "rover", SafetyGroup[]> = {
   copter: [
     { key: "battery", params: ["BATT_MONITOR", "BATT_CAPACITY", "BATT_LOW_VOLT", "BATT_CRT_VOLT", "BATT_LOW_MAH", "BATT_CRT_MAH", "BATT_FS_LOW_ACT", "BATT_FS_CRT_ACT", "BATT_LOW_TIMER"] },
@@ -194,8 +201,11 @@ export const SAFETY_GROUPS: Record<"copter" | "rover", SafetyGroup[]> = {
     { key: "gcs", params: ["FS_GCS_ENABLE", "FS_GCS_TIMEOUT", "SYSID_MYGCS", "MAV_GCS_SYSID"] },
     { key: "ekf", params: ["FS_EKF_ACTION", "FS_EKF_THRESH", "FS_VIBE_ENABLE"] },
     { key: "fence", params: ["FENCE_ENABLE", "FENCE_TYPE", "FENCE_ACTION", "FENCE_ALT_MAX", "FENCE_RADIUS", "FENCE_MARGIN"] },
-    { key: "rtl", params: ["RTL_ALT", "RTL_LOIT_TIME", "RTL_SPEED", "LAND_SPEED", "WPNAV_SPEED"] },
-    { key: "arming", params: ["ARMING_CHECK"] },
+    {
+      key: "rtl",
+      params: ["RTL_ALT", "RTL_ALT_M", "RTL_ALT_FINAL", "RTL_ALT_FINAL_M", "RTL_LOIT_TIME", "RTL_SPEED", "RTL_SPEED_MS", "LAND_SPEED", "LAND_SPD_MS", "WPNAV_SPEED", "WP_SPD"],
+    },
+    { key: "arming", params: ["ARMING_CHECK", "ARMING_SKIPCHK"] },
     { key: "gimbal", params: ["MNT1_TYPE", "MNT1_DEFLT_MODE", "MNT1_PITCH_MIN", "MNT1_PITCH_MAX", "MNT1_YAW_MIN", "MNT1_YAW_MAX", "MNT1_RC_RATE"] },
   ],
   rover: [
@@ -204,7 +214,7 @@ export const SAFETY_GROUPS: Record<"copter" | "rover", SafetyGroup[]> = {
     { key: "gcs", params: ["SYSID_MYGCS", "MAV_GCS_SYSID"] },
     { key: "fence", params: ["FENCE_ENABLE", "FENCE_TYPE", "FENCE_ACTION", "FENCE_RADIUS", "FENCE_MARGIN"] },
     { key: "nav", params: ["CRUISE_SPEED", "WP_SPEED", "WP_RADIUS", "WP_PIVOT_ANGLE", "RTL_SPEED"] },
-    { key: "arming", params: ["ARMING_CHECK"] },
+    { key: "arming", params: ["ARMING_CHECK", "ARMING_SKIPCHK"] },
   ],
 };
 

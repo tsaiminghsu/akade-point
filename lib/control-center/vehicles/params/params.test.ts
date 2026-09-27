@@ -8,6 +8,7 @@ import {
   diffParams,
   formatValue,
   parseParamFile,
+  SAFETY_GROUPS,
   serializeParamFile,
   stripParamMeta,
 } from "./params";
@@ -83,5 +84,21 @@ describe("configuration checks", () => {
     const issues = keys(configChecks({ BATT_MONITOR: 0, ARMING_CHECK: 0, FENCE_ENABLE: 0, FS_THR_ENABLE: 0, MNT1_TYPE: 4, SERIAL2_PROTOCOL: 1 }, { sysid: 253, policy: "off" }));
     expect(issues).toEqual(expect.arrayContaining(["noBattery", "armingOff", "fenceOff", "rcFsOff", "storm32Mavlink", "telem2NotMavlink2"]));
     expect(configChecks({}, { sysid: 253, policy: "off" })).toEqual([]);
+  });
+});
+
+describe("SAFETY_GROUPS", () => {
+  it("lists the ArduPilot 4.7 names next to the old ones", () => {
+    const copter = SAFETY_GROUPS.copter.flatMap((g) => g.params);
+    for (const [old, renamed] of [
+      ["RTL_ALT", "RTL_ALT_M"],
+      ["WPNAV_SPEED", "WP_SPD"],
+      ["LAND_SPEED", "LAND_SPD_MS"],
+      ["SYSID_MYGCS", "MAV_GCS_SYSID"],
+      ["ARMING_CHECK", "ARMING_SKIPCHK"],
+    ]) {
+      expect(copter).toContain(old);
+      expect(copter).toContain(renamed);
+    }
   });
 });

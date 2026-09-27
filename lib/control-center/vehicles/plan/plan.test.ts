@@ -88,6 +88,18 @@ describe("plan model conversions", () => {
     expect(diffItems(sent, got, "mission")).toEqual([2]);
     expect(diffItems(sent, got.slice(0, 2), "mission")).toEqual([2]);
   });
+
+  it("ignores the frame and zero position ArduPilot returns for commands without a location", () => {
+    // What ArduCopter 4.7.1 SITL handed back for DO_CHANGE_SPEED and RTL uploaded with frame 3.
+    const item = (seq: number, cmd: number, frame: number, p2 = 0) => ({ seq, cur: 0, frame, cmd, p1: 1, p2, p3: -1, p4: 0, lat: 0, lon: 0, alt: 0, ac: 1 });
+    const sent = [item(0, 16, 0), item(1, 178, 3, 6), item(2, 20, 3)];
+    const got = [item(0, 16, 0), item(1, 178, 0, 6), item(2, 20, 0)];
+    expect(diffItems(sent, got, "mission")).toEqual([]);
+    got[1] = { ...got[1], p2: 8 };
+    expect(diffItems(sent, got, "mission")).toEqual([1]);
+    // A waypoint's frame still matters.
+    expect(diffItems([item(0, 16, 0), item(1, 16, 3)], [item(0, 16, 0), item(1, 16, 0)], "mission")).toEqual([1]);
+  });
 });
 
 describe("mission statistics", () => {

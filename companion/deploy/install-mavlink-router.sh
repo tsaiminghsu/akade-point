@@ -10,7 +10,9 @@ sudo apt-get install -y git meson ninja-build pkg-config gcc g++
 
 src="$(mktemp -d)/mavlink-router"
 git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/mavlink-router/mavlink-router.git "$src"
-meson setup "$src/build" "$src" --buildtype=release
+# The unit dir is given explicitly: newer Debian/Pi OS moved systemd.pc into
+# systemd-dev, and meson fails without it.
+meson setup "$src/build" "$src" --buildtype=release -Dsystemdsystemunitdir=/lib/systemd/system
 ninja -C "$src/build"
 sudo ninja -C "$src/build" install
 

@@ -1273,9 +1273,9 @@
       "problem_notInList": "選択肢にない値です",
       "problem_notInteger": "ビットマスクは整数にしてください",
       "check": {
-        "operatorSysid": "コンパニオンは「operator」ハートビートを sysid {sysid} で送っていますが、SYSID_MYGCS が {current} のため GCS フェイルセーフが認識しません。",
+        "operatorSysid": "コンパニオンは「operator」ハートビートを sysid {sysid} で送っていますが、MAV_GCS_SYSID（4.7 より前は SYSID_MYGCS）が {current} のため GCS フェイルセーフが認識しません。",
         "operatorNoFs": "FS_GCS_ENABLE が 0：operator ハートビートは何も発動しません。",
-        "alwaysMasks": "コンパニオンが常時ハートビートを送り SYSID_MYGCS も一致：操作者が切断しても GCS フェイルセーフが働きません。",
+        "alwaysMasks": "コンパニオンが常時ハートビートを送り MAV_GCS_SYSID（4.7 より前は SYSID_MYGCS）も一致：操作者が切断しても GCS フェイルセーフが働きません。",
         "noBattery": "BATT_MONITOR が 0：バッテリー監視がなく、バッテリーフェイルセーフが働きません。",
         "battNoAction": "低電圧は設定済みですが BATT_FS_LOW_ACT が 0（動作なし）です。",
         "armingOff": "ARMING_CHECK が 0：アーム前チェックが無効です。",
