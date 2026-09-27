@@ -349,6 +349,7 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - Leaflet 會壓在 Dialog 上面，`.gcs-map` 要加 `isolation: isolate`。容器尺寸改變時要 `invalidateSize`（`AutoResize`）。
 - 參數說明 `apm.pdef.json` 約 2.2 MB，超過 Next 資料快取上限，由瀏覽器直接抓（允許 CORS）後再裁減欄位。
 - 這個 repo 的 `.prettierrc`（單引號、行寬 100）和實際程式風格不符，**不要**跑 `npm run format`，否則會改寫大量無關檔案。
+- ArduPilot 4.7 把許多參數改成 SI 單位並更名（`RTL_ALT`→`RTL_ALT_M`、`WPNAV_SPEED`→`WP_SPD`、`SYSID_MYGCS`→`MAV_GCS_SYSID`、`ARMING_CHECK`→`ARMING_SKIPCHK`…）。寫死參數名稱時新舊都要列（見 `SAFETY_GROUPS`）。
 - ESP32 小車的 companion 實例要設 `gcs_heartbeat = "always"`，否則搖桿一停約 2 秒就會掉回 HOLD（見 `vehicles-esp32.md`）。
 
 **驗證狀態**：
@@ -359,13 +360,17 @@ GSI（定義於 `scripts/create-tables.mjs`）：
     - HUD、起飛、飛到這裡、LINK LOST、手機版面。
     - 任務與圍欄上傳 + 比對、參數讀寫、tlog 清單。
     - 雲台轉到 −90° 並讀回、酬載繼電器/伺服/脈衝。
+  - **2026-09-27 ArduPilot 4.7.1 SITL**（`companion/sitl/`，Docker + mavlink-router）：
+    - Copter/Rover 飛行指令、任務/圍欄/Rally 往返、AUTO 任務、Rover 直連搖桿。
+    - Mission Planner 1.3.83 同時連線。
+    - 細節見 `vehicles-local-dev-and-verification.md`。
+    - SITL 抓到並已修正：沒有座標的任務指令比對誤報、4.7 參數更名、mavlink-router 在新版 Debian 編不過。
 - **未驗證**：
-  - ArduPilot SITL（需要下載，本輪未取得同意）。
+  - SITL 下的雲台；MP 連 Rover 的同時連線。
   - 任何實機：Pixhawk、STorM32、Pi 相機 + MediaMTX 串流、兩支 ESP32 韌體（只做過編譯檢查）。
 - **更正**：M1、M2 的 commit 訊息寫「pytest 57」，實際當時是 52 個案例。
 
 **待辦**：
-- SITL 驗證並錄 tlog 重播測試。
 - 實機驗證。
 - companion 當 MAVLink 相機。
 - 地形、ADS-B、MAVLink2 簽章、多操作者租約、角色權限。

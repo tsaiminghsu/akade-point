@@ -1,0 +1,26 @@
+# mavlink-router for the SITL container. Mirrors deploy/mavlink-router.conf;
+# only the autopilot link and the companion's address differ:
+#   - the autopilot is SITL's serial0 (TCP 5770, instance -I1) instead of a UART;
+#   - the companion runs on the Docker host, so the router sends to
+#     host.docker.internal (resolved by entrypoint.sh) instead of 127.0.0.1.
+
+[General]
+TcpServerPort = 5760
+ReportStats = false
+MavlinkDialect = auto
+
+[TcpEndpoint autopilot]
+Address = 127.0.0.1
+Port = 5770
+RetryTimeout = 1
+
+# The companion: mavlink_url = "udpin:0.0.0.0:14540" on the host.
+[UdpEndpoint companion]
+Mode = Normal
+Address = @COMPANION_HOST@
+Port = 14540
+
+[UdpEndpoint gcs]
+Mode = Server
+Address = 0.0.0.0
+Port = 14550
