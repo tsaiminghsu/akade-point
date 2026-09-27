@@ -1,0 +1,86 @@
+# Akade IoT Control Center — companion configuration.
+# Copy to /etc/vehicle-companion/<name>.toml (or companion.toml for local dev)
+# and fill in. Generate vehicle_id + token in the app:
+# Vehicles → (your vehicle) → Setup → Generate token.
+
+vehicle_id = "REPLACE_WITH_VEHICLE_ID"
+api_base = "https://your-control-center.example.com"
+token = "vt_xxx_yyy"
+
+# "http" — commands arrive in the telemetry response (works everywhere).
+# "iot"  — also subscribe to AWS IoT Core MQTT for low-latency command push.
+transport = "http"
+
+# Device API version the server speaks. 1 = legacy list/drawer UI,
+# 2 = web ground station (richer state, messages, direct link).
+contract = 2
+
+# How the companion reaches the flight controller.
+#   With mavlink-router on the Pi (recommended; see deploy/mavlink-router.conf):
+#       "udpin:127.0.0.1:14540"
+#   Pixhawk on the Pi's UART without a router:  "/dev/serial0"  (set baud)
+#   Pixhawk over USB:                            "/dev/ttyACM0"
+#   SITL / fake autopilot:                       "udpin:127.0.0.1:14550"
+#   ESP32 DroneBridge / ESP32 rover over WiFi:   "udpin:0.0.0.0:14550"
+mavlink_url = "udpin:127.0.0.1:14540"
+baud = 921600
+
+# Our MAVLink system id. 253 stays clear of the autopilot (1) and Mission Planner (255).
+source_system = 253
+# Pin the vehicle's sysid if more than one autopilot shares the link.
+# target_system = 1
+
+# GCS heartbeat to the flight controller:
+#   "off"      — never (default). ArduPilot's GCS failsafe keeps following your real GCS.
+#   "operator" — only while someone holds control in the web GCS and their browser is alive.
+#                Needs SYSID_MYGCS (MAV_GCS_SYSID on 4.7+) = source_system.
+#   "always"   — whenever the companion runs (masks loss of the operator; avoid).
+gcs_heartbeat = "off"
+
+# Series cells of the flight battery, for per-cell voltage from an analog power module.
+battery_cells = 4
+
+telemetry_interval_s = 1.0
+history_every_s = 5.0
+
+# Telemetry logs (.tlog, one file per flight). Under systemd use the state directory.
+tlog_dir = "/var/lib/vehicle-companion/drone/tlogs"
+tlog_max_mb = 2048
+
+log_level = "INFO"
+
+# Direct link: the ground-station page connects straight to this WebSocket
+# (10 Hz, keeps working when the cloud is down). Put it behind wss:// — e.g.
+#   tailscale serve --bg --https=443 http://127.0.0.1:8765
+# and enter that URL in the vehicle's Setup tab.
+[direct]
+enabled = false
+host = "127.0.0.1"
+port = 8765
+# From the Setup tab, shown once together with the device token.
+ticket_key = ""
+# Optional PIN for use without the Control Center (5 tries per minute).
+pin = ""
+allowed_origins = ["https://your-control-center.example.com"]
+
+# MediaMTX on the Pi (see docs/vehicles-video.md): stream status and the
+# ground station's record button. Leave api_url empty to disable.
+[video]
+api_url = "http://127.0.0.1:9997"
+path = "cam"
+
+# Remote ID module (ArduRemoteID on an ESP32-S3/C3, see docs/vehicles-esp32.md).
+# Its arming status is always shown when the module is heard. Set
+# send_operator_location only if the autopilot has DID_ENABLE=1 and local rules
+# require an operator location: the takeoff (home) position is sent as
+# OPEN_DRONE_ID_SYSTEM once a second.
+[remote_id]
+send_operator_location = false
+
+# Only used when transport = "iot".
+[mqtt]
+endpoint = "xxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com"
+companion_id = "sitl-copter"   # must equal the vehicle's companionId / IoT Thing name
+cert = "/etc/vehicle-companion/certs/device.pem.crt"
+key = "/etc/vehicle-companion/certs/private.pem.key"
+ca = "/etc/vehicle-companion/certs/AmazonRootCA1.pem"

@@ -1,0 +1,24 @@
+{
+  "Comment": "AWS IoT Core policy for a claw machine's ESP32. Attach to the board's certificate. The Thing name must equal the machine id (the setup page's 機台連線 dialog shows it), so one policy serves every board: each can only connect as itself and only hear its own claw/<machineId>/config notices. Replace REGION and ACCOUNT_ID.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Connect",
+      "Effect": "Allow",
+      "Action": "iot:Connect",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:client/${iot:Connection.Thing.ThingName}"
+    },
+    {
+      "Sid": "SubscribeToOwnNotices",
+      "Effect": "Allow",
+      "Action": "iot:Subscribe",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:topicfilter/claw/${iot:Connection.Thing.ThingName}/config"
+    },
+    {
+      "Sid": "ReceiveOwnNotices",
+      "Effect": "Allow",
+      "Action": "iot:Receive",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:topic/claw/${iot:Connection.Thing.ThingName}/config"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+# Normalize all text files to LF in the repository. Windows checkouts still get
+# native endings for the few file types that need them (see below), but source
+# is stored as LF so a Windows editor saving CRLF can never turn a one-line
+# change into a whole-file diff.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF in the working tree.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets — never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.ogg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.glb binary
+*.gltf binary
+*.wasm binary
+*.pdf binary
