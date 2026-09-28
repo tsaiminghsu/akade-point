@@ -446,7 +446,12 @@ GSI（定義於 `scripts/create-tables.mjs`）：
   - AWS SDK v3 的預簽 PUT 預設會加 CRC32 checksum，要設 `requestChecksumCalculation: "WHEN_REQUIRED"`。
   - `x-amz-checksum-sha256` 要列進 `unhoistableHeaders`，否則會被移到 query，不會以標頭簽入。
   - Radix Select 在瀏覽器窗格不繪製時，關閉動畫不會結束，下拉清單會一直蓋在按鈕上。這只影響自動化測試，不是產品錯誤。
-- **待辦**：S3 模式實際接 bucket（或 MinIO）驗證；讓門市管理員指派自己門市的角色（目前只有系統管理員能指派）。
+- **S3 模式已驗證**（LocalStack 4.12，開啟簽章驗證）：
+  - 整條流程與拒收情境都通過，見 `docs/vehicles-files.md`。
+  - MinIO 已不再提供映像或執行檔；LocalStack `latest` 需要 auth token，所以固定用 4.12，並設 `S3_SKIP_SIGNATURE_VALIDATION=0`。
+- **待辦**：
+  - 真實 AWS bucket 與 Amplify SSR role 的權限。
+  - 讓門市管理員指派自己門市的角色（目前只有系統管理員能指派）。
 
 ## 11. 娃娃機設定模組（多台機台各自保存）
 
