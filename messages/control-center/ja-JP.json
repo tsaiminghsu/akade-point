@@ -765,7 +765,8 @@
       "logs": "ログ",
       "gimbal": "ジンバル",
       "payload": "ペイロード",
-      "replay": "再生"
+      "replay": "再生",
+      "camera": "カメラ"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -913,7 +914,9 @@
       "cmd_payload_servo": "ペイロードサーボ",
       "cmd_log_list": "ログ一覧",
       "cmd_log_download": "ログを Pi にコピー",
-      "cmd_log_cancel": "ログ転送を中止"
+      "cmd_log_cancel": "ログ転送を中止",
+      "cmd_camera_capture": "撮影",
+      "cmd_camera_stop": "連写停止"
     },
     "messages": {
       "prearmTitle": "アーム前チェック未通過（{count}件）",
@@ -1187,7 +1190,7 @@
         "front": "前後オーバーラップ %",
         "side": "左右オーバーラップ %",
         "trigger": "距離で自動撮影",
-        "triggerHint": "フライトコントローラーにカメラ設定が必要です。Piカメラはまだこのコマンドに応答しません。",
+        "triggerHint": "FC の CAM1_TYPE = 6（MAVLinkCamV2）とコンパニオンの [camera] の有効化が必要です。写真はジオタグ付きで Pi に保存され、飛行データの「カメラ」タブで確認できます。",
         "lanes": "{n}本",
         "spacing": "間隔 {m} m",
         "length": "長さ {d}",
@@ -1462,7 +1465,29 @@
     "takenOver": "{name} が操作権を引き継ぎました。現在は閲覧のみです。",
     "controlFailed": "操作権を取得できません。しばらくしてから再試行してください。",
     "takeoverTitle": "操作権を引き継ぎますか？",
-    "takeoverDescription": "{name} が {since} から操作しています。引き継ぐと相手のコマンドは拒否され、引き継ぎはメッセージログに記録されます。二人で同時に操作しないよう、先に相手に確認してください。"
+    "takeoverDescription": "{name} が {since} から操作しています。引き継ぐと相手のコマンドは拒否され、引き継ぎはメッセージログに記録されます。二人で同時に操作しないよう、先に相手に確認してください。",
+    "camera": {
+      "photos": "写真",
+      "status": "状態",
+      "last": "最新",
+      "busy": "撮影中",
+      "idle": "待機",
+      "intervalOn": "{s} 秒ごと",
+      "shoot": "撮影",
+      "interval": "連写間隔（秒）",
+      "count": "枚数（0＝停止まで）",
+      "start": "連写開始",
+      "stop": "停止",
+      "countHint": "写真は Pi に保存され、撮影時の機体位置が EXIF GPS に記録されます。地図の紫の点が撮影位置です。",
+      "recent": "最近の写真",
+      "reload": "再読み込み",
+      "needDirect": "写真の表示には直接接続が必要です。",
+      "listFailed": "写真一覧を取得できません。",
+      "none": "まだ写真がありません。",
+      "failed": "撮影失敗：{reason}",
+      "sourceError": "カメラソースのエラー：{error}",
+      "hint": "✈ はフライトコントローラーによる撮影（CAM1_TYPE = 6 での測量ミッションの DO_SET_CAM_TRIGG_DIST など）。"
+    }
   },
   "Roles": {
     "viewer": "閲覧者",

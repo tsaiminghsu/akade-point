@@ -141,6 +141,7 @@ class StateBuilder:
         rid_state: Callable[[], Optional[dict]] = lambda: None,
         adsb_state: Callable[[], Optional[list]] = lambda: None,
         logdl_state: Callable[[], Optional[dict]] = lambda: None,
+        camera_state: Optional[Callable[[], dict]] = None,
     ):
         self.conn = conn
         self.status = status
@@ -153,6 +154,7 @@ class StateBuilder:
         self.rid_state = rid_state
         self.adsb_state = adsb_state
         self.logdl_state = logdl_state
+        self.camera_state = camera_state
 
     def build(self) -> dict:
         c = self.conn
@@ -302,12 +304,14 @@ class StateBuilder:
             "comp": dict(self.sysinfo.snapshot) if self.sysinfo is not None else None,
             "caps": capabilities(version, hb)
             + (["gimbal"] if linked and gimbal_present(c) else [])
-            + (["payload"] if linked and self.payload_state() else []),
+            + (["payload"] if linked and self.payload_state() else [])
+            + (["camera"] if self.camera_state else []),
             "gcs": {"others": len(c.other_gcs()), **self.gcs_state()},
             "video": self.video_state(),
             "payload": self.payload_state() if linked else None,
             "adsb": self.adsb_state() if linked else None,
             "logdl": self.logdl_state(),
+            "camera": self.camera_state() if self.camera_state else None,
             "rid": self.rid_state() if linked else None,
             "fw": firmware_string(version, hb),
         }

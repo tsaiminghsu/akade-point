@@ -52,6 +52,24 @@ class VideoConfig:
 
 
 @dataclass
+class CameraConfig:
+    """The companion as a MAVLink camera (ops/camera.py)."""
+
+    enabled: bool = False
+    #: rtsp (a frame from MediaMTX's stream), rpicam (rpicam-still) or test
+    source: str = "rtsp"
+    rtsp_url: str = "rtsp://127.0.0.1:8554/cam"
+    photos_dir: str = "photos"
+    model: str = "Raspberry Pi Camera Module 3"
+    #: lens and sensor for CAMERA_INFORMATION (Camera Module 3 defaults)
+    focal_mm: float = 4.74
+    sensor_w_mm: float = 6.45
+    sensor_h_mm: float = 3.63
+    width: int = 4608
+    height: int = 2592
+
+
+@dataclass
 class RemoteIdConfig:
     """Remote ID module (ArduRemoteID). send_operator_location sends
     OPEN_DRONE_ID_SYSTEM with the takeoff position as operator location."""
@@ -96,6 +114,7 @@ class Config:
     direct: DirectConfig = field(default_factory=DirectConfig)
     video: VideoConfig = field(default_factory=VideoConfig)
     remote_id: RemoteIdConfig = field(default_factory=RemoteIdConfig)
+    camera: CameraConfig = field(default_factory=CameraConfig)
 
     @staticmethod
     def from_dict(data: dict) -> "Config":
@@ -108,13 +127,16 @@ class Config:
         unknown = set(data) - known - {"forward_udp"}
         if unknown:
             raise ValueError(f"unknown config keys: {', '.join(sorted(unknown))}")
-        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id")}
+        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id", "camera")}
         cfg = Config(**kwargs)
         cfg.api_base = cfg.api_base.rstrip("/")
         cfg.mqtt = MqttConfig(**data.get("mqtt", {}))
         cfg.direct = DirectConfig(**data.get("direct", {}))
         cfg.video = VideoConfig(**data.get("video", {}))
         cfg.remote_id = RemoteIdConfig(**data.get("remote_id", {}))
+        cfg.camera = CameraConfig(**data.get("camera", {}))
+        if cfg.camera.source not in ("rtsp", "rpicam", "test"):
+            raise ValueError("camera.source must be rtsp, rpicam or test")
         if cfg.gcs_heartbeat not in ("off", "always", "operator"):
             raise ValueError("gcs_heartbeat must be off, always or operator")
         if cfg.transport not in ("http", "iot"):

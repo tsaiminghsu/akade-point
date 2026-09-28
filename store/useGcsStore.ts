@@ -77,6 +77,8 @@ interface GcsState {
   now: number;
   /** the operator's own position while "follow me" is on (drawn on the map) */
   me: { lat: number; lon: number; accuracy: number } | null;
+  /** where the companion camera's photos were taken (drawn on the map) */
+  photoPoints: { idx: number; lat: number; lon: number }[];
   /** who holds control of the vehicle (server lease), and whether it is this page */
   lease: LeaseInfo | null;
   leaseMine: boolean;
@@ -418,6 +420,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     control: false,
     now: Date.now(),
     me: null,
+    photoPoints: [],
     lease: null,
     leaseMine: false,
 
@@ -463,6 +466,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
         trail: [],
         control: false,
         me: null,
+        photoPoints: [],
         lease: null,
         leaseMine: false,
       });

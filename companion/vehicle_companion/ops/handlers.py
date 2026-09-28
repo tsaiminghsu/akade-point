@@ -75,6 +75,7 @@ class Handlers:
         gimbal=None,
         payload=None,
         dataflash=None,
+        camera=None,
     ):
         self.conn = conn
         self.commands = commands
@@ -88,6 +89,7 @@ class Handlers:
         self.gimbal = gimbal
         self.payload = payload
         self.dataflash = dataflash
+        self.camera = camera
 
     # ---- plumbing ------------------------------------------------------
 
@@ -468,6 +470,30 @@ class Handlers:
         values = {n: (None if p is None else display_value(p.value, p.type)) for n, p in got.items()}
         missing = [n for n, v in values.items() if v is None]
         return self.ack(cmd_id, not missing, "OK" if not missing else "PARAM_NOT_FOUND", ", ".join(missing), {"params": values})
+
+    # ---- camera -----------------------------------------------------------------
+
+    def _camera(self):
+        if self.camera is None:
+            raise CommandFailed("NO_CAMERA", "the companion camera is not enabled ([camera])")
+        return self.camera
+
+    async def _h_camera_capture(self, cmd_id: str, args: dict) -> dict:
+        cam = self._camera()
+        interval = float(args.get("interval", 0) or 0)
+        count = int(args.get("count", 1) or 1)
+        if interval > 0:
+            cam.start_interval(interval, count if count > 1 else 0, "gcs")
+            return self.ack(cmd_id, True, "OK", "", {"interval": interval})
+        try:
+            photo = await cam.capture("gcs")
+        except Exception as exc:
+            return self.ack(cmd_id, False, "CAPTURE_FAILED", str(exc)[:200])
+        return self.ack(cmd_id, True, "OK", "", {"photo": photo.to_dict()})
+
+    async def _h_camera_stop(self, cmd_id: str, args: dict) -> dict:
+        self._camera().stop_interval()
+        return self.ack(cmd_id, True, "OK")
 
     # ---- DataFlash logs ------------------------------------------------------
 

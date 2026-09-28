@@ -63,7 +63,7 @@ class Client:
 
 
 class DirectServer:
-    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None, dataflash=None, lease_holder: Callable[[], Optional[str]] = lambda: None):
+    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None, dataflash=None, camera=None, lease_holder: Callable[[], Optional[str]] = lambda: None):
         self.cfg = cfg
         self.vehicle_id = vehicle_id
         self.build_state = build_state
@@ -75,6 +75,7 @@ class DirectServer:
         self.tlog = tlog
         self.gimbal = gimbal
         self.dataflash = dataflash
+        self.camera = camera
         self.lease_holder = lease_holder
         self.clients: set[Client] = set()
         self._pin_failures: dict[str, deque] = defaultdict(deque)
@@ -94,6 +95,8 @@ class DirectServer:
         app.router.add_get("/files/tlogs/{name}", self._tlog_get)
         app.router.add_get("/files/logs", self._log_list)
         app.router.add_get("/files/logs/{name}", self._log_get)
+        app.router.add_get("/files/photos", self._photo_list)
+        app.router.add_get("/files/photos/{name}", self._photo_get)
         return app
 
     async def start(self) -> None:
@@ -227,6 +230,24 @@ class DirectServer:
         if path is None:
             return web.json_response({"error": "not found"}, status=404, headers=headers)
         headers["Content-Disposition"] = f'attachment; filename="{path.name}"'
+        return web.FileResponse(path, headers=headers)
+
+    async def _photo_list(self, request: web.Request) -> web.Response:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        photos = self.camera.list_photos() if self.camera is not None else []
+        return web.json_response({"photos": photos, "enabled": self.camera is not None}, headers=headers)
+
+    async def _photo_get(self, request: web.Request) -> web.StreamResponse:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        path = self.camera.resolve(request.match_info["name"]) if self.camera is not None else None
+        if path is None:
+            return web.json_response({"error": "not found"}, status=404, headers=headers)
+        headers["Content-Disposition"] = f'inline; filename="{path.name}"'
+        headers["Cache-Control"] = "private, max-age=86400"
         return web.FileResponse(path, headers=headers)
 
     def _origin_ok(self, request: web.Request) -> bool:

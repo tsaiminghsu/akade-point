@@ -225,6 +225,8 @@ class FakeAutopilot:
         }
         self.drop_log_offsets: set[int] = set()
         self.log_silent = False  # stop answering LOG_REQUEST_DATA
+        # Messages from a camera component (100), as ArduPilot's AP_Camera sees them.
+        self.from_camera: list = []
         self.log_requests: list[tuple[int, int, int]] = []
         self.drop_mission_requests = 0
         self.upload_reject: Optional[int] = None
@@ -292,6 +294,8 @@ class FakeAutopilot:
 
     def _handle(self, msg) -> None:
         t = msg.get_type()
+        if msg.get_srcComponent() == 100:
+            self.from_camera.append(msg)
         handler = getattr(self, f"_on_{t.lower()}", None)
         if handler is not None:
             handler(msg)

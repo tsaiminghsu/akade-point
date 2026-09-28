@@ -81,6 +81,16 @@ path = "cam"
 [remote_id]
 send_operator_location = false
 
+# The Pi camera as a MAVLink camera (component 100): geotagged photos on
+# request from the ground station or the autopilot (CAM1_TYPE = 6, survey
+# missions). See docs/vehicles-camera.md.
+[camera]
+enabled = false
+source = "rtsp"   # rtsp (a frame from MediaMTX, needs ffmpeg), rpicam (rpicam-still) or test
+rtsp_url = "rtsp://127.0.0.1:8554/cam"
+photos_dir = "/var/lib/vehicle-companion/drone/photos"
+model = "Raspberry Pi Camera Module 3"
+
 # Only used when transport = "iot".
 [mqtt]
 endpoint = "xxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com"

@@ -234,6 +234,14 @@ STorM32 的接線與參數見 [`vehicles-gimbal-storm32.md`](./vehicles-gimbal-s
 - 對方沒有回報高度時，只依距離判斷。
 - ArduPilot 只轉送 `ADSB_LIST_RADIUS`（預設 2 公里）以內的航空器；想在地圖上看得更遠，請調大這個參數。
 
+## 相機
+
+companion 可以當 MAVLink 相機：
+- 地面站可立即拍照或定時連拍；飛控的測繪任務（`CAM1_TYPE = 6`）也會觸發。
+- 照片帶 GPS 地理標記，地圖上以紫點標出拍攝位置。
+
+設定與運作見 [`vehicles-camera.md`](./vehicles-camera.md)。
+
 ## 酬載與 Remote ID
 
 - 接了 ESP32 酬載節點（或任何送 NAMED_VALUE_FLOAT 的元件）時，飛行資料多一個「酬載」頁籤：感測值、繼電器開關與脈衝、伺服輸出。

@@ -108,6 +108,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     case "payload_pulse":
       args = { index: request.index, ms: request.ms, ...(request.comp ? { comp: request.comp } : {}) };
       break;
+    case "camera_capture":
+      args = { interval: request.interval ?? 0, count: request.count ?? 1 };
+      break;
     case "log_download":
       args = { id: request.id, size: request.size, utc: request.utc ?? 0 };
       break;

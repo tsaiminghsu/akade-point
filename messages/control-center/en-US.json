@@ -765,7 +765,8 @@
       "logs": "Logs",
       "gimbal": "Gimbal",
       "payload": "Payload",
-      "replay": "Replay"
+      "replay": "Replay",
+      "camera": "Camera"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -913,7 +914,9 @@
       "cmd_payload_servo": "Payload servo",
       "cmd_log_list": "List logs",
       "cmd_log_download": "Copy log to Pi",
-      "cmd_log_cancel": "Cancel log download"
+      "cmd_log_cancel": "Cancel log download",
+      "cmd_camera_capture": "Take photo",
+      "cmd_camera_stop": "Stop interval shooting"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -1187,7 +1190,7 @@
         "front": "Front overlap %",
         "side": "Side overlap %",
         "trigger": "Trigger camera by distance",
-        "triggerHint": "Needs a camera configured on the autopilot; a Pi camera does not respond to it yet.",
+        "triggerHint": "Needs CAM1_TYPE = 6 (MAVLinkCamV2) on the autopilot and the companion's [camera] enabled; geotagged photos are stored on the Pi and shown in the flight data Camera tab.",
         "lanes": "{n} lanes",
         "spacing": "{m} m apart",
         "length": "{d} long",
@@ -1462,7 +1465,29 @@
     "takenOver": "{name} took control; you are watching now.",
     "controlFailed": "Could not take control, try again.",
     "takeoverTitle": "Take over control?",
-    "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once."
+    "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once.",
+    "camera": {
+      "photos": "Photos",
+      "status": "Status",
+      "last": "Last",
+      "busy": "Capturing",
+      "idle": "Idle",
+      "intervalOn": "Every {s} s",
+      "shoot": "Take photo",
+      "interval": "Interval (s)",
+      "count": "Shots (0 = until stopped)",
+      "start": "Start interval",
+      "stop": "Stop",
+      "countHint": "Photos are stored on the Pi with EXIF GPS of where the vehicle was when each was taken; purple dots on the map mark them.",
+      "recent": "Recent photos",
+      "reload": "Reload",
+      "needDirect": "Viewing photos needs the direct link.",
+      "listFailed": "Could not list photos.",
+      "none": "No photos yet.",
+      "failed": "Photo failed: {reason}",
+      "sourceError": "Camera source error: {error}",
+      "hint": "✈ = triggered by the autopilot (e.g. a survey's DO_SET_CAM_TRIGG_DIST with CAM1_TYPE = 6)."
+    }
   },
   "Roles": {
     "viewer": "Viewer",

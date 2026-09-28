@@ -765,7 +765,8 @@
       "logs": "日誌",
       "gimbal": "雲台",
       "payload": "酬載",
-      "replay": "回放"
+      "replay": "回放",
+      "camera": "相機"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -913,7 +914,9 @@
       "cmd_payload_servo": "酬載伺服",
       "cmd_log_list": "讀取日誌清單",
       "cmd_log_download": "複製日誌到 Pi",
-      "cmd_log_cancel": "取消日誌下載"
+      "cmd_log_cancel": "取消日誌下載",
+      "cmd_camera_capture": "拍照",
+      "cmd_camera_stop": "停止連拍"
     },
     "messages": {
       "prearmTitle": "解鎖前檢查未通過（{count} 項）",
@@ -1187,7 +1190,7 @@
         "front": "前後重疊 %",
         "side": "左右重疊 %",
         "trigger": "依距離自動拍照",
-        "triggerHint": "需要飛控已設定相機；Pi 相機目前不會回應此指令。",
+        "triggerHint": "需要飛控設 CAM1_TYPE = 6（MAVLinkCamV2）並啟用 companion 的 [camera]；照片存在 Pi 上並帶 GPS 地理標記，在飛行資料的「相機」頁籤查看。",
         "lanes": "{n} 條航線",
         "spacing": "間距 {m} m",
         "length": "長度 {d}",
@@ -1462,7 +1465,29 @@
     "takenOver": "{name} 接管了控制權，你現在只能觀看。",
     "controlFailed": "無法取得控制權，請稍後再試。",
     "takeoverTitle": "接管控制權？",
-    "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。"
+    "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。",
+    "camera": {
+      "photos": "照片",
+      "status": "狀態",
+      "last": "最後一張",
+      "busy": "拍攝中",
+      "idle": "待機",
+      "intervalOn": "每 {s} 秒",
+      "shoot": "拍照",
+      "interval": "連拍間隔（秒）",
+      "count": "張數（0＝直到停止）",
+      "start": "開始連拍",
+      "stop": "停止",
+      "countHint": "照片存在 Pi 上，並寫入拍攝當下載具位置的 EXIF GPS；紫點是拍攝位置。",
+      "recent": "最近的照片",
+      "reload": "重新整理",
+      "needDirect": "看照片需要直連。",
+      "listFailed": "無法取得照片清單。",
+      "none": "還沒有照片。",
+      "failed": "拍照失敗：{reason}",
+      "sourceError": "相機來源錯誤：{error}",
+      "hint": "✈ 表示由飛控觸發（例如測繪任務的 DO_SET_CAM_TRIGG_DIST，需設 CAM1_TYPE = 6）。"
+    }
   },
   "Roles": {
     "viewer": "檢視者",

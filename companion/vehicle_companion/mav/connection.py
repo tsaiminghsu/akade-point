@@ -52,6 +52,8 @@ EVENT_TYPES = frozenset(
         "NAMED_VALUE_FLOAT",
         # One per aircraft.
         "ADSB_VEHICLE",
+        # Commands addressed to components the companion plays (the camera).
+        "COMMAND_LONG",
     }
 )
 
@@ -354,6 +356,15 @@ class MavConnection:
                 buf = msg.get_msgbuf()
                 if buf:
                     self.tlog.write(bytes(buf))
+
+    def send_raw(self, buf: bytes) -> None:
+        """An already packed message, e.g. one sent as another component
+        (the camera, component 100 of the vehicle's system)."""
+        with self._send_lock:
+            self.master.write(buf)
+            self.tx_count += 1
+            if self.tlog is not None:
+                self.tlog.write(bytes(buf))
 
     def target_ids(self, target: Optional[tuple[int, int]] = None) -> tuple[int, int]:
         t = target or self.target
