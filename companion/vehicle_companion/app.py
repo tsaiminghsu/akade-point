@@ -24,6 +24,7 @@ from .ops.executor import Executor
 from .ops.handlers import Handlers
 from .ops.gimbal import GimbalControl, GimbalStreamer
 from .ops.manual import ManualDrive
+from .ops.adsb import AdsbTracker
 from .ops.payload import PayloadControl, PayloadMonitor, RemoteId
 from .state import StateBuilder
 from .sysinfo import SysInfo
@@ -92,6 +93,8 @@ def build(config: Config) -> Companion:
     video = VideoControl(config.video.api_url, config.video.path) if config.video.enabled else None
     payload_monitor = PayloadMonitor(conn)
     conn.add_listener("NAMED_VALUE_FLOAT", payload_monitor.on_named_value)
+    adsb = AdsbTracker(conn)
+    conn.add_listener("ADSB_VEHICLE", adsb.on_adsb)
     remote_id = RemoteId(conn, config.remote_id.send_operator_location)
     builder = StateBuilder(
         conn,
@@ -102,6 +105,7 @@ def build(config: Config) -> Companion:
         gcs_state=lambda: {"policy": heartbeat.policy, "hb": heartbeat.sending},
         video_state=(video.state_block if video else (lambda: None)),
         payload_state=payload_monitor.state_block,
+        adsb_state=adsb.state_block,
         rid_state=remote_id.state_block,
     )
     handlers = Handlers(

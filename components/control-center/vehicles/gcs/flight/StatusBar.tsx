@@ -1,7 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Activity, Battery, Cable, Cpu, Fingerprint, Radio, Satellite, ShieldAlert, Users, Waves, Wifi } from "lucide-react";
+import { Activity, Battery, Cable, Cpu, Fingerprint, Plane, Radio, Satellite, ShieldAlert, Users, Waves, Wifi } from "lucide-react";
+
+import { trafficLabel, worstTraffic } from "@/lib/control-center/vehicles/gcs/adsb";
 
 import {
   batteryLevel,
@@ -84,6 +86,7 @@ export function StatusBar({ state, stale, link }: { state: VehicleStateV2 | null
       <Chip level={prearm} icon={<ShieldAlert className={ic} />} title={s?.health.msgs.join("\n") || t("prearmTitle")}>
         {prearm === "bad" ? t("prearmFail", { count: Math.max(1, s?.health.msgs.length ?? 0) }) : prearm === "ok" ? t("prearmOk") : t("prearmUnknown")}
       </Chip>
+      {s?.adsb != null && <TrafficChip list={s.adsb} ic={ic} />}
       {s?.rid && (
         <Chip level={s.rid.ok ? "ok" : "bad"} icon={<Fingerprint className={ic} />} title={s.rid.error ?? t("ridTitle")}>
           {s.rid.ok ? t("ridOk") : t("ridBad")}
@@ -95,5 +98,19 @@ export function StatusBar({ state, stale, link }: { state: VehicleStateV2 | null
         </Chip>
       )}
     </div>
+  );
+}
+
+function TrafficChip({ list, ic }: { list: NonNullable<VehicleStateV2["adsb"]>; ic: string }) {
+  const t = useTranslations("Gcs.status");
+  const worst = worstTraffic(list);
+  const level = worst?.level === "alarm" ? "bad" : worst ? "warn" : "ok";
+  const title = worst
+    ? t("trafficNearest", { name: trafficLabel(worst.target), dist: worst.target.d ?? 0, dz: worst.target.dz ?? "?" })
+    : t("trafficTitle");
+  return (
+    <Chip level={level} icon={<Plane className={ic} />} title={title}>
+      {t("traffic", { count: list.length })}
+    </Chip>
   );
 }

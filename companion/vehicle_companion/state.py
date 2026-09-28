@@ -139,6 +139,7 @@ class StateBuilder:
         video_state: Callable[[], Optional[dict]] = lambda: None,
         payload_state: Callable[[], Optional[list]] = lambda: None,
         rid_state: Callable[[], Optional[dict]] = lambda: None,
+        adsb_state: Callable[[], Optional[list]] = lambda: None,
     ):
         self.conn = conn
         self.status = status
@@ -149,6 +150,7 @@ class StateBuilder:
         self.video_state = video_state
         self.payload_state = payload_state
         self.rid_state = rid_state
+        self.adsb_state = adsb_state
 
     def build(self) -> dict:
         c = self.conn
@@ -302,6 +304,7 @@ class StateBuilder:
             "gcs": {"others": len(c.other_gcs()), **self.gcs_state()},
             "video": self.video_state(),
             "payload": self.payload_state() if linked else None,
+            "adsb": self.adsb_state() if linked else None,
             "rid": self.rid_state() if linked else None,
             "fw": firmware_string(version, hb),
         }

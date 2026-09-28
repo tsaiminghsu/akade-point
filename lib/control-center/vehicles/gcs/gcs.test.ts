@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import stateV2Fixture from "../__fixtures__/state-v2.json";
 import type { VehicleStateV2 } from "../types";
+import { trafficLabel, trafficLevel, worstTraffic } from "./adsb";
 import { AlertEngine } from "./alerts";
 import { angleDiff, bearingDeg, destination, distanceM, formatDistance, wrap360 } from "./geo";
 import { batteryLevel, companionLevel, ekfLevel, gpsLevel, prearmLevel, radioPct, vibeLevel } from "./health";
@@ -144,6 +145,38 @@ describe("AlertEngine", () => {
     const e = new AlertEngine();
     expect(e.text({ sev: 2, text: "Battery failsafe" }, 1)?.params.text).toBe("Battery failsafe");
     expect(e.text({ sev: 6, text: "Mode GUIDED" }, 1)).toBeNull();
+  });
+});
+
+describe("ADS-B traffic", () => {
+  const plane = (icao: string, d: number | null, dz: number | null, cs: string | null = null) =>
+    ({ icao, cs, lat: 24.1, lon: 120.6, alt: 500, hdg: 90, spd: 60, vs: 0, emitter: 1, squawk: 1200, age: 1, d, dz });
+
+  it("grades by distance and height difference", () => {
+    expect(trafficLevel(plane("A", 800, 100))).toBe("alarm");
+    expect(trafficLevel(plane("A", 800, -400))).toBe("none");
+    expect(trafficLevel(plane("A", 2500, 250))).toBe("warn");
+    expect(trafficLevel(plane("A", 900, null))).toBe("alarm"); // unknown altitude: could be at ours
+    expect(trafficLevel(plane("A", null, 0))).toBe("none"); // our own position unknown
+  });
+
+  it("picks the most urgent, then the nearest", () => {
+    const w = worstTraffic([plane("FAR", 2000, 0), plane("NEAR", 500, 50, "CAL1"), plane("HIGH", 300, 900)]);
+    expect(w?.target.icao).toBe("NEAR");
+    expect(w?.level).toBe("alarm");
+    expect(trafficLabel(w!.target)).toBe("CAL1");
+    expect(worstTraffic([plane("HIGH", 300, 900)])).toBeNull();
+  });
+
+  it("speaks close traffic at once and repeats every 30 s, and never without a receiver", () => {
+    const e = new AlertEngine();
+    expect(e.update({ state: st({ adsb: null }), linkOk: true, now: 0 })).toEqual([]);
+    const close = st({ adsb: [plane("899003", 250, 60, "N0NEAR")] });
+    const out = e.update({ state: close, linkOk: true, now: 1000 });
+    expect(out.map((a) => a.kind)).toEqual(["traffic"]);
+    expect(out[0].params).toEqual({ name: "N0NEAR", dist: 250, dz: "+60" });
+    expect(e.update({ state: close, linkOk: true, now: 20_000 })).toEqual([]);
+    expect(e.update({ state: close, linkOk: true, now: 31_100 }).map((a) => a.kind)).toEqual(["traffic"]);
   });
 });
 

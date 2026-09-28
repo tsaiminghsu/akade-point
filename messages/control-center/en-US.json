@@ -801,7 +801,10 @@
       "otherGcsTitle": "Another ground station (e.g. Mission Planner) is connected",
       "ridOk": "Remote ID",
       "ridBad": "Remote ID fault",
-      "ridTitle": "Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS)"
+      "ridTitle": "Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS)",
+      "traffic": "ADS-B {count}",
+      "trafficTitle": "No traffic needing attention (danger within 1 km / 150 m, caution within 3 km / 300 m)",
+      "trafficNearest": "Nearest: {name}, {dist} m, {dz} m relative"
     },
     "quick": {
       "alt": "Altitude",
@@ -938,7 +941,8 @@
       "ekfBad": "EKF error",
       "vibeHigh": "High vibration",
       "fenceBreach": "Fence breach",
-      "voiceOn": "Voice alerts on"
+      "voiceOn": "Voice alerts on",
+      "traffic": "Traffic {name}, {dist} metres, {dz} metres relative"
     },
     "map": {
       "layers": "Base map",
@@ -957,7 +961,8 @@
       "flyHere": "Fly here",
       "lookHere": "Point camera here",
       "setHomeHere": "Set home here",
-      "measure": "Measure distance"
+      "measure": "Measure distance",
+      "traffic": "ADS-B traffic"
     },
     "fly": {
       "title": "Fly here?",

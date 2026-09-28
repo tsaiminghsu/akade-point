@@ -39,6 +39,8 @@ DEFAULT_RATES: dict[str, float] = {
     "SYSTEM_TIME": 0.2,
     # Gimbal attitude, forwarded by ArduPilot's gimbal manager (ignored when there is no gimbal).
     "GIMBAL_DEVICE_ATTITUDE_STATUS": 2,
+    # ADS-B traffic from the autopilot's receiver (ADSB_TYPE); one aircraft per message.
+    "ADSB_VEHICLE": 5,
 }
 
 

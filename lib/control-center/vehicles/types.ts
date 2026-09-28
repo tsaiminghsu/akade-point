@@ -119,7 +119,36 @@ export interface VehicleStateV2 {
   payload?: { comp: number; values: Record<string, number> }[] | null;
   /** Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS); null = no module heard */
   rid?: { ok: boolean; error: string | null } | null;
+  /** ADS-B traffic (ADSB_VEHICLE), nearest first, at most 20 */
+  adsb?: AdsbTarget[] | null;
   fw: string | null;
+}
+
+/** One aircraft heard over ADS-B (companion ops/adsb.py). */
+export interface AdsbTarget {
+  /** ICAO 24-bit address, hex */
+  icao: string;
+  /** callsign, or null when not sent */
+  cs: string | null;
+  lat: number;
+  lon: number;
+  /** AMSL metres (pressure or geometric altitude), null when not sent */
+  alt: number | null;
+  /** track, degrees */
+  hdg: number | null;
+  /** ground speed m/s */
+  spd: number | null;
+  /** climb rate m/s */
+  vs: number | null;
+  /** ADSB_EMITTER_TYPE */
+  emitter: number;
+  squawk: number;
+  /** seconds since the last report */
+  age: number;
+  /** horizontal distance to our vehicle, metres (null: our position unknown) */
+  d: number | null;
+  /** its altitude minus ours, metres */
+  dz: number | null;
 }
 
 export type VehicleState = VehicleStateV1 | VehicleStateV2;

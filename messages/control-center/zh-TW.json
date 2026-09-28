@@ -801,7 +801,10 @@
       "otherGcsTitle": "偵測到其他地面站（例如 Mission Planner）連線中",
       "ridOk": "Remote ID",
       "ridBad": "Remote ID 異常",
-      "ridTitle": "Remote ID 模組的解鎖狀態（OPEN_DRONE_ID_ARM_STATUS）"
+      "ridTitle": "Remote ID 模組的解鎖狀態（OPEN_DRONE_ID_ARM_STATUS）",
+      "traffic": "ADS-B {count}",
+      "trafficTitle": "附近沒有需要注意的航空器（1 公里 / 150 公尺內為危險，3 公里 / 300 公尺內為注意）",
+      "trafficNearest": "最近：{name}，{dist} 公尺，高度差 {dz} 公尺"
     },
     "quick": {
       "alt": "高度",
@@ -938,7 +941,8 @@
       "ekfBad": "EKF 異常",
       "vibeHigh": "震動過高",
       "fenceBreach": "超出電子圍籬",
-      "voiceOn": "語音警示已開啟"
+      "voiceOn": "語音警示已開啟",
+      "traffic": "注意航空器 {name}，距離 {dist} 公尺，高度差 {dz} 公尺"
     },
     "map": {
       "layers": "底圖",
@@ -957,7 +961,8 @@
       "flyHere": "飛到這裡",
       "lookHere": "雲台看這裡",
       "setHomeHere": "設為 Home",
-      "measure": "量距離"
+      "measure": "量距離",
+      "traffic": "ADS-B 航空器"
     },
     "fly": {
       "title": "飛到這裡？",

@@ -801,7 +801,10 @@
       "otherGcsTitle": "他の地上局（Mission Plannerなど）が接続中です",
       "ridOk": "Remote ID",
       "ridBad": "Remote ID 異常",
-      "ridTitle": "Remote ID モジュールのアーム状態（OPEN_DRONE_ID_ARM_STATUS）"
+      "ridTitle": "Remote ID モジュールのアーム状態（OPEN_DRONE_ID_ARM_STATUS）",
+      "traffic": "ADS-B {count}",
+      "trafficTitle": "注意が必要な航空機はありません（1 km / 150 m 以内は危険、3 km / 300 m 以内は注意）",
+      "trafficNearest": "最接近：{name}、{dist} m、高度差 {dz} m"
     },
     "quick": {
       "alt": "高度",
@@ -938,7 +941,8 @@
       "ekfBad": "EKF異常",
       "vibeHigh": "振動が大きすぎます",
       "fenceBreach": "ジオフェンス逸脱",
-      "voiceOn": "音声アラートをオンにしました"
+      "voiceOn": "音声アラートをオンにしました",
+      "traffic": "航空機 {name} に注意、距離 {dist} メートル、高度差 {dz} メートル"
     },
     "map": {
       "layers": "背景地図",
@@ -957,7 +961,8 @@
       "flyHere": "ここへ飛行",
       "lookHere": "カメラをここへ",
       "setHomeHere": "ホームに設定",
-      "measure": "距離を計測"
+      "measure": "距離を計測",
+      "traffic": "ADS-B 航空機"
     },
     "fly": {
       "title": "ここへ飛行しますか？",

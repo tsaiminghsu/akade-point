@@ -71,6 +71,7 @@ MQTT 與 HTTPS 共用**同一份 JSON**。欄位定義的真實來源是 `lib/co
 | `video` | MediaMTX：串流就緒、觀看數、是否錄影；未設定或連不上為 `null` | MediaMTX API |
 | `payload` | 酬載元件的數值 `[{ comp, values: {名稱: 值} }]`，只含 5 秒內收到的 | NAMED_VALUE_FLOAT |
 | `rid` | Remote ID 模組解鎖狀態 `{ ok, error }`；沒有模組為 `null` | OPEN_DRONE_ID_ARM_STATUS |
+| `adsb` | ADS-B 航空器，由近到遠最多 20 架：`icao`、`cs`（呼號）、位置、`alt`（海拔）、`hdg`、`spd`、`vs`、`age`；`d` 水平距離、`dz` 高度差（對方減我方，公尺）。20 秒沒收到就移除；沒有接收機時為 `null` | ADSB_VEHICLE |
 
 v1 快照的格式見 git 歷史（`VehicleStateV1`）。伺服器端用 `summarize()`（`lib/control-center/vehicles/summary.ts`）同時讀兩版。
 
