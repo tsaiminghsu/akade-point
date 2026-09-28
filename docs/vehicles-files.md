@@ -106,4 +106,23 @@ state_file = "/var/lib/vehicle-companion/drone/upload-state.json"
 - **重啟 companion**：已傳的檔案不重傳。
 - **錯誤處理**：損壞或長度不符的上傳被拒；尚未上傳就送 complete 回 409。
 - **權限**：其他門市的使用者列表與下載都回 403。
-- **S3 模式**：只以單元測試驗證預簽內容（簽入的標頭、沒有 CRC32、SHA-256 以 base64 傳送），尚未對真的 bucket 或 MinIO 實測。
+- **S3 模式（LocalStack 4.12，開啟簽章驗證）**：
+  - companion 補傳的 26 個檔案（16.4 MB）直接 PUT 到 bucket。
+  - 以預簽 GET 下載回來的 SHA-256 與原檔一致；內容路由正確回 302 轉址到 S3。
+  - 飛行中照片 1 秒內、上鎖後 tlog 3 秒內到 bucket。
+  - 瀏覽器可直接從 S3 預簽網址載入照片（跨來源的 `<img>` 不需要 CORS）。
+  - 刪除會移除物件，之後讀取回 404。
+- **S3 拒收情境**（`lib/vehicle-files/storage.live.test.ts`）：SHA-256 不符、長度不符、Content-Type 被改、少了 checksum 標頭，全部被拒。
+
+## 在本機驗證 S3 模式
+
+MinIO 已停止發佈社群版映像與執行檔，所以改用 LocalStack。`latest` 需要付費帳號的 auth token，要用 4.12：
+
+```bash
+docker run -d --name akade-localstack -p 4566:4566 -e SERVICES=s3 -e S3_SKIP_SIGNATURE_VALIDATION=0 localstack/localstack:4.12
+VEHICLE_FILES_LIVE_ENDPOINT=http://localhost:4566 npx vitest run lib/vehicle-files/storage.live.test.ts
+```
+
+- `S3_SKIP_SIGNATURE_VALIDATION=0` 一定要設。LocalStack 預設不驗簽章，改了 Content-Type 也會照收。
+- **整合測試**：akade-point 的 `.claude/launch.json` 有 `iot-cc-s3`（同 3100 port，並帶入 `VEHICLE_FILES_*` 與 test／test 憑證）。
+  - 先建立 bucket `akade-vehicle-files-dev`，再啟動 `iot-cc-s3`，讓 companion 照常連線即可。
