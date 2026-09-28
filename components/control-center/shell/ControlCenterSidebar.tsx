@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUIStore } from "@/store/useUIStore";
+import { useAccessStore } from "@/store/useAccessStore";
 import { useAlertStore } from "@/store/useAlertStore";
 
 interface NavItem {
@@ -58,6 +59,8 @@ export function ControlCenterSidebar() {
   const mobileOpen = useUIStore((s) => s.mobileSidebarOpen);
   const setMobileSidebarOpen = useUIStore((s) => s.setMobileSidebarOpen);
   const activeAlerts = useAlertStore((s) => s.alerts.filter((a) => a.status === "active").length);
+  const canManageUsers = useAccessStore((s) => s.can["users.manage"]);
+  const items = NAV_ITEMS.filter((item) => item.href !== `${ROOT}/users` || canManageUsers);
 
   return (
     <>
@@ -83,7 +86,7 @@ export function ControlCenterSidebar() {
 
         <nav className="flex-1 overflow-y-auto p-2 pt-3 custom-scrollbar">
           <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => {
+            {items.map((item) => {
               const active = item.href === ROOT ? pathname === item.href : pathname.startsWith(item.href);
               const link = (
                 <Link

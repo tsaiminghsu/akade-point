@@ -550,8 +550,8 @@
     "accountsSuffix": "個帳號",
     "totalUsers": "使用者總數",
     "totalUsersSub": "所有已註冊帳號",
-    "administrators": "管理員",
-    "administratorsSub": "擁有進階權限的使用者",
+    "administrators": "可進入控制中心",
+    "administratorsSub": "擁有任一控制中心角色的使用者",
     "totalPoints": "點數總計",
     "totalPointsSub": "所有累計獎勵點數",
     "totalTickets": "票券總計",
@@ -571,7 +571,9 @@
     "updated": "更新時間",
     "admin": "管理員",
     "regularUser": "一般使用者",
-    "anonymousUser": "匿名使用者"
+    "anonymousUser": "匿名使用者",
+    "forbiddenTitle": "權限不足",
+    "forbiddenDescription": "只有系統管理員可以查看使用者與設定角色。"
   },
   "Vehicles": {
     "title": "載具",
@@ -1461,5 +1463,22 @@
     "controlFailed": "無法取得控制權，請稍後再試。",
     "takeoverTitle": "接管控制權？",
     "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。"
+  },
+  "Roles": {
+    "viewer": "檢視者",
+    "operator": "操作員",
+    "store-admin": "門市管理員",
+    "system-admin": "系統管理員",
+    "label": "控制中心角色",
+    "none": "無（不能進入控制中心）",
+    "fromIsAdmin": "系統管理員（來自 isAdmin）",
+    "saved": "角色已更新",
+    "saveFailed": "無法更新角色",
+    "cannotChangeSelf": "不能修改自己的角色",
+    "devSwitch": "開發環境：切換角色測試",
+    "readOnlyBanner": "你的角色是「{role}」，這頁只能查看；修改需要{need}。",
+    "need_alert_handle": "操作員以上",
+    "need_store_manage": "門市管理員以上",
+    "need_vehicle_command": "操作員以上"
   }
 }

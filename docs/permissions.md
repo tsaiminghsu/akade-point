@@ -1,27 +1,37 @@
 # 頁面與 API 權限規劃
 
-## 現況：單一 `isAdmin`
+## 現況：四級角色（2026-09 實作）
 
-目前系統**只有一個布林權限 `isAdmin`**（存於共用的 `akade-users` 表）。所有頁面與所有 API 都通過同一道關卡：
-
-- 頁面：`app/iot-control-center/layout.tsx` 檢查登入 + `isAdmin`，否則導向。
-- 管理端 API：每個 handler 第一行 `requireAdminOrDevBypass()`（或載具的 `requireVehicleAccess()`）。
-- 裝置端 API（companion）：`requireDeviceToken()`，與人員權限無關。
-
-**沒有**角色、沒有唯讀／可寫之分、沒有依門市分權。任一管理員可對任何資源做任何操作。
+- **角色存放**：`akade-cc-roles` 表（`userId → role`）。不寫入與 akade-point 共用的 `akade-users`。
+- **沒有角色紀錄的使用者**：`akade-users.isAdmin = true` 視為系統管理員（舊管理員不受影響），其他人不能進入控制中心。
+- **判斷點**：`lib/control-center/access.ts`（純函式：角色、動作、`allows()`），伺服器端用 `lib/access-server.ts` 的 `requireAccess(action)`。
+  - 所有管理端 API 的第一行都是它，載具模組的 `requireVehicleAccess()` 也對應到它。
+  - `requireAdminOrDevBypass()` 已不再被路由使用。
+- **頁面**：
+  - `app/iot-control-center/layout.tsx` 讓有任一角色的人進入。
+  - 使用者頁只給系統管理員，頁面本身也會檢查。
+- **設定角色**：
+  - 使用者頁的下拉選單，呼叫 `PUT /api/control-center/users/{userId}/role`。
+  - 只有系統管理員能用；不能改自己的角色，避免最後一位系統管理員把自己鎖在外面。
+- **前端（僅 UX，實際以 API 為準）**：
+  - `GET /api/control-center/me` 回傳角色與可做的動作，`useAccessStore`／`useCan()` 據此停用或隱藏按鈕。
+  - 殼層依路徑顯示「你的角色只能查看此頁」。
+  - 403 時顯示在地化的「你的角色沒有權限」。
+- **本機開發**：沒有登入，使用者是假的「Dev Admin」，預設系統管理員。可從右上角使用者選單切換角色測試（cookie `cc_dev_role`，production 無效）。
 
 ### 取得管理員資格
 
 1. 使用者先以 LINE 登入 `/login`，讓 `akade-users` 產生該筆紀錄。
-2. 由既有管理員在 AWS 端執行 `node scripts/set-admin.mjs <email 或 userId>`（比對 email 或 userId，設 `isAdmin=true`）。這是建立**第一位**管理員的唯一方式；目前沒有授權 API。
+2. 第一位管理員：由既有管理員在 AWS 端執行 `node scripts/set-admin.mjs <email 或 userId>`（設 `isAdmin=true`，對應系統管理員）。
+3. 之後由系統管理員在使用者頁指派角色。
 
 ### 開發繞道風險（重要）
 
-`requireAdminOrDevBypass` 與頁面 gate 在 `NODE_ENV !== "production"` 時**完全放行**。任何未設 `NODE_ENV=production` 的預覽／staging 部署，所有管理端頁面與 API（含含 email 的使用者頁）對未登入者開放。裝置端路由不受此影響（無繞道）。上線前務必確認 `NODE_ENV=production`。
+`NODE_ENV !== "production"` 時沒有登入檢查，任何人都是 Dev Admin。任何未設 `NODE_ENV=production` 的預覽／staging 部署，所有管理端頁面與 API 對未登入者開放。裝置端路由不受此影響。上線前務必確認 `NODE_ENV=production`。
 
-## 規劃：四級角色矩陣（尚未實作）
+## 角色矩陣
 
-以下為建議的角色模型，供日後導入。**目前皆等同「系統管理員」**（凡 `isAdmin` 者全開）。程式中 `lib/vehicle-access.ts` 的 `requireVehicleAccess(action)` 已預留為載具權限的唯一判斷點；其他模組需比照抽出。
+動作與最低角色的對照在 `lib/control-center/access.ts` 的 `MIN_ROLE`，以下為對照表。另有一個動作 `simulate`（瀏覽器內機台模擬器寫入事件／警報）開放給檢視者，因為每個開著的頁面都會跑模擬；日後以真實裝置取代模擬器時應調高。
 
 | 角色 | 說明 |
 |:---|:---|
@@ -61,9 +71,3 @@
 | 使用者授權（未來） | system-admin |
 
 裝置端 API（`/api/device/vehicles/**`、`/api/device/machines/**`）不屬於此矩陣，一律以 device token（`vt_`／`mt_`）驗證。
-
-### 導入方式（建議）
-
-1. `akade-users` 增加 `role` 欄位（或以 `isAdmin` 對映 system-admin 相容舊資料）。
-2. 各模組把裸露的 `requireAdminOrDevBypass()` 收斂為 `requireAccess(module, action)`，比照 `requireVehicleAccess`。
-3. 前端依角色隱藏／停用無權的動作按鈕（純 UX，實際仍以 API 為準）。

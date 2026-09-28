@@ -550,8 +550,8 @@
     "accountsSuffix": "accounts",
     "totalUsers": "Total Users",
     "totalUsersSub": "All registered accounts",
-    "administrators": "Administrators",
-    "administratorsSub": "Users with elevated access",
+    "administrators": "Control Center access",
+    "administratorsSub": "Users with any Control Center role",
     "totalPoints": "Total Points",
     "totalPointsSub": "Combined reward balance",
     "totalTickets": "Total Tickets",
@@ -571,7 +571,9 @@
     "updated": "Updated",
     "admin": "Admin",
     "regularUser": "User",
-    "anonymousUser": "Anonymous User"
+    "anonymousUser": "Anonymous User",
+    "forbiddenTitle": "Not allowed",
+    "forbiddenDescription": "Only system admins can see users and assign roles."
   },
   "Vehicles": {
     "title": "Vehicles",
@@ -1461,5 +1463,22 @@
     "controlFailed": "Could not take control, try again.",
     "takeoverTitle": "Take over control?",
     "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once."
+  },
+  "Roles": {
+    "viewer": "Viewer",
+    "operator": "Operator",
+    "store-admin": "Store admin",
+    "system-admin": "System admin",
+    "label": "Control Center role",
+    "none": "None (no Control Center access)",
+    "fromIsAdmin": "System admin (from isAdmin)",
+    "saved": "Role updated",
+    "saveFailed": "Could not update the role",
+    "cannotChangeSelf": "You cannot change your own role",
+    "devSwitch": "Dev only: try another role",
+    "readOnlyBanner": "Your role is {role}: you can only view this page; changes need {need}.",
+    "need_alert_handle": "operator or above",
+    "need_store_manage": "store admin or above",
+    "need_vehicle_command": "operator or above"
   }
 }

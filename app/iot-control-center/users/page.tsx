@@ -2,24 +2,27 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Coins, Ticket, Users, ShieldCheck } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/control-center/shared/EmptyState";
 import { ErrorState } from "@/components/control-center/shared/ErrorState";
 import { KPICard } from "@/components/control-center/shared/KPICard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { User } from "@/lib/dynamo/users";
+import { RoleSelect } from "@/components/control-center/users/RoleSelect";
+import { currentActor } from "@/lib/access-server";
+import { allows, effectiveRole, type Role } from "@/lib/control-center/access";
 
 export const metadata: Metadata = { title: "Users" };
 
-async function getUsersData(loadError: string): Promise<{ users: User[]; error: string | null }> {
+async function getUsersData(loadError: string): Promise<{ users: User[]; roles: Map<string, Role>; error: string | null }> {
   try {
-    const { listUsers } = await import("@/lib/dynamo/users");
-    const users = await listUsers();
-    return { users, error: null };
+    const [{ listUsers }, { listRoles }] = await Promise.all([import("@/lib/dynamo/users"), import("@/lib/dynamo/cc-roles")]);
+    const [users, roles] = await Promise.all([listUsers(), listRoles()]);
+    return { users, roles: new Map(roles.map((r) => [r.userId, r.role])), error: null };
   } catch (error) {
     console.error("Failed to load control center users:", error);
     return {
       users: [],
+      roles: new Map(),
       error: loadError,
     };
   }
@@ -54,9 +57,16 @@ function getInitials(name: string) {
 export default async function UsersPage() {
   const t = await getTranslations("UsersPage");
   const locale = await getLocale();
-  const { users, error } = await getUsersData(t("loadError"));
+  const actor = await currentActor();
+  // Users and their roles are for system-admins only (the nav hides the link;
+  // this guards the page itself).
+  if (!actor || !allows(actor.role, "users.manage")) {
+    return <ErrorState title={t("forbiddenTitle")} description={t("forbiddenDescription")} className="m-6 min-h-[360px]" />;
+  }
+  const { users, roles, error } = await getUsersData(t("loadError"));
   const sortedUsers = [...users].sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0));
-  const adminCount = sortedUsers.filter((user) => user.isAdmin).length;
+  const roleOf = (user: User) => effectiveRole(roles.get(user.userId), user.isAdmin);
+  const adminCount = sortedUsers.filter((user) => roleOf(user) !== null).length;
   const totalPoints = sortedUsers.reduce((sum, user) => sum + (user.totalPoints ?? 0), 0);
   const totalTickets = sortedUsers.reduce((sum, user) => sum + (user.ticketCount ?? 0), 0);
   const latestUpdate =
@@ -163,13 +173,7 @@ export default async function UsersPage() {
                       {(user.ticketCount ?? 0).toLocaleString(locale)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {user.isAdmin ? (
-                        <Badge variant="default" className="bg-status-online text-white hover:bg-status-online/90">
-                          {t("admin")}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">{t("regularUser")}</Badge>
-                      )}
+                      <RoleSelect userId={user.userId} role={roles.get(user.userId) ?? null} isAdmin={user.isAdmin} self={user.userId === actor.id} />
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(user.createdAt, locale)}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(user.updatedAt, locale)}</TableCell>

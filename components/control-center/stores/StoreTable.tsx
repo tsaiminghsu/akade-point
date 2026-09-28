@@ -11,8 +11,10 @@ import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog"
 import { StoreFormDialog } from "./StoreFormDialog";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import type { Store } from "@/lib/control-center/types";
+import { useCan } from "@/store/useAccessStore";
 
 export function StoreTable() {
+  const mayManage = useCan("store.manage");
   const t = useTranslations("StoreTable");
   const tCommon = useTranslations("Common");
   const stores = useMachinesStore((s) => s.stores);
@@ -38,7 +40,7 @@ export function StoreTable() {
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button size="sm" className="gap-1.5" onClick={openCreate} disabled={brands.length === 0}>
+        <Button size="sm" className="gap-1.5" onClick={openCreate} disabled={brands.length === 0 || !mayManage}>
           <Plus className="h-3.5 w-3.5" /> {t("addStore")}
         </Button>
       </div>
@@ -87,13 +89,14 @@ export function StoreTable() {
                         {t("switchTo")}
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(store)}>
+                    <Button variant="ghost" size="icon-sm" disabled={!mayManage} onClick={() => openEdit(store)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       className="text-status-alarm"
+                      disabled={!mayManage}
                       onClick={() => setDeletingStore(store)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

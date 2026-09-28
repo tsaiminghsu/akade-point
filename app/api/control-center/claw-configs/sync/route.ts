@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdminOrDevBypass } from "@/lib/session";
+import { requireAccess } from "@/lib/access-server";
 import { listClawSync } from "@/lib/dynamo/cc-claw-sync";
 import { boardBrokerUri, clawNotifyMode } from "@/lib/iot/claw-notify";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * never connected are absent), and how this server rings boards on a save.
  */
 export async function GET() {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json({
     sync: await listClawSync(),
     notify: { mode: clawNotifyMode(), brokerUri: boardBrokerUri() },

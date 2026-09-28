@@ -550,8 +550,8 @@
     "accountsSuffix": "件のアカウント",
     "totalUsers": "ユーザー総数",
     "totalUsersSub": "登録済みの全アカウント",
-    "administrators": "管理者",
-    "administratorsSub": "昇格された権限を持つユーザー",
+    "administrators": "コントロールセンター利用可",
+    "administratorsSub": "いずれかの役割を持つユーザー",
     "totalPoints": "ポイント合計",
     "totalPointsSub": "累計報酬ポイント",
     "totalTickets": "チケット合計",
@@ -571,7 +571,9 @@
     "updated": "更新日",
     "admin": "管理者",
     "regularUser": "ユーザー",
-    "anonymousUser": "匿名ユーザー"
+    "anonymousUser": "匿名ユーザー",
+    "forbiddenTitle": "権限がありません",
+    "forbiddenDescription": "ユーザーの閲覧と役割の設定はシステム管理者のみ可能です。"
   },
   "Vehicles": {
     "title": "機体",
@@ -1461,5 +1463,22 @@
     "controlFailed": "操作権を取得できません。しばらくしてから再試行してください。",
     "takeoverTitle": "操作権を引き継ぎますか？",
     "takeoverDescription": "{name} が {since} から操作しています。引き継ぐと相手のコマンドは拒否され、引き継ぎはメッセージログに記録されます。二人で同時に操作しないよう、先に相手に確認してください。"
+  },
+  "Roles": {
+    "viewer": "閲覧者",
+    "operator": "オペレーター",
+    "store-admin": "店舗管理者",
+    "system-admin": "システム管理者",
+    "label": "コントロールセンターの役割",
+    "none": "なし（コントロールセンターに入れません）",
+    "fromIsAdmin": "システム管理者（isAdmin 由来）",
+    "saved": "役割を更新しました",
+    "saveFailed": "役割を更新できません",
+    "cannotChangeSelf": "自分の役割は変更できません",
+    "devSwitch": "開発環境のみ：役割を切り替えて試す",
+    "readOnlyBanner": "あなたの役割は「{role}」です。このページは閲覧のみで、変更には{need}が必要です。",
+    "need_alert_handle": "オペレーター以上",
+    "need_store_manage": "店舗管理者以上",
+    "need_vehicle_command": "オペレーター以上"
   }
 }

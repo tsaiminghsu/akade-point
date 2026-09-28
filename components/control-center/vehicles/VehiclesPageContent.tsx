@@ -19,10 +19,12 @@ const FleetMap = dynamic(() => import("./gcs/map/FleetMap").then((m) => m.FleetM
 });
 import { useVehiclesStore } from "@/store/useVehiclesStore";
 import type { VehicleLinkState, VehicleType } from "@/lib/control-center/vehicles/types";
+import { useCan } from "@/store/useAccessStore";
 
 const LINK_TABS: (VehicleLinkState | "all")[] = ["all", "online", "stale", "offline"];
 
 export default function VehiclesPageContent() {
+  const mayManage = useCan("vehicle.manage");
   const t = useTranslations("Vehicles");
   const tCommon = useTranslations("Common");
   const tType = useTranslations("Vehicles");
@@ -80,9 +82,11 @@ export default function VehiclesPageContent() {
               <SelectItem value="rover">{tType("rover")}</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> {t("addVehicle")}
-          </Button>
+          {mayManage && (
+            <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> {t("addVehicle")}
+            </Button>
+          )}
         </div>
       </div>
 

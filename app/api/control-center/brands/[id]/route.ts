@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdminOrDevBypass } from "@/lib/session";
+import { requireAccess } from "@/lib/access-server";
 import { deleteBrand, updateBrand } from "@/lib/dynamo/cc-brands";
 
 const patchSchema = z.object({
@@ -15,7 +15,7 @@ const patchSchema = z.object({
   });
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = patchSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   await updateBrand(params.id, body.data);
@@ -23,7 +23,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const ok = await deleteBrand(params.id);
   if (!ok) return NextResponse.json({ error: "Brand still has stores assigned to it" }, { status: 409 });
   return NextResponse.json({ ok: true });

@@ -11,10 +11,12 @@ import { MachinesTable } from "./MachinesTable";
 import { MachineFormDialog } from "./MachineFormDialog";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import type { MachineStatus } from "@/lib/control-center/types";
+import { useCan } from "@/store/useAccessStore";
 
 const STATUS_TABS: (MachineStatus | "all")[] = ["all", "online", "warning", "alarm", "offline"];
 
 export default function MachinesPageContent() {
+  const mayManage = useCan("store.manage");
   const t = useTranslations("Machines");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Status");
@@ -91,7 +93,7 @@ export default function MachinesPageContent() {
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+          <Button size="sm" className="gap-1.5" disabled={!mayManage} onClick={() => setAddOpen(true)}>
             <Plus className="h-3.5 w-3.5" /> {t("addMachine")}
           </Button>
         </div>
