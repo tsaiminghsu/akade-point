@@ -74,6 +74,8 @@ interface GcsState {
   trail: [number, number][];
   control: boolean;
   now: number;
+  /** the operator's own position while "follow me" is on (drawn on the map) */
+  me: { lat: number; lon: number; accuracy: number } | null;
 
   open: (vehicleId: string) => void;
   close: () => void;
@@ -350,6 +352,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     trail: [],
     control: false,
     now: Date.now(),
+    me: null,
 
     open: (vehicleId) => {
       if (get().vehicleId === vehicleId) return;
@@ -389,6 +392,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
         samples: [],
         trail: [],
         control: false,
+        me: null,
       });
     },
 

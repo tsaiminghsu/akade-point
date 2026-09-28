@@ -1392,6 +1392,30 @@
       "servos": "伺服輸出",
       "servo": "伺服 {index}",
       "hint": "指令直接送到酬載節點（預設 MAVLink 元件 25），開關狀態以節點回報為準。飛控要把該 TELEM 埠設成 MAVLink（SERIALx_PROTOCOL=2）才會轉送。"
+    },
+    "follow": {
+      "title": "跟隨我",
+      "activeBadge": "跟隨中 · 已送 {n} 次",
+      "distance": "距離（公尺）",
+      "bearing": "方位（度，0＝北）",
+      "alt": "高度（公尺）",
+      "idle": "用這台裝置的定位（手機 GPS 最準）讓載具跟著你，每次移動超過 3 公尺或每 5 秒更新一次目標點。",
+      "waitingFix": "等待定位…",
+      "fix": "定位精度 ±{acc} 公尺 · 距離載具 {dist}",
+      "noGeolocation": "這個瀏覽器不支援定位。",
+      "geoDenied": "瀏覽器拒絕了定位權限。",
+      "locate": "取得我的位置",
+      "start": "開始跟隨",
+      "stop": "停止跟隨",
+      "close": "關閉定位",
+      "block_poorFix": "定位精度不足（需要 {acc} 公尺以內）。",
+      "block_noVehiclePos": "還不知道載具位置。",
+      "block_tooFar": "載具離你超過 {max} 公尺，先把它飛近一點。",
+      "stoppedFix": "定位中斷超過 5 秒，已停止跟隨；載具停在最後的目標點。",
+      "stoppedLink": "連線中斷，已停止跟隨。",
+      "stoppedControl": "已釋放控制權，停止跟隨。",
+      "confirmTitle": "開始跟隨？",
+      "confirmDescription": "載具會切到 GUIDED，移動到你的位置 {bearing}° 方向 {distance} 公尺處，並持續跟著你。離開此頁籤、定位中斷或斷線都會停止跟隨（載具停在最後的目標點）。注意周圍障礙物。"
     }
   }
 }

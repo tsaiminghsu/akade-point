@@ -1392,6 +1392,30 @@
       "servos": "Servo outputs",
       "servo": "Servo {index}",
       "hint": "Commands go straight to the payload node (MAVLink component 25 by default); switch states are what the node reports. The autopilot forwards them only if that TELEM port runs MAVLink (SERIALx_PROTOCOL=2)."
+    },
+    "follow": {
+      "title": "Follow me",
+      "activeBadge": "Following · {n} sent",
+      "distance": "Distance (m)",
+      "bearing": "Bearing (°, 0 = north)",
+      "alt": "Altitude (m)",
+      "idle": "Uses this device's location (a phone's GPS is best) to keep the vehicle with you; the target updates when you move 3 m or every 5 s.",
+      "waitingFix": "Waiting for a location fix…",
+      "fix": "Accuracy ±{acc} m · {dist} to the vehicle",
+      "noGeolocation": "This browser has no geolocation.",
+      "geoDenied": "The browser denied location access.",
+      "locate": "Get my location",
+      "start": "Start following",
+      "stop": "Stop following",
+      "close": "Stop locating",
+      "block_poorFix": "Location not accurate enough (needs {acc} m or better).",
+      "block_noVehiclePos": "The vehicle's position is not known yet.",
+      "block_tooFar": "The vehicle is more than {max} m from you; bring it closer first.",
+      "stoppedFix": "No location for 5 s: stopped following. The vehicle holds its last target.",
+      "stoppedLink": "Link lost: stopped following.",
+      "stoppedControl": "Control released: stopped following.",
+      "confirmTitle": "Start following?",
+      "confirmDescription": "The vehicle switches to GUIDED, moves to {distance} m at {bearing}° from you and keeps following. Leaving this tab, losing your location or the link stops it (the vehicle holds its last target). Mind obstacles."
     }
   }
 }

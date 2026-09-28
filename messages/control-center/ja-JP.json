@@ -1392,6 +1392,30 @@
       "servos": "サーボ出力",
       "servo": "サーボ {index}",
       "hint": "コマンドはペイロードノード（既定は MAVLink コンポーネント 25）へ直接送信され、スイッチ状態はノードの報告に従います。フライトコントローラーの該当 TELEM ポートが MAVLink（SERIALx_PROTOCOL=2）の場合のみ転送されます。"
+    },
+    "follow": {
+      "title": "フォローミー",
+      "activeBadge": "追従中 · {n} 回送信",
+      "distance": "距離（m）",
+      "bearing": "方位（°、0＝北）",
+      "alt": "高度（m）",
+      "idle": "この端末の位置（スマホの GPS が最適）で機体を追従させます。3 m 以上動くか 5 秒ごとに目標を更新します。",
+      "waitingFix": "位置を取得中…",
+      "fix": "精度 ±{acc} m · 機体まで {dist}",
+      "noGeolocation": "このブラウザは位置情報に対応していません。",
+      "geoDenied": "ブラウザが位置情報の許可を拒否しました。",
+      "locate": "現在地を取得",
+      "start": "追従開始",
+      "stop": "追従停止",
+      "close": "位置取得を停止",
+      "block_poorFix": "位置の精度が不足しています（{acc} m 以内が必要）。",
+      "block_noVehiclePos": "機体の位置がまだ分かりません。",
+      "block_tooFar": "機体が {max} m 以上離れています。先に近づけてください。",
+      "stoppedFix": "位置が 5 秒以上途絶えたため追従を停止しました。機体は最後の目標で待機します。",
+      "stoppedLink": "接続が切れたため追従を停止しました。",
+      "stoppedControl": "操作権を解除したため追従を停止しました。",
+      "confirmTitle": "追従を開始しますか？",
+      "confirmDescription": "機体は GUIDED に切り替わり、あなたから {bearing}° 方向 {distance} m の位置へ移動して追従を続けます。このタブを離れる、位置や接続が途絶えると停止します（機体は最後の目標で待機）。周囲の障害物に注意してください。"
     }
   }
 }
