@@ -4,6 +4,7 @@ import {
   allows,
   allowsAt,
   allowsSomewhere,
+  canAssignStoreRole,
   capabilities,
   cleanStoreRoles,
   effectiveRole,
@@ -94,5 +95,33 @@ describe("per-store roles", () => {
     expect(hasAnyAccess(scoped)).toBe(true);
     expect(strongestRole(g)).toBe("store-admin");
     expect(strongestRole(NO_GRANTS)).toBeNull();
+  });
+});
+
+describe("store admins assigning roles at their store", () => {
+  const admin = { role: null, stores: { s1: "store-admin" as const } };
+  const none = { role: null, stores: {} };
+
+  it("lets a store-admin grant, change and remove roles below them at their store", () => {
+    expect(canAssignStoreRole(admin, none, "s1", "operator")).toBe(true);
+    expect(canAssignStoreRole(admin, { role: null, stores: { s1: "operator" as const } }, "s1", "viewer")).toBe(true);
+    expect(canAssignStoreRole(admin, { role: null, stores: { s1: "viewer" as const } }, "s1", null)).toBe(true);
+    // up to their own level
+    expect(canAssignStoreRole(admin, none, "s1", "store-admin")).toBe(true);
+  });
+
+  it("keeps them out of other stores and away from peers and superiors", () => {
+    expect(canAssignStoreRole(admin, none, "s2", "viewer")).toBe(false);
+    expect(canAssignStoreRole(admin, { role: null, stores: { s1: "store-admin" as const } }, "s1", "viewer")).toBe(false);
+    expect(canAssignStoreRole(admin, { role: "store-admin", stores: {} }, "s1", null)).toBe(false);
+    expect(canAssignStoreRole(admin, { role: "system-admin", stores: {} }, "s1", "viewer")).toBe(false);
+    expect(canAssignStoreRole({ role: null, stores: { s1: "operator" as const } }, none, "s1", "viewer")).toBe(false);
+  });
+
+  it("lets a global store-admin act at every store, and system-admins over store-admins", () => {
+    const chain = { role: "store-admin" as const, stores: {} };
+    expect(canAssignStoreRole(chain, none, "s9", "operator")).toBe(true);
+    expect(canAssignStoreRole(chain, admin, "s1", null)).toBe(false); // a peer
+    expect(canAssignStoreRole({ role: "system-admin", stores: {} }, admin, "s1", null)).toBe(true);
   });
 });

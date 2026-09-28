@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/control-center/shared/EmptyState";
 import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog";
 import { StoreFormDialog } from "./StoreFormDialog";
+import { StoreMembersDialog } from "./StoreMembersDialog";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import type { Store } from "@/lib/control-center/types";
 import { useCan, useCanAt } from "@/store/useAccessStore";
@@ -17,6 +18,7 @@ export function StoreTable() {
   // Creating and deleting stores is for global store-admins; a store's own admins may edit it.
   const mayManage = useCan("store.manage");
   const mayManageAt = useCanAt("store.manage");
+  const mayMembersAt = useCanAt("store.members");
   const t = useTranslations("StoreTable");
   const tCommon = useTranslations("Common");
   const stores = useMachinesStore((s) => s.stores);
@@ -29,6 +31,7 @@ export function StoreTable() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | undefined>(undefined);
   const [deletingStore, setDeletingStore] = useState<Store | undefined>(undefined);
+  const [membersOf, setMembersOf] = useState<Store | null>(null);
 
   function openCreate() {
     setEditingStore(undefined);
@@ -91,6 +94,11 @@ export function StoreTable() {
                         {t("switchTo")}
                       </Button>
                     )}
+                    {mayMembersAt(store.id) && (
+                      <Button variant="ghost" size="icon-sm" onClick={() => setMembersOf(store)} aria-label={t("members", { name: store.name })} title={t("members", { name: store.name })}>
+                        <Users className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon-sm" disabled={!mayManageAt(store.id)} onClick={() => openEdit(store)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -112,6 +120,12 @@ export function StoreTable() {
       )}
 
       <StoreFormDialog open={formOpen} onOpenChange={setFormOpen} store={editingStore} />
+      <StoreMembersDialog
+        storeId={membersOf?.id ?? ""}
+        storeName={membersOf?.name ?? ""}
+        open={membersOf !== null}
+        onOpenChange={(o) => !o && setMembersOf(null)}
+      />
 
       <ConfirmDialog
         open={Boolean(deletingStore)}

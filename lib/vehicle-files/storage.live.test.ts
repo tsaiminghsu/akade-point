@@ -37,7 +37,7 @@ describe.skipIf(!endpoint)("S3 vehicle-file storage against a live endpoint", ()
   afterAll(() => vi.unstubAllEnvs());
 
   const put = async (target: { url: string; headers: Record<string, string> }, data: Buffer, headers = target.headers) =>
-    fetch(target.url, { method: "PUT", headers, body: data });
+    fetch(target.url, { method: "PUT", headers, body: new Uint8Array(data) });
 
   it("refuses a body that does not match the announced SHA-256", async () => {
     const t = await s.uploadTarget(key, { contentType: "image/jpeg", bytes: body.length, sha256: sha(body), localUrl: "" });

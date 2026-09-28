@@ -243,7 +243,8 @@
     "machines": "Machines",
     "switchTo": "Switch to",
     "deleteTitle": "Delete '{name}'?",
-    "deleteDescription": "This cannot be undone. Machines must be reassigned or removed first."
+    "deleteDescription": "This cannot be undone. Machines must be reassigned or removed first.",
+    "members": "Members of {name}"
   },
   "BrandForm": {
     "editTitle": "Edit Brand",
@@ -1577,5 +1578,31 @@
     "devBackToAdmin": "Back to Dev Admin",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "StoreMembers": {
+    "title": "Members of {store}",
+    "description": "Store admins can grant or remove roles at this store, up to their own level, for people below them. Global roles and other stores are not affected.",
+    "loading": "Loading…",
+    "empty": "This store has no members yet.",
+    "you": "(you)",
+    "globalRole": "Global: {role}",
+    "storeOnly": "Store role only",
+    "noStoreRole": "No store role",
+    "viaGlobal": "Through a global role",
+    "roleOf": "Role of {name} at this store",
+    "remove": "Remove {name}'s store role",
+    "addTitle": "Add a member",
+    "addPlaceholder": "E-mail or user ID",
+    "find": "Find",
+    "add": "Add",
+    "alreadyMember": "Already a member; change their role above",
+    "addHint": "The person must have signed in with LINE once. Only an exact e-mail or ID is looked up; accounts are never listed.",
+    "notFound": "No such account",
+    "lookupFailed": "Lookup failed",
+    "saved": "Store role updated",
+    "removed": "Store role removed",
+    "saveFailed": "Could not update it",
+    "notAllowed": "You cannot change this person's role, or grant a role above your own",
+    "loadFailed": "Could not load the members"
   }
 }
