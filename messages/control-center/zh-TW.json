@@ -889,7 +889,10 @@
       "cmd_roi_none": "取消注視點",
       "cmd_payload_relay": "酬載繼電器",
       "cmd_payload_pulse": "酬載脈衝",
-      "cmd_payload_servo": "酬載伺服"
+      "cmd_payload_servo": "酬載伺服",
+      "cmd_log_list": "讀取日誌清單",
+      "cmd_log_download": "複製日誌到 Pi",
+      "cmd_log_cancel": "取消日誌下載"
     },
     "messages": {
       "prearmTitle": "解鎖前檢查未通過（{count} 項）",
@@ -1217,6 +1220,26 @@
         "alt": "高度",
         "remove": "刪除",
         "empty": "還沒有 Rally 點。"
+      },
+      "orbitTool": "環繞",
+      "orbitHint": "在地圖上點選要環繞的中心點。",
+      "importNoFeatures": "檔案裡沒有可用的多邊形、路線或地標。",
+      "importNoPoints": "檔案裡沒有地標（Point）可當 Rally 點。",
+      "importedRally": "已匯入 {n} 個 Rally 點",
+      "importedWaypoints": "已匯入 {n} 個航點（高度用預設值）",
+      "orbit": {
+        "title": "環繞興趣點",
+        "description": "在中心點周圍產生一圈航點，從最靠近載具的那一側開始，繞完回到起點。",
+        "radius": "半徑（公尺）",
+        "alt": "高度（公尺，相對起飛點）",
+        "points": "每圈航點數",
+        "turns": "圈數",
+        "ccw": "逆時針",
+        "roi": "雲台鎖定中心點",
+        "roiHint": "前後加上 DO_SET_ROI_LOCATION／ROI_NONE",
+        "summary": "共 {n} 個項目，路線約 {length}",
+        "cancel": "取消",
+        "insert": "加入任務"
       }
     },
     "video": {
@@ -1325,7 +1348,17 @@
       "analyseTitle": "分析日誌",
       "analyseDescription": "用 ArduPilot 官方的網頁工具分析：UAV Log Viewer 可以畫圖；WebTools 有濾波器、PID、磁力計等檢查。直接把檔案拖進去即可。",
       "dataflashTitle": "飛控的 DataFlash 日誌（.bin）",
-      "dataflashDescription": "經序列埠下載很慢，而且解鎖時飛控會拒絕。建議取出 SD 卡，或上鎖後用 Mission Planner 經 mavlink-router 下載。"
+      "dfDescription": "經 MAVLink 從飛控 SD 卡把 .bin 複製到 companion，再從 Pi 下載到瀏覽器。只能在上鎖時進行，飛控在傳輸期間會暫停記錄。",
+      "dfList": "讀取飛控日誌",
+      "dfArmed": "飛控已解鎖：ArduPilot 只在上鎖時提供日誌。",
+      "dfNeedControl": "先在上方「取得控制權」才能讀取或複製日誌。",
+      "dfNone": "飛控上沒有日誌。",
+      "dfCopy": "把日誌 #{id} 複製到 Pi",
+      "dfCopied": "{name} 已複製到 Pi",
+      "dfCopyFailed": "複製失敗：{reason}",
+      "dfListFailed": "無法讀取清單：{reason}",
+      "dfCancel": "取消",
+      "dfHint": "速度取決於飛控到 Pi 的連線：USB／921600 約每秒數百 kB，數傳電台只有約 5 kB/s（20 MB 要一小時）。很大的日誌仍建議直接取 SD 卡。"
     },
     "gimbal": {
       "axis_p": "俯仰",

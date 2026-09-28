@@ -889,7 +889,10 @@
       "cmd_roi_none": "Cancel ROI",
       "cmd_payload_relay": "Payload relay",
       "cmd_payload_pulse": "Payload pulse",
-      "cmd_payload_servo": "Payload servo"
+      "cmd_payload_servo": "Payload servo",
+      "cmd_log_list": "List logs",
+      "cmd_log_download": "Copy log to Pi",
+      "cmd_log_cancel": "Cancel log download"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -1217,6 +1220,26 @@
         "alt": "Altitude",
         "remove": "Remove",
         "empty": "No rally points yet."
+      },
+      "orbitTool": "Orbit",
+      "orbitHint": "Click the point to circle on the map.",
+      "importNoFeatures": "No polygons, paths or placemarks in the file.",
+      "importNoPoints": "No placemarks (Point) in the file to use as rally points.",
+      "importedRally": "Imported {n} rally points",
+      "importedWaypoints": "Imported {n} waypoints (default altitude)",
+      "orbit": {
+        "title": "Orbit a point of interest",
+        "description": "A ring of waypoints around the centre, starting on the side nearest the vehicle and closing back on its start.",
+        "radius": "Radius (m)",
+        "alt": "Altitude (m above home)",
+        "points": "Waypoints per turn",
+        "turns": "Turns",
+        "ccw": "Counter-clockwise",
+        "roi": "Gimbal looks at the centre",
+        "roiHint": "Wraps the ring in DO_SET_ROI_LOCATION / ROI_NONE",
+        "summary": "{n} items, about {length}",
+        "cancel": "Cancel",
+        "insert": "Add to mission"
       }
     },
     "video": {
@@ -1325,7 +1348,17 @@
       "analyseTitle": "Analysing logs",
       "analyseDescription": "Use ArduPilot's own web tools: UAV Log Viewer for plots; WebTools for filter, PID and compass reviews. Drop the file in.",
       "dataflashTitle": "Autopilot DataFlash logs (.bin)",
-      "dataflashDescription": "Downloading over a serial link is slow and refused while armed. Pull the SD card, or use Mission Planner through mavlink-router while disarmed."
+      "dfDescription": "Copies .bin logs from the autopilot's SD card to the companion over MAVLink, then from the Pi to your browser. Disarmed only; the autopilot pauses logging during the transfer.",
+      "dfList": "List autopilot logs",
+      "dfArmed": "The vehicle is armed: ArduPilot only serves logs while disarmed.",
+      "dfNeedControl": "Take control above to list or copy logs.",
+      "dfNone": "No logs on the autopilot.",
+      "dfCopy": "Copy log #{id} to the Pi",
+      "dfCopied": "{name} copied to the Pi",
+      "dfCopyFailed": "Copy failed: {reason}",
+      "dfListFailed": "Could not list logs: {reason}",
+      "dfCancel": "Cancel",
+      "dfHint": "Speed depends on the autopilot-to-Pi link: hundreds of kB/s over USB or 921600 baud, about 5 kB/s over a telemetry radio (an hour for 20 MB). For very large logs, pull the SD card."
     },
     "gimbal": {
       "axis_p": "Pitch",

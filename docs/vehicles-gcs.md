@@ -86,7 +86,18 @@ Mission Planner 的 Flight Plan：左邊是計畫與工具，右邊是可編輯�
   - 從第 N 項產生一份新任務。
   - Copter 會先起飛到該航點高度，並補上 N 之前最後的速度、拍照、ROI、雲台設定。
   - 跳回 N 之前的 DO_JUMP 會移除，其餘重新編號。
-- **匯入**：`.waypoints`（依內容自動判斷是任務、圍欄或 Rally），或 GeoJSON 多邊形（在圍欄頁籤成為包含區，在任務頁籤成為測繪範圍）。
+- **匯入**：
+  - `.waypoints`：依內容自動判斷是任務、圍欄或 Rally。
+  - GeoJSON 多邊形：在圍欄頁籤成為包含區，在任務頁籤成為測繪範圍。
+  - KML／KMZ（Google Earth、My Maps 匯出的檔案）：
+    - 任務頁籤：路線與地標變成航點，高度用預設值（KML 的高度通常貼地或是海拔，不直接採用）；只有多邊形時當測繪範圍。
+    - 圍欄頁籤：多邊形變成包含區。
+    - Rally 頁籤：地標變成 Rally 點。
+- **環繞**：點地圖選中心，產生一圈航點。
+  - 從最靠近載具的那一側開始，繞完回到起點。
+  - 可設半徑、每圈點數、圈數、方向。
+  - 可選前後加 `DO_SET_ROI_LOCATION`／`ROI_NONE`，讓雲台一直對著中心。
+  - 用航點而不是 `NAV_LOITER_TURNS`，所以無人車也能用。
 - **匯出**：`.waypoints`。
 
 **電子圍籬**：
@@ -139,7 +150,12 @@ Mission Planner 的 Flight Plan：左邊是計畫與工具，右邊是可編輯�
   - 日誌頁經直連的 HTTP（`/files/tlogs`，帶 `Authorization: Ticket …`）列出並下載。
   - Mission Planner、MAVExplorer 都能開。
 - **分析**：連到 ArduPilot 官方的 UAV Log Viewer 與 WebTools，不在這裡重做。
-- **DataFlash（.bin）**：經序列埠下載很慢，解鎖時也會被拒絕，建議取 SD 卡或用 Mission Planner。
+- **DataFlash（.bin）**：「讀取飛控日誌」列出飛控 SD 卡上的日誌。
+  - **流程**：先把日誌複製到 Pi（經 MAVLink `LOG_REQUEST_DATA`，遺失的封包會補要），再從 Pi 經直連下載到瀏覽器（`/files/logs`）。
+  - **限制**：只能在上鎖時進行，傳輸期間 ArduPilot 會暫停記錄。
+  - **進度與取消**：進度（百分比、速度、剩餘時間）來自 companion 回報的狀態，離開頁籤再回來也看得到；可隨時取消。
+  - **不卡其他操作**：日誌傳輸有自己的執行道，不會卡住任務上傳或參數讀寫。
+  - **速度**：取決於飛控到 Pi 的連線。SITL 實測約 20 kB/s（8.7 MB 約 7 分鐘）。數傳電台約 5 kB/s，大檔仍建議取 SD 卡。
 
 ## 雲台
 
