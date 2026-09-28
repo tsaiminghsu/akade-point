@@ -42,6 +42,8 @@ battery_cells = 4
 
 telemetry_interval_s = 1.0
 history_every_s = 5.0
+# Denser while armed, for the ground station's flight replay.
+history_armed_s = 2.0
 
 # Telemetry logs (.tlog, one file per flight). Under systemd use the state directory.
 tlog_dir = "/var/lib/vehicle-companion/drone/tlogs"
