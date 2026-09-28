@@ -916,7 +916,8 @@
       "cmd_log_download": "複製日誌到 Pi",
       "cmd_log_cancel": "取消日誌下載",
       "cmd_camera_capture": "拍照",
-      "cmd_camera_stop": "停止連拍"
+      "cmd_camera_stop": "停止連拍",
+      "cmd_signing_apply": "設定 MAVLink 簽章"
     },
     "messages": {
       "prearmTitle": "解鎖前檢查未通過（{count} 項）",
@@ -1487,6 +1488,28 @@
       "failed": "拍照失敗：{reason}",
       "sourceError": "相機來源錯誤：{error}",
       "hint": "✈ 表示由飛控觸發（例如測繪任務的 DO_SET_CAM_TRIGG_DIST，需設 CAM1_TYPE = 6）。"
+    },
+    "signing": {
+      "title": "MAVLink2 簽章",
+      "description": "開啟後，飛控只接受帶正確簽章的 MAVLink，防止別人用數傳或網路冒充地面站。",
+      "companion": "companion 簽章",
+      "companionOn": "已啟用（送出的訊息都有簽章）",
+      "companionOff": "未設定",
+      "configHint": "在 companion 設定加上 [signing] passphrase = \"至少 12 字元的密語\" 後重啟 companion。",
+      "enable": "在飛控啟用",
+      "disable": "在飛控關閉",
+      "needControl": "需要先取得控制權。",
+      "armed": "請在上鎖時變更。",
+      "noteMp": "Mission Planner 要設定同一個密語才能連線（MP 以密語的 SHA-256 當金鑰，與 companion 相同）。",
+      "notePorts": "接在飛控其他埠上的 STorM32、ESP32 會被拒絕，除非把那個埠的 MAVn_OPTIONS 第 0 位（接受未簽章）設為 1 並重開飛控。",
+      "noteUsb": "USB 永遠接受未簽章訊息，萬一設錯可用 USB 接 MP 關閉。金鑰重開機後仍保留。",
+      "confirmEnableTitle": "在飛控啟用簽章？",
+      "confirmEnable": "companion 會把金鑰寫進飛控。之後沒有同一把金鑰的地面站（包括沒設定的 Mission Planner）與飛控其他埠上的周邊都會被拒絕，直到在 MP 設好密語、周邊埠設好 MAVn_OPTIONS。確定？",
+      "confirmDisableTitle": "關閉飛控的簽章？",
+      "confirmDisable": "會送出零金鑰，飛控恢復接受未簽章的 MAVLink。",
+      "enabledToast": "已把簽章金鑰寫入飛控",
+      "disabledToast": "已關閉飛控的簽章",
+      "failed": "設定失敗：{reason}"
     }
   },
   "Roles": {

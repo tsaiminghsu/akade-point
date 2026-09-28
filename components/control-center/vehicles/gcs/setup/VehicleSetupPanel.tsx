@@ -12,6 +12,7 @@ import { apiRequest } from "@/lib/control-center/apiClient";
 import type { Vehicle } from "@/lib/control-center/vehicles/types";
 import { useGcsStore } from "@/store/useGcsStore";
 import { VehicleTokenPanel } from "../../VehicleTokenPanel";
+import { SigningPanel } from "./SigningPanel";
 import { useCan } from "@/store/useAccessStore";
 
 /** Links (direct WebSocket, video) and companion provisioning for one vehicle. */
@@ -88,8 +89,9 @@ export function VehicleSetupPanel({ vehicle }: { vehicle: Vehicle }) {
         </div>
       </section>
       {mayTokens && (
-        <section>
+        <section className="space-y-6">
           <VehicleTokenPanel vehicle={vehicle} />
+          {mayManage && <SigningPanel />}
         </section>
       )}
     </div>

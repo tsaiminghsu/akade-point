@@ -153,6 +153,7 @@ class FakeAutopilot:
         prearm_every_s: float = 30.0,
         payload: bool = False,
         adsb: bool = False,
+        signing_key: Optional[bytes] = None,
     ):
         self.vehicle = vehicle
         self.sysid = sysid
@@ -172,10 +173,17 @@ class FakeAutopilot:
         self.payload_mav = mavlink.MAVLink(out, srcSystem=sysid, srcComponent=25)
         self.with_payload = payload
         self.with_adsb = adsb
+        # MAVLink2 signing: with a key, unsigned input is dropped, as ArduPilot
+        # does on a non-USB port. SETUP_SIGNING received is kept here.
+        self.signing_key = signing_key
+        self.setup_signing_key: Optional[bytes] = None
         self.relays = [False] * 4
         self.servos = [1500.0] * 2
         self.parser = mavlink.MAVLink(None)
         self.parser.robust_parsing = True
+        if signing_key:
+            self.parser.signing.secret_key = signing_key
+            self.parser.signing.allow_unsigned_callback = lambda _mav, _msg_id: False
 
         self.mav_type = mavlink.MAV_TYPE_QUADROTOR if vehicle == "copter" else mavlink.MAV_TYPE_GROUND_ROVER
         self.modes = dict(mavutil.mode_mapping_byname(self.mav_type))
@@ -645,6 +653,11 @@ class FakeAutopilot:
                 chunk = data[ofs:ofs + n]
                 self.mav.send(self.mav.log_data_encode(msg.id, ofs, n, chunk + bytes(90 - n)))
             ofs += n
+
+    def _on_setup_signing(self, msg) -> None:
+        if not self._for_me(msg, (0, 1)):
+            return
+        self.setup_signing_key = bytes(msg.secret_key)
 
     def _on_param_request_read(self, msg) -> None:
         if not self._for_me(msg):

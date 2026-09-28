@@ -123,6 +123,8 @@ export interface VehicleStateV2 {
   adsb?: AdsbTarget[] | null;
   /** DataFlash log being copied to the companion (log_download), or the last one */
   logdl?: { id: number; size: number; got: number; pct: number; bps: number; done: boolean; error: string | null } | null;
+  /** MAVLink2 signing: whether the companion signs what it sends ([signing] passphrase set) */
+  signing?: { on: boolean } | null;
   /** the companion as a MAVLink camera (ops/camera.py): photos taken, interval shooting, last photo */
   camera?: {
     n: number;
@@ -242,7 +244,8 @@ export type VehicleCommandType =
   | "log_download"
   | "log_cancel"
   | "camera_capture"
-  | "camera_stop";
+  | "camera_stop"
+  | "signing_apply";
 
 /** Where a command was issued: through this server, or straight to the
  *  companion over the direct link (then reported back for the log). */

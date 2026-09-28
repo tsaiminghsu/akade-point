@@ -92,7 +92,8 @@ interface GcsState {
    */
   send: (request: CommandRequest, directExtra?: Record<string, unknown>) => Promise<boolean>;
   /** Like send, then waits for the command to settle (acked/failed/timeout). */
-  sendAndWait: (request: CommandRequest, opts?: { timeoutMs?: number; directExtra?: Record<string, unknown> }) => Promise<GcsCommand | null>;
+  /** `cloudOnly`: never over the direct link (commands the companion refuses there, e.g. signing_apply). */
+  sendAndWait: (request: CommandRequest, opts?: { timeoutMs?: number; directExtra?: Record<string, unknown>; cloudOnly?: boolean }) => Promise<GcsCommand | null>;
   /** True when commands would go over the direct link right now. */
   viaDirect: () => boolean;
   /** GET a file from the companion's direct-link HTTP server (tlogs), authorised with a ticket. */
@@ -277,11 +278,11 @@ export const useGcsStore = create<GcsState>()((set, get) => {
   }
 
   /** Issues a command; returns its id, or null if it could not be sent. */
-  async function issue(request: CommandRequest, directExtra?: Record<string, unknown>): Promise<string | null> {
+  async function issue(request: CommandRequest, directExtra?: Record<string, unknown>, cloudOnly = false): Promise<string | null> {
     const id = get().vehicleId;
     if (!id) return null;
     const { type, ...args } = request as CommandRequest & Record<string, unknown>;
-    if (direct?.isOpen && get().link.direct.scope === "control") {
+    if (!cloudOnly && direct?.isOpen && get().link.direct.scope === "control") {
       const cmdId = directCommandId();
       upsertCommand({ id: cmdId, type: type as VehicleCommandType, status: "sent", createdAt: Date.now(), via: "direct" });
       if (direct.sendCommand({ id: cmdId, type, args: { ...args, ...directExtra } })) return cmdId;
@@ -475,7 +476,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     send: async (request, directExtra) => (await issue(request, directExtra)) !== null,
 
     sendAndWait: async (request, opts = {}) => {
-      const cmdId = await issue(request, opts.directExtra);
+      const cmdId = await issue(request, opts.directExtra, opts.cloudOnly === true);
       if (!cmdId) return null;
       const timeoutMs = opts.timeoutMs ?? 30_000;
       const settled = (c?: GcsCommand) => c && (c.status === "acked" || c.status === "failed" || c.status === "timeout");

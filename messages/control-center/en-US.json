@@ -916,7 +916,8 @@
       "cmd_log_download": "Copy log to Pi",
       "cmd_log_cancel": "Cancel log download",
       "cmd_camera_capture": "Take photo",
-      "cmd_camera_stop": "Stop interval shooting"
+      "cmd_camera_stop": "Stop interval shooting",
+      "cmd_signing_apply": "Set MAVLink signing"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -1487,6 +1488,28 @@
       "failed": "Photo failed: {reason}",
       "sourceError": "Camera source error: {error}",
       "hint": "✈ = triggered by the autopilot (e.g. a survey's DO_SET_CAM_TRIGG_DIST with CAM1_TYPE = 6)."
+    },
+    "signing": {
+      "title": "MAVLink2 signing",
+      "description": "With signing on, the autopilot only accepts MAVLink carrying the right signature, so nobody can pose as your ground station over the radio or network.",
+      "companion": "Companion signing",
+      "companionOn": "On (everything it sends is signed)",
+      "companionOff": "Not set up",
+      "configHint": "Add [signing] passphrase = \"a passphrase of 12+ characters\" to the companion config and restart it.",
+      "enable": "Enable on autopilot",
+      "disable": "Disable on autopilot",
+      "needControl": "Take control first.",
+      "armed": "Change this while disarmed.",
+      "noteMp": "Mission Planner needs the same passphrase to connect (it uses the passphrase's SHA-256 as the key, like the companion).",
+      "notePorts": "A STorM32 or ESP32 on another autopilot port is refused unless that port's MAVn_OPTIONS bit 0 (accept unsigned) is set and the autopilot rebooted.",
+      "noteUsb": "USB always accepts unsigned messages, so a mistake can be undone from Mission Planner over USB. The key survives reboots.",
+      "confirmEnableTitle": "Enable signing on the autopilot?",
+      "confirmEnable": "The companion writes its key into the autopilot. Ground stations without the key (including Mission Planner until you set the passphrase there) and peripherals on other autopilot ports are refused until configured. Continue?",
+      "confirmDisableTitle": "Disable signing on the autopilot?",
+      "confirmDisable": "Sends a zero key; the autopilot accepts unsigned MAVLink again.",
+      "enabledToast": "Signing key written to the autopilot",
+      "disabledToast": "Signing disabled on the autopilot",
+      "failed": "Could not change signing: {reason}"
     }
   },
   "Roles": {

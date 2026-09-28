@@ -98,6 +98,8 @@ def build(config: Config) -> Companion:
     payload_monitor = PayloadMonitor(conn)
     conn.add_listener("NAMED_VALUE_FLOAT", payload_monitor.on_named_value)
     adsb = AdsbTracker(conn)
+    if config.signing.key is not None:
+        conn.enable_signing(config.signing.key)
     dataflash = DataflashClient(conn, config.dataflash_dir) if config.dataflash_dir else None
     camera = None
     if config.camera.enabled:

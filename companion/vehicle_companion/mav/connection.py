@@ -357,6 +357,26 @@ class MavConnection:
                 if buf:
                     self.tlog.write(bytes(buf))
 
+    # ---- MAVLink2 signing ------------------------------------------------
+
+    @property
+    def signing_key(self) -> Optional[bytes]:
+        signing = getattr(self.master.mav, "signing", None) if self.master is not None else None
+        return signing.secret_key if signing is not None and signing.sign_outgoing else None
+
+    def enable_signing(self, key: bytes) -> None:
+        """Sign everything sent from now on. Unsigned packets are still
+        accepted: the companion sits behind mavlink-router on a trusted link,
+        and a vehicle only refuses unsigned input once it has the key."""
+        if self.master is None:
+            self.open()
+        self.master.setup_signing(key, sign_outgoing=True, allow_unsigned_callback=lambda *_: True)
+
+    def signing_state(self):
+        """The signing object other encoders (the camera) share, or None."""
+        signing = getattr(self.master.mav, "signing", None) if self.master is not None else None
+        return signing if signing is not None and signing.sign_outgoing else None
+
     def send_raw(self, buf: bytes) -> None:
         """An already packed message, e.g. one sent as another component
         (the camera, component 100 of the vehicle's system)."""

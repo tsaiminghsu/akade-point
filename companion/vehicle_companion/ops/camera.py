@@ -166,6 +166,10 @@ class CameraComponent:
         if self._mav is None or self._mav_sys != target[0]:
             self._mav = mavlink.MAVLink(None, srcSystem=target[0], srcComponent=CAMERA_COMP)
             self._mav_sys = target[0]
+        # Sign like the rest of the companion when MAVLink2 signing is on.
+        signing = self.conn.signing_state()
+        if signing is not None:
+            self._mav.signing = signing
         return self._mav
 
     def _send(self, build) -> None:

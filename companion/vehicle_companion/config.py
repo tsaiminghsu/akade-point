@@ -70,6 +70,20 @@ class CameraConfig:
 
 
 @dataclass
+class SigningConfig:
+    """MAVLink2 signing. The key is SHA-256 of the passphrase, as Mission
+    Planner and QGroundControl derive it, so the same passphrase works there."""
+
+    passphrase: str = ""
+
+    @property
+    def key(self) -> Optional[bytes]:
+        import hashlib
+
+        return hashlib.sha256(self.passphrase.encode()).digest() if self.passphrase else None
+
+
+@dataclass
 class RemoteIdConfig:
     """Remote ID module (ArduRemoteID). send_operator_location sends
     OPEN_DRONE_ID_SYSTEM with the takeoff position as operator location."""
@@ -115,6 +129,7 @@ class Config:
     video: VideoConfig = field(default_factory=VideoConfig)
     remote_id: RemoteIdConfig = field(default_factory=RemoteIdConfig)
     camera: CameraConfig = field(default_factory=CameraConfig)
+    signing: SigningConfig = field(default_factory=SigningConfig)
 
     @staticmethod
     def from_dict(data: dict) -> "Config":
@@ -127,7 +142,7 @@ class Config:
         unknown = set(data) - known - {"forward_udp"}
         if unknown:
             raise ValueError(f"unknown config keys: {', '.join(sorted(unknown))}")
-        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id", "camera")}
+        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id", "camera", "signing")}
         cfg = Config(**kwargs)
         cfg.api_base = cfg.api_base.rstrip("/")
         cfg.mqtt = MqttConfig(**data.get("mqtt", {}))
@@ -135,6 +150,9 @@ class Config:
         cfg.video = VideoConfig(**data.get("video", {}))
         cfg.remote_id = RemoteIdConfig(**data.get("remote_id", {}))
         cfg.camera = CameraConfig(**data.get("camera", {}))
+        cfg.signing = SigningConfig(**data.get("signing", {}))
+        if cfg.signing.passphrase and len(cfg.signing.passphrase) < 12:
+            raise ValueError("signing.passphrase must be at least 12 characters")
         if cfg.camera.source not in ("rtsp", "rpicam", "test"):
             raise ValueError("camera.source must be rtsp, rpicam or test")
         if cfg.gcs_heartbeat not in ("off", "always", "operator"):

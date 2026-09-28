@@ -41,6 +41,9 @@ log = logging.getLogger(__name__)
 AUTH_TIMEOUT_S = 5.0
 STATE_HZ = 10.0
 PIN_MAX_FAILURES = 5
+# Commands the direct link refuses: they need the Control Center's role check
+# (a direct control ticket only proves operator access).
+CLOUD_ONLY = frozenset({"signing_apply"})
 PIN_WINDOW_S = 60.0
 DIRECT_CMD_TTL_MS = 10_000
 BOOSTED_RATES = {"ATTITUDE": 10.0, "VFR_HUD": 5.0, "GLOBAL_POSITION_INT": 5.0}
@@ -362,6 +365,12 @@ class DirectServer:
             cid = str(cmd.get("id", ""))
             if not cid.startswith("d_") or not cmd.get("type"):
                 await client.ws.send_json({"k": "error", "code": "BAD_COMMAND"})
+                return
+            if cmd.get("type") in CLOUD_ONLY:
+                # Security settings need the Control Center's role check.
+                await client.ws.send_json(
+                    {"k": "ack", "a": {"v": 1, "id": cid, "st": "failed", "code": "CLOUD_ONLY", "msg": "use the Control Center for this", "t": self.clock.now_ms()}}
+                )
                 return
             now = self.clock.now_ms()
             self.executor.submit(

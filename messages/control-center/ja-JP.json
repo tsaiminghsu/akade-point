@@ -916,7 +916,8 @@
       "cmd_log_download": "ログを Pi にコピー",
       "cmd_log_cancel": "ログ転送を中止",
       "cmd_camera_capture": "撮影",
-      "cmd_camera_stop": "連写停止"
+      "cmd_camera_stop": "連写停止",
+      "cmd_signing_apply": "MAVLink 署名を設定"
     },
     "messages": {
       "prearmTitle": "アーム前チェック未通過（{count}件）",
@@ -1487,6 +1488,28 @@
       "failed": "撮影失敗：{reason}",
       "sourceError": "カメラソースのエラー：{error}",
       "hint": "✈ はフライトコントローラーによる撮影（CAM1_TYPE = 6 での測量ミッションの DO_SET_CAM_TRIGG_DIST など）。"
+    },
+    "signing": {
+      "title": "MAVLink2 署名",
+      "description": "有効にすると、FC は正しい署名付きの MAVLink だけを受け付け、無線やネットワーク経由でのなりすましを防ぎます。",
+      "companion": "コンパニオンの署名",
+      "companionOn": "有効（送信はすべて署名付き）",
+      "companionOff": "未設定",
+      "configHint": "コンパニオン設定に [signing] passphrase = \"12 文字以上のパスフレーズ\" を追加して再起動してください。",
+      "enable": "FC で有効化",
+      "disable": "FC で無効化",
+      "needControl": "先に操作権を取得してください。",
+      "armed": "ディスアーム中に変更してください。",
+      "noteMp": "Mission Planner も同じパスフレーズの設定が必要です（MP はパスフレーズの SHA-256 を鍵にします。コンパニオンと同じ）。",
+      "notePorts": "FC の他のポートの STorM32 や ESP32 は、そのポートの MAVn_OPTIONS ビット 0（未署名を許可）を 1 にして FC を再起動しない限り拒否されます。",
+      "noteUsb": "USB は常に未署名を受け付けるので、設定を誤っても USB 接続の MP で解除できます。鍵は再起動後も残ります。",
+      "confirmEnableTitle": "FC で署名を有効にしますか？",
+      "confirmEnable": "コンパニオンが FC に鍵を書き込みます。鍵を持たない地上局（MP でパスフレーズを設定するまでの MP を含む）や FC の他ポートの周辺機器は、設定するまで拒否されます。続けますか？",
+      "confirmDisableTitle": "FC の署名を無効にしますか？",
+      "confirmDisable": "ゼロ鍵を送り、FC は未署名の MAVLink を再び受け付けます。",
+      "enabledToast": "署名鍵を FC に書き込みました",
+      "disabledToast": "FC の署名を無効にしました",
+      "failed": "署名を変更できません：{reason}"
     }
   },
   "Roles": {

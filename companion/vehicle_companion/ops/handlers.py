@@ -9,6 +9,7 @@ than guessing at PX4 behaviour.
 from __future__ import annotations
 
 import asyncio
+import time
 import logging
 import math
 from typing import Callable, Optional, Protocol
@@ -470,6 +471,25 @@ class Handlers:
         values = {n: (None if p is None else display_value(p.value, p.type)) for n, p in got.items()}
         missing = [n for n, v in values.items() if v is None]
         return self.ack(cmd_id, not missing, "OK" if not missing else "PARAM_NOT_FOUND", ", ".join(missing), {"params": values})
+
+    # ---- MAVLink2 signing ----------------------------------------------------------
+
+    async def _h_signing_apply(self, cmd_id: str, args: dict) -> dict:
+        """Gives the autopilot the companion's signing key (enable) or a zero
+        key (disable). From then on the autopilot refuses unsigned MAVLink on
+        every port except USB and ports with MAVn_OPTIONS bit 0 set."""
+        hb = self._hb()
+        if is_armed(hb):
+            return self.ack(cmd_id, False, "ARMED", "change signing on the ground")
+        key = self.conn.signing_key
+        enable = bool(args.get("enable"))
+        if key is None:
+            return self.ack(cmd_id, False, "NO_KEY", "set [signing] passphrase in the companion config first")
+        sysid, compid = self.conn.target_ids()
+        # 10 µs units since 2015-01-01, as MAVLink signing timestamps are.
+        ts = int((time.time() - 1_420_070_400) * 100_000)
+        self.conn.send(self.conn.mav.setup_signing_encode(sysid, compid, list(key if enable else bytes(32)), ts if enable else 0))
+        return self.ack(cmd_id, True, "OK", "", {"enabled": enable})
 
     # ---- camera -----------------------------------------------------------------
 
