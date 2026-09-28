@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Car, Hand, Plane, Volume2, VolumeX } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowLeft, Car, Hand, Lock, Plane, Volume2, VolumeX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog";
 import { ErrorState } from "@/components/control-center/shared/ErrorState";
-import { useGcsStore } from "@/store/useGcsStore";
+import { useGcsStore, type LeaseInfo } from "@/store/useGcsStore";
 import { LinkStateBadge } from "../LinkStateBadge";
 import { FlightDataView } from "./flight/FlightDataView";
 import { FlightPlanView } from "./plan/FlightPlanView";
@@ -33,6 +35,24 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
   const link = useGcsStore((s) => s.link);
   const control = useGcsStore((s) => s.control);
   const setControl = useGcsStore((s) => s.setControl);
+  const lease = useGcsStore((s) => s.lease);
+  const leaseMine = useGcsStore((s) => s.leaseMine);
+  const [takeover, setTakeover] = useState<LeaseInfo | null>(null);
+  const [wasInControl, setWasInControl] = useState(false);
+
+  // Control dropped because someone else holds the lease now: say so.
+  useEffect(() => {
+    if (wasInControl && !control && lease && !leaseMine) toast.warning(t("takenOver", { name: lease.name }));
+    setWasInControl(control);
+  }, [control]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleControl(on: boolean) {
+    const res = await setControl(on);
+    if (on && !res.ok) {
+      if (res.lease) setTakeover(res.lease);
+      else toast.error(t("controlFailed"));
+    }
+  }
   const [voice, setVoice] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
@@ -113,7 +133,7 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
             <label className="flex items-center gap-2 text-xs font-medium">
               <Hand className={`h-3.5 w-3.5 ${control ? "text-status-warning" : "text-muted-foreground"}`} />
               {t("control")}
-              <Switch checked={control} onCheckedChange={setControl} aria-label={t("control")} />
+              <Switch checked={control} onCheckedChange={(on) => void toggleControl(on)} aria-label={t("control")} />
             </label>
             <Button size="sm" variant={voice ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={toggleVoice} aria-pressed={voice}>
               {voice ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />} {voice ? t("voiceOn") : t("voiceOff")}
@@ -121,7 +141,12 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
           </div>
         </div>
         <StatusBar state={state} stale={stale} link={link} />
-        {!control && <p className="text-xs text-muted-foreground">{t("controlHint")}</p>}
+        {lease && !leaseMine && (
+          <p className="flex items-center gap-1.5 text-xs text-status-warning">
+            <Lock className="h-3.5 w-3.5" /> {t("leaseHeld", { name: lease.name, since: new Date(lease.since).toLocaleTimeString() })}
+          </p>
+        )}
+        {!control && !(lease && !leaseMine) && <p className="text-xs text-muted-foreground">{t("controlHint")}</p>}
         {control && link.active === "cloud" && <p className="text-xs text-status-warning">{t("cloudControlNote")}</p>}
       </header>
 
@@ -153,6 +178,17 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
           {vehicle && <VehicleSetupPanel vehicle={vehicle} />}
         </TabsContent>
       </Tabs>
+      <ConfirmDialog
+        open={takeover !== null}
+        onOpenChange={(o) => !o && setTakeover(null)}
+        title={t("takeoverTitle")}
+        description={takeover ? t("takeoverDescription", { name: takeover.name, since: new Date(takeover.since).toLocaleTimeString() }) : ""}
+        onConfirm={async () => {
+          setTakeover(null);
+          const res = await setControl(true, { force: true });
+          if (!res.ok) toast.error(t("controlFailed"));
+        }}
+      />
     </div>
   );
 }

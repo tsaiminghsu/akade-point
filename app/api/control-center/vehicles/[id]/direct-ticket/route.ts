@@ -12,7 +12,7 @@ import { deriveDirectKey, masterKey, newTicketPayload, signTicket } from "@/lib/
  * device token, which the companion was configured with.
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const body = (await req.json().catch(() => ({}))) as { scope?: string };
+  const body = (await req.json().catch(() => ({}))) as { scope?: string; cid?: string };
   const scope = body.scope === "view" ? "view" : "control";
   const actor = await requireVehicleAccess(scope === "control" ? "command" : "view");
   if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -27,7 +27,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const active = (await listTokensByVehicle(params.id)).find((t) => t.revokedAt === undefined);
   if (!active) return NextResponse.json({ error: "Generate a device token first" }, { status: 409 });
 
-  const payload = newTicketPayload(params.id, actor.id ?? "admin", scope);
+  const cid = typeof body.cid === "string" && body.cid.length <= 64 ? body.cid : undefined;
+  const payload = newTicketPayload(params.id, actor.id ?? "admin", scope, Date.now(), cid);
   const ticket = signTicket(deriveDirectKey(master, params.id, active.tokenId), payload);
   return NextResponse.json({ url: vehicle.directUrl, ticket, exp: payload.exp, scope });
 }

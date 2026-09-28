@@ -8,6 +8,7 @@ import { commandRequestSchema } from "@/lib/control-center/vehicles/schemas";
 import { resolveTimeouts, toCommandMsg } from "@/lib/control-center/vehicles/commandState";
 import { COMMANDS_BY_TYPE, COMMAND_TIMEOUT_MS, MODES_BY_TYPE, PX4_MODES } from "@/lib/control-center/vehicles/constants";
 import { publishVehicleCommand } from "@/lib/iot/publish";
+import { blockingLease, CLIENT_HEADER } from "@/lib/control-center/vehicles/lease";
 import type { VehicleCommandType } from "@/lib/control-center/vehicles/types";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -28,6 +29,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const vehicle = await getVehicle(params.id);
   if (!vehicle) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Another operator holds control: only they may command until it lapses.
+  const block = blockingLease(vehicle.controlLease, req.headers.get(CLIENT_HEADER), Date.now());
+  if (block) {
+    return NextResponse.json({ error: "Another operator has control", code: "LEASE_HELD", lease: { name: block.name, until: block.until } }, { status: 409 });
+  }
 
   const parsed = commandRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });

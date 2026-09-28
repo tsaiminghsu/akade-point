@@ -61,6 +61,8 @@ class CloudLink:
         self._ack_event = asyncio.Event()
         self._audit: list[dict] = []
         self._op_seen_at = 0.0
+        # The Control Center's control lease: {"cid", "sub", "until"} (server ms).
+        self._lease: Optional[dict] = None
         self.last_ok_at: Optional[float] = None
         self.last_error: Optional[str] = None
 
@@ -75,6 +77,15 @@ class CloudLink:
     async def close(self) -> None:
         if self.session is not None:
             await self.session.close()
+
+    def lease_holder(self) -> Optional[str]:
+        """The ground-station page holding control, or None. After the lease's
+        own expiry nobody holds it, so with the cloud unreachable the direct
+        link falls back to any control ticket (field use without the cloud)."""
+        lease = self._lease
+        if not lease or not isinstance(lease.get("until"), (int, float)) or lease["until"] <= self.clock.now_ms():
+            return None
+        return str(lease.get("cid") or "") or None
 
     @property
     def operator_present(self) -> bool:
@@ -130,6 +141,8 @@ class CloudLink:
             self.clock.update(resp["now"], sent_at, recv_at)
         if resp.get("op"):
             self._op_seen_at = time.monotonic()
+        if "lease" in resp:
+            self._lease = resp["lease"] if isinstance(resp["lease"], dict) else None
         for cmd in resp.get("commands") or []:
             self.on_command(cmd)
         return resp

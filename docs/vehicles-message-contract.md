@@ -183,6 +183,17 @@ seq  current  frame  command  param1 param2 param3 param4  lat lon alt  autocont
 
 對映到 MissionItem：`current→cur`、`command→cmd`、`param1..4→p1..4`、`autocontinue→ac`。解析／輸出由 `lib/control-center/vehicles/waypoints.ts` 處理，容錯 CRLF 與空白，seq 0 保留以便原樣來回。
 
+## 控制租約
+
+- `POST /api/control-center/vehicles/{id}/control`：
+  - 請求：`{ action: "acquire" | "release", cid, force? }`。
+  - 回應：`{ held, lease, now }`。
+  - 別人持有時回 409，`force` 為接管。
+- 雲端指令帶 `x-gcs-client: <cid>` 標頭。有別人的有效租約時回 409 `{ code: "LEASE_HELD", lease: { name, until } }`。
+- `/live` 回應帶 `lease: { cid, name, until, since } | null`。
+- 裝置端遙測回應帶 `lease: { cid, sub, until } | null`（伺服器時鐘）。
+- 直連票證的 payload 可帶 `cid`。
+
 ## 直連（Direct）WebSocket
 
 companion 的 `[direct]` 開啟後，監聽 `ws://<host>:<port>/ws`（前面接 Tailscale serve 或反向代理成 `wss://`）。

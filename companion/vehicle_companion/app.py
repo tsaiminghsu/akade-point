@@ -174,6 +174,7 @@ def build(config: Config) -> Companion:
             tlog=tlog,
             gimbal=GimbalStreamer(conn),
             dataflash=dataflash,
+            lease_holder=cloud.lease_holder,
         )
         holder["direct"] = direct
     return Companion(

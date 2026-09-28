@@ -1455,6 +1455,11 @@
       "alt": "Altitude",
       "speed": "Speed",
       "bat": "Battery"
-    }
+    },
+    "leaseHeld": "{name} has control of this vehicle (since {since}). You are watching; switch on control to take over.",
+    "takenOver": "{name} took control; you are watching now.",
+    "controlFailed": "Could not take control, try again.",
+    "takeoverTitle": "Take over control?",
+    "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once."
   }
 }

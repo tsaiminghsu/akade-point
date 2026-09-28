@@ -1455,6 +1455,11 @@
       "alt": "高度",
       "speed": "速度",
       "bat": "電量"
-    }
+    },
+    "leaseHeld": "{name} 正在控制這台載具（自 {since} 起）。你目前只能觀看；開啟「取得控制權」可接管。",
+    "takenOver": "{name} 接管了控制權，你現在只能觀看。",
+    "controlFailed": "無法取得控制權，請稍後再試。",
+    "takeoverTitle": "接管控制權？",
+    "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。"
   }
 }
