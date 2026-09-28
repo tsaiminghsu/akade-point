@@ -370,10 +370,31 @@ GSI（定義於 `scripts/create-tables.mjs`）：
   - 任何實機：Pixhawk、STorM32、Pi 相機 + MediaMTX 串流、兩支 ESP32 韌體（只做過編譯檢查）。
 - **更正**：M1、M2 的 commit 訊息寫「pytest 57」，實際當時是 52 個案例。
 
+**第二批功能（2026-09-28）**：
+
+| Commit | 功能 |
+|:---|:---|
+| `148f925` | ADS-B 航空器顯示與接近警示；地圖跟隨不再吃掉使用者的縮放 |
+| `6cc4df3` | 經 MAVLink 下載 DataFlash；日誌有獨立執行道，不卡任務/參數 |
+| `ddc8501` | 環繞產生器、KML/KMZ 匯入 |
+| `52db763` | 跟隨我（瀏覽器定位驅動 GUIDED，含移動預測） |
+| `b96869e` | 雲端軌跡回放；解鎖時每 2 秒一點 |
+| `eec03d6` | 數值面板可自訂 |
+| `abc5941` | 控制租約（一次一位操作者，雲端與直連都會擋） |
+
+以上都在 ArduPilot 4.7.1 SITL 上驗證過。另外補驗了 Mission Planner 與 Rover 同時連線。
+
+測試數：pytest 78、vitest 363。
+
+**陷阱**：
+- SITL 的 ADS-B 模擬（`SIM_ADSB_*`）只轉送 `ADSB_LIST_RADIUS`（預設 2 km）內的航空器，時有時無；要看清楚請調大。
+- `requestAnimationFrame` 在背景分頁完全停止，回放改用計時器。
+- 不在前景的分頁不會輪詢 `/live`（刻意省流量）；測試多分頁時要注意。
+- 刪 worktree 前一定要先移除 node_modules junction（見記憶檔）。
+
 **待辦**：
 - 實機驗證。
-- companion 當 MAVLink 相機。
-- 地形、ADS-B、MAVLink2 簽章、多操作者租約、角色權限。
+- 第二批：MAVLink2 簽章（啟用後 MP 也要同一把金鑰）、地形資料供應、companion 當 MAVLink 相機、角色權限。
 
 ## 11. 娃娃機設定模組（多台機台各自保存）
 
