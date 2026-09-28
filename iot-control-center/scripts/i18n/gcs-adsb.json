@@ -1,0 +1,35 @@
+{
+  "zh-TW": {
+    "Gcs": {
+      "map": { "traffic": "ADS-B 航空器" },
+      "status": {
+        "traffic": "ADS-B {count}",
+        "trafficTitle": "附近沒有需要注意的航空器（1 公里 / 150 公尺內為危險，3 公里 / 300 公尺內為注意）",
+        "trafficNearest": "最近：{name}，{dist} 公尺，高度差 {dz} 公尺"
+      },
+      "alerts": { "traffic": "注意航空器 {name}，距離 {dist} 公尺，高度差 {dz} 公尺" }
+    }
+  },
+  "en-US": {
+    "Gcs": {
+      "map": { "traffic": "ADS-B traffic" },
+      "status": {
+        "traffic": "ADS-B {count}",
+        "trafficTitle": "No traffic needing attention (danger within 1 km / 150 m, caution within 3 km / 300 m)",
+        "trafficNearest": "Nearest: {name}, {dist} m, {dz} m relative"
+      },
+      "alerts": { "traffic": "Traffic {name}, {dist} metres, {dz} metres relative" }
+    }
+  },
+  "ja-JP": {
+    "Gcs": {
+      "map": { "traffic": "ADS-B 航空機" },
+      "status": {
+        "traffic": "ADS-B {count}",
+        "trafficTitle": "注意が必要な航空機はありません（1 km / 150 m 以内は危険、3 km / 300 m 以内は注意）",
+        "trafficNearest": "最接近：{name}、{dist} m、高度差 {dz} m"
+      },
+      "alerts": { "traffic": "航空機 {name} に注意、距離 {dist} メートル、高度差 {dz} メートル" }
+    }
+  }
+}

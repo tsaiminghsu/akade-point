@@ -50,6 +50,8 @@ EVENT_TYPES = frozenset(
         "LOG_DATA",
         # Several names per component: the per-type cache would keep only the last.
         "NAMED_VALUE_FLOAT",
+        # One per aircraft.
+        "ADSB_VEHICLE",
     }
 )
 
@@ -185,7 +187,8 @@ class MavConnection:
         mtype = msg.get_type()
         src = (msg.get_srcSystem(), msg.get_srcComponent())
         self.rx_count += 1
-        if self.tlog is not None:
+        # A DataFlash download would copy the whole .bin into the tlog as well.
+        if self.tlog is not None and mtype != "LOG_DATA":
             buf = msg.get_msgbuf()
             if buf:
                 self.tlog.write(bytes(buf))

@@ -61,6 +61,11 @@
 - 從 HTTPS 頁面只能連 `wss://`，建議用 `tailscale serve` 提供有效憑證，同時解決 4G NAT。
 - Chrome 的 Local Network Access 可能會跳出授權詢問。
 
+**控制租約**：
+- 票證帶有頁面識別 `cid`，伺服器在遙測回應中附上目前的租約 `{ cid, sub, until }`。
+- 租約有效時，companion 只接受持有者頁面的指令、搖桿、雲台與 operator 旗標，其他頁面收到 `LEASE_HELD`。
+- 租約過期（例如雲端連不上）後，改為接受任何控制票證。
+
 **稽核**：直連下發的指令由 companion 記錄，連上雲端後以 `via: "direct"` 補寫進指令表。
 
 ## 已知限制（見 handoff 待辦）

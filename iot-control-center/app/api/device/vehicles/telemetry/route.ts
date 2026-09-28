@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireDeviceToken } from "@/lib/device-auth";
 import { updateVehicleState } from "@/lib/dynamo/cc-vehicles";
 import { putPoints } from "@/lib/dynamo/cc-vehicle-telemetry";
+import { activeLease } from "@/lib/control-center/vehicles/lease";
 import { putEvents } from "@/lib/dynamo/cc-vehicle-events";
 import { listPendingByVehicle, markSent, markTimedOut, recordDirectCommand } from "@/lib/dynamo/cc-vehicle-commands";
 import { telemetryPostSchema } from "@/lib/control-center/vehicles/schemas";
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const { state, history, msgs, audit } = body.data;
-  const [{ operatorSeenAt }] = await Promise.all([
+  const [{ operatorSeenAt, controlLease }] = await Promise.all([
     updateVehicleState(auth.vehicleId, state as Record<string, unknown>, state.t, now),
     // The v2 schema is loose (typed where the server reads it), hence the cast.
     history && history.length > 0 ? putPoints(auth.vehicleId, history as VehicleState[]) : Promise.resolve(),
@@ -71,5 +72,7 @@ export async function POST(req: Request) {
     timedOut: timedOutIds.length,
     now: Date.now(),
     op: operatorSeenAt !== null && now - operatorSeenAt < OPERATOR_PRESENT_MS,
+    // Who holds control, so the direct link refuses everyone else too.
+    lease: activeLease(controlLease, now) && { cid: controlLease!.cid, sub: controlLease!.sub, until: controlLease!.until },
   });
 }

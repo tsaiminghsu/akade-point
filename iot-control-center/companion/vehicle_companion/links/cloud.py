@@ -40,6 +40,7 @@ class CloudLink:
         contract: int = 1,
         telemetry_interval_s: float = 1.0,
         history_every_s: float = 5.0,
+        history_armed_s: float = 2.0,
         timeout_s: float = 8.0,
     ):
         self.base = api_base.rstrip("/")
@@ -48,6 +49,8 @@ class CloudLink:
         self.contract = contract
         self.telemetry_interval_s = telemetry_interval_s
         self.history_every_s = history_every_s
+        # Denser while armed, so the ground station's replay of a flight is useful.
+        self.history_armed_s = min(history_armed_s, history_every_s)
         self.timeout = aiohttp.ClientTimeout(total=timeout_s)
         self.on_command: Callable[[dict], None] = lambda cmd: None
         self.session: Optional[aiohttp.ClientSession] = None
@@ -58,6 +61,8 @@ class CloudLink:
         self._ack_event = asyncio.Event()
         self._audit: list[dict] = []
         self._op_seen_at = 0.0
+        # The Control Center's control lease: {"cid", "sub", "until"} (server ms).
+        self._lease: Optional[dict] = None
         self.last_ok_at: Optional[float] = None
         self.last_error: Optional[str] = None
 
@@ -72,6 +77,15 @@ class CloudLink:
     async def close(self) -> None:
         if self.session is not None:
             await self.session.close()
+
+    def lease_holder(self) -> Optional[str]:
+        """The ground-station page holding control, or None. After the lease's
+        own expiry nobody holds it, so with the cloud unreachable the direct
+        link falls back to any control ticket (field use without the cloud)."""
+        lease = self._lease
+        if not lease or not isinstance(lease.get("until"), (int, float)) or lease["until"] <= self.clock.now_ms():
+            return None
+        return str(lease.get("cid") or "") or None
 
     @property
     def operator_present(self) -> bool:
@@ -88,7 +102,8 @@ class CloudLink:
 
     def _maybe_history(self, state: dict) -> None:
         now = time.monotonic()
-        if now - self._last_history < self.history_every_s:
+        every = self.history_armed_s if state.get("armed") else self.history_every_s
+        if now - self._last_history < every:
             return
         self._last_history = now
         if state.get("pos") is None:
@@ -126,6 +141,8 @@ class CloudLink:
             self.clock.update(resp["now"], sent_at, recv_at)
         if resp.get("op"):
             self._op_seen_at = time.monotonic()
+        if "lease" in resp:
+            self._lease = resp["lease"] if isinstance(resp["lease"], dict) else None
         for cmd in resp.get("commands") or []:
             self.on_command(cmd)
         return resp

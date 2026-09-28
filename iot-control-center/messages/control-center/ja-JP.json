@@ -762,7 +762,8 @@
       "params": "パラメーター",
       "logs": "ログ",
       "gimbal": "ジンバル",
-      "payload": "ペイロード"
+      "payload": "ペイロード",
+      "replay": "再生"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -801,7 +802,10 @@
       "otherGcsTitle": "他の地上局（Mission Plannerなど）が接続中です",
       "ridOk": "Remote ID",
       "ridBad": "Remote ID 異常",
-      "ridTitle": "Remote ID モジュールのアーム状態（OPEN_DRONE_ID_ARM_STATUS）"
+      "ridTitle": "Remote ID モジュールのアーム状態（OPEN_DRONE_ID_ARM_STATUS）",
+      "traffic": "ADS-B {count}",
+      "trafficTitle": "注意が必要な航空機はありません（1 km / 150 m 以内は危険、3 km / 300 m 以内は注意）",
+      "trafficNearest": "最接近：{name}、{dist} m、高度差 {dz} m"
     },
     "quick": {
       "alt": "高度",
@@ -817,7 +821,25 @@
       "heading": "方位",
       "throttle": "スロットル",
       "crosstrack": "横ずれ",
-      "wind": "風"
+      "wind": "風",
+      "altAmsl": "海抜高度",
+      "airspeed": "対気速度",
+      "batteryPct": "電池残量",
+      "sats": "衛星 · HDOP",
+      "rssi": "信号",
+      "ekf": "EKF",
+      "vibe": "振動",
+      "gimbalPitch": "ジンバルピッチ",
+      "traffic": "最寄りの航空機",
+      "piTemp": "Pi 温度",
+      "customize": "カスタマイズ",
+      "customizeTitle": "数値パネルのカスタマイズ",
+      "customizeDescription": "表示する項目と順序を選びます。このブラウザにのみ保存され、ドローンとローバーで別々に記憶します。",
+      "columns": "列数",
+      "moveUp": "{name} を上へ",
+      "moveDown": "{name} を下へ",
+      "reset": "既定に戻す",
+      "save": "保存"
     },
     "actions": {
       "sent": "送信しました：{command}",
@@ -886,7 +908,10 @@
       "cmd_roi_none": "ROI 解除",
       "cmd_payload_relay": "ペイロードリレー",
       "cmd_payload_pulse": "ペイロードパルス",
-      "cmd_payload_servo": "ペイロードサーボ"
+      "cmd_payload_servo": "ペイロードサーボ",
+      "cmd_log_list": "ログ一覧",
+      "cmd_log_download": "ログを Pi にコピー",
+      "cmd_log_cancel": "ログ転送を中止"
     },
     "messages": {
       "prearmTitle": "アーム前チェック未通過（{count}件）",
@@ -938,7 +963,8 @@
       "ekfBad": "EKF異常",
       "vibeHigh": "振動が大きすぎます",
       "fenceBreach": "ジオフェンス逸脱",
-      "voiceOn": "音声アラートをオンにしました"
+      "voiceOn": "音声アラートをオンにしました",
+      "traffic": "航空機 {name} に注意、距離 {dist} メートル、高度差 {dz} メートル"
     },
     "map": {
       "layers": "背景地図",
@@ -957,7 +983,8 @@
       "flyHere": "ここへ飛行",
       "lookHere": "カメラをここへ",
       "setHomeHere": "ホームに設定",
-      "measure": "距離を計測"
+      "measure": "距離を計測",
+      "traffic": "ADS-B 航空機"
     },
     "fly": {
       "title": "ここへ飛行しますか？",
@@ -1212,6 +1239,26 @@
         "alt": "高度",
         "remove": "削除",
         "empty": "ラリーポイントはまだありません。"
+      },
+      "orbitTool": "周回",
+      "orbitHint": "地図上で周回の中心をクリックしてください。",
+      "importNoFeatures": "ファイルに使えるポリゴン、ライン、地点がありません。",
+      "importNoPoints": "ラリーポイントにできる地点（Point）がファイルにありません。",
+      "importedRally": "ラリーポイントを {n} 件読み込みました",
+      "importedWaypoints": "ウェイポイントを {n} 件読み込みました（既定の高度）",
+      "orbit": {
+        "title": "注目地点を周回",
+        "description": "中心の周りにウェイポイントの輪を作ります。機体に近い側から始まり、一周して始点に戻ります。",
+        "radius": "半径（m）",
+        "alt": "高度（m、ホーム基準）",
+        "points": "1 周あたりの点数",
+        "turns": "周回数",
+        "ccw": "反時計回り",
+        "roi": "ジンバルを中心に向ける",
+        "roiHint": "前後に DO_SET_ROI_LOCATION／ROI_NONE を追加",
+        "summary": "{n} 項目、約 {length}",
+        "cancel": "キャンセル",
+        "insert": "ミッションに追加"
       }
     },
     "video": {
@@ -1320,7 +1367,17 @@
       "analyseTitle": "ログ解析",
       "analyseDescription": "ArduPilot 公式の Web ツールで解析できます：グラフは UAV Log Viewer、フィルター・PID・コンパスの確認は WebTools。ファイルをドロップするだけです。",
       "dataflashTitle": "フライトコントローラーの DataFlash ログ（.bin）",
-      "dataflashDescription": "シリアル経由のダウンロードは遅く、アーム中は拒否されます。SD カードを取り出すか、ディスアーム中に mavlink-router 経由で Mission Planner から取得してください。"
+      "dfDescription": "フライトコントローラーの SD カードから .bin を MAVLink でコンパニオンにコピーし、Pi からブラウザにダウンロードします。ディスアーム中のみ可能で、転送中は記録が一時停止します。",
+      "dfList": "FC のログを読む",
+      "dfArmed": "アーム中です：ArduPilot はディスアーム中のみログを提供します。",
+      "dfNeedControl": "上の「操作権を取得」をオンにしてからログを読み取り／コピーしてください。",
+      "dfNone": "FC にログがありません。",
+      "dfCopy": "ログ #{id} を Pi にコピー",
+      "dfCopied": "{name} を Pi にコピーしました",
+      "dfCopyFailed": "コピー失敗：{reason}",
+      "dfListFailed": "一覧を取得できません：{reason}",
+      "dfCancel": "中止",
+      "dfHint": "速度は FC と Pi の接続次第です：USB／921600 なら毎秒数百 kB、テレメトリ無線では約 5 kB/s（20 MB で約 1 時間）。大きなログは SD カードを取り出すのがおすすめです。"
     },
     "gimbal": {
       "axis_p": "ピッチ",
@@ -1354,6 +1411,55 @@
       "servos": "サーボ出力",
       "servo": "サーボ {index}",
       "hint": "コマンドはペイロードノード（既定は MAVLink コンポーネント 25）へ直接送信され、スイッチ状態はノードの報告に従います。フライトコントローラーの該当 TELEM ポートが MAVLink（SERIALx_PROTOCOL=2）の場合のみ転送されます。"
-    }
+    },
+    "follow": {
+      "title": "フォローミー",
+      "activeBadge": "追従中 · {n} 回送信",
+      "distance": "距離（m）",
+      "bearing": "方位（°、0＝北）",
+      "alt": "高度（m）",
+      "idle": "この端末の位置（スマホの GPS が最適）で機体を追従させます。3 m 以上動くか 5 秒ごとに目標を更新します。",
+      "waitingFix": "位置を取得中…",
+      "fix": "精度 ±{acc} m · 機体まで {dist}",
+      "noGeolocation": "このブラウザは位置情報に対応していません。",
+      "geoDenied": "ブラウザが位置情報の許可を拒否しました。",
+      "locate": "現在地を取得",
+      "start": "追従開始",
+      "stop": "追従停止",
+      "close": "位置取得を停止",
+      "block_poorFix": "位置の精度が不足しています（{acc} m 以内が必要）。",
+      "block_noVehiclePos": "機体の位置がまだ分かりません。",
+      "block_tooFar": "機体が {max} m 以上離れています。先に近づけてください。",
+      "stoppedFix": "位置が 5 秒以上途絶えたため追従を停止しました。機体は最後の目標で待機します。",
+      "stoppedLink": "接続が切れたため追従を停止しました。",
+      "stoppedControl": "操作権を解除したため追従を停止しました。",
+      "confirmTitle": "追従を開始しますか？",
+      "confirmDescription": "機体は GUIDED に切り替わり、あなたから {bearing}° 方向 {distance} m の位置へ移動して追従を続けます。このタブを離れる、位置や接続が途絶えると停止します（機体は最後の目標で待機）。周囲の障害物に注意してください。"
+    },
+    "replay": {
+      "title": "飛行の再生",
+      "description": "クラウドに 7 日間保存される航跡（アーム中は 2 秒ごと）。詳細は tlog や DataFlash を使ってください。",
+      "reload": "再読み込み",
+      "loadFailed": "航跡を読み込めません。",
+      "none": "この期間の飛行はありません（20 秒以上アームで 1 回の飛行）。",
+      "older": "さらに古い記録",
+      "maxAlt": "最高 {m} m",
+      "battery": "消費 {used}%",
+      "pick": "左から飛行を選んでください。",
+      "play": "再生",
+      "pause": "一時停止",
+      "position": "再生位置",
+      "elapsed": "経過",
+      "clock": "時刻",
+      "mode": "モード",
+      "alt": "高度",
+      "speed": "速度",
+      "bat": "電池"
+    },
+    "leaseHeld": "{name} がこの機体を操作中です（{since} から）。現在は閲覧のみです。「操作権を取得」をオンにすると引き継げます。",
+    "takenOver": "{name} が操作権を引き継ぎました。現在は閲覧のみです。",
+    "controlFailed": "操作権を取得できません。しばらくしてから再試行してください。",
+    "takeoverTitle": "操作権を引き継ぎますか？",
+    "takeoverDescription": "{name} が {since} から操作しています。引き継ぐと相手のコマンドは拒否され、引き継ぎはメッセージログに記録されます。二人で同時に操作しないよう、先に相手に確認してください。"
   }
 }

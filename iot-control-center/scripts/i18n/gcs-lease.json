@@ -1,0 +1,23 @@
+{
+  "zh-TW": { "Gcs": {
+    "leaseHeld": "{name} 正在控制這台載具（自 {since} 起）。你目前只能觀看；開啟「取得控制權」可接管。",
+    "takenOver": "{name} 接管了控制權，你現在只能觀看。",
+    "controlFailed": "無法取得控制權，請稍後再試。",
+    "takeoverTitle": "接管控制權？",
+    "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。"
+  } },
+  "en-US": { "Gcs": {
+    "leaseHeld": "{name} has control of this vehicle (since {since}). You are watching; switch on control to take over.",
+    "takenOver": "{name} took control; you are watching now.",
+    "controlFailed": "Could not take control, try again.",
+    "takeoverTitle": "Take over control?",
+    "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once."
+  } },
+  "ja-JP": { "Gcs": {
+    "leaseHeld": "{name} がこの機体を操作中です（{since} から）。現在は閲覧のみです。「操作権を取得」をオンにすると引き継げます。",
+    "takenOver": "{name} が操作権を引き継ぎました。現在は閲覧のみです。",
+    "controlFailed": "操作権を取得できません。しばらくしてから再試行してください。",
+    "takeoverTitle": "操作権を引き継ぎますか？",
+    "takeoverDescription": "{name} が {since} から操作しています。引き継ぐと相手のコマンドは拒否され、引き継ぎはメッセージログに記録されます。二人で同時に操作しないよう、先に相手に確認してください。"
+  } }
+}

@@ -40,16 +40,20 @@ export async function putPoints(vehicleId: string, states: VehicleState[]): Prom
 /** Reads a vehicle's recent flight-path window, oldest-first for charting. */
 export async function listPoints(
   vehicleId: string,
-  opts: { since?: number; limit: number }
+  opts: { since?: number; until?: number; limit: number }
 ): Promise<TelemetryPoint[]> {
+  const { since, until } = opts;
+  const range =
+    since !== undefined && until !== undefined ? " AND #t BETWEEN :since AND :until" : since !== undefined ? " AND #t >= :since" : until !== undefined ? " AND #t <= :until" : "";
   const res = await ddb.send(
     new QueryCommand({
       TableName: TABLES.CC_VEHICLE_TELEMETRY,
-      KeyConditionExpression: `vehicleId = :vid${opts.since === undefined ? "" : " AND #t >= :since"}`,
-      ...(opts.since === undefined ? {} : { ExpressionAttributeNames: { "#t": "t" } }),
+      KeyConditionExpression: `vehicleId = :vid${range}`,
+      ...(range ? { ExpressionAttributeNames: { "#t": "t" } } : {}),
       ExpressionAttributeValues: {
         ":vid": vehicleId,
-        ...(opts.since === undefined ? {} : { ":since": opts.since }),
+        ...(since === undefined ? {} : { ":since": since }),
+        ...(until === undefined ? {} : { ":until": until }),
       },
       // Newest first from the table, capped, then reversed to chronological.
       ScanIndexForward: false,

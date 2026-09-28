@@ -6,16 +6,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import { Crosshair, Download, Home, Layers, LocateFixed, Navigation, Ruler, X } from "lucide-react";
+import { Crosshair, Download, Home, Layers, LocateFixed, Navigation, Plane, Ruler, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { bearingDeg, distanceM, formatDistance } from "@/lib/control-center/vehicles/gcs/geo";
 import { DEFAULT_LAYER_ID, TILE_LAYERS, layerById, tilesForBounds } from "@/lib/control-center/vehicles/gcs/tiles";
 import type { VehicleStateV2 } from "@/lib/control-center/vehicles/types";
+import { AdsbLayer } from "./AdsbLayer";
 import { AutoResize, FollowView, InitialView, VehicleMarker, homeIcon, targetIcon } from "./mapParts";
 
 const LAYER_KEY = "gcs.map.layer";
+const TRAFFIC_KEY = "gcs.map.traffic";
 const TAIPEI: [number, number] = [25.033, 121.5654];
 const MENU_W = 184;
 const MENU_H = 170;
@@ -138,9 +140,28 @@ export function GcsMap({
   const [follow, setFollow] = useState(followInitial);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [measure, setMeasure] = useState<{ lat: number; lon: number } | null>(null);
+  const [showTraffic, setShowTraffic] = useState(true);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setLayerId(readLayer()), []);
+  useEffect(() => {
+    try {
+      setShowTraffic(localStorage.getItem(TRAFFIC_KEY) !== "0");
+    } catch {
+      /* private mode */
+    }
+  }, []);
+
+  function toggleTraffic() {
+    setShowTraffic((on) => {
+      try {
+        localStorage.setItem(TRAFFIC_KEY, on ? "0" : "1");
+      } catch {
+        /* private mode */
+      }
+      return !on;
+    });
+  }
   useEffect(() => {
     // Cache tiles for offline use; scoped to the vehicles pages only.
     navigator.serviceWorker?.register("/tile-sw.js", { scope: "/iot-control-center/vehicles/" }).catch(() => undefined);
@@ -187,6 +208,7 @@ export function GcsMap({
         {target && <Marker position={[target.lat, target.lon]} icon={targetIcon()} />}
         {pos && target && <Polyline positions={[[pos.lat, pos.lon], [target.lat, target.lon]]} pathOptions={{ color: "#e11d48", weight: 2, dashArray: "6 6" }} />}
         {pos && measure && <Polyline positions={[[pos.lat, pos.lon], [measure.lat, measure.lon]]} pathOptions={{ color: "#facc15", weight: 2, dashArray: "4 4" }} />}
+        {showTraffic && <AdsbLayer targets={state?.adsb} />}
         {pos && <VehicleMarker lat={pos.lat} lon={pos.lon} heading={state?.hdg ?? state?.att?.y ?? null} cls={cls} label={vehicleLabel} />}
         {children}
         <div className="leaflet-top leaflet-right">
@@ -218,6 +240,19 @@ export function GcsMap({
             >
               <LocateFixed className="h-3.5 w-3.5" />
             </Button>
+            {state?.adsb != null && (
+              <Button
+                size="icon-sm"
+                variant={showTraffic ? "default" : "secondary"}
+                className="shadow"
+                onClick={toggleTraffic}
+                aria-pressed={showTraffic}
+                aria-label={t("traffic")}
+                title={t("traffic")}
+              >
+                <Plane className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <PrefetchButton layerId={layerId} />
           </div>
         </div>

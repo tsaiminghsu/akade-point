@@ -84,9 +84,13 @@ class Config:
     telemetry_interval_s: float = 1.0
     # One history point every N seconds.
     history_every_s: float = 5.0
+    # History point spacing while armed (the ground station's flight replay).
+    history_armed_s: float = 2.0
     # Telemetry logs; empty disables recording.
     tlog_dir: str = "tlogs"
     tlog_max_mb: int = 2048
+    # DataFlash logs copied from the autopilot (log_download); served on /files/logs.
+    dataflash_dir: str = "dataflash"
     log_level: str = "INFO"
     mqtt: MqttConfig = field(default_factory=MqttConfig)
     direct: DirectConfig = field(default_factory=DirectConfig)

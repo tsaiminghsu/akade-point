@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { apiRequest } from "@/lib/control-center/apiClient";
+import { CLIENT_HEADER, LEASE_RENEW_MS } from "@/lib/control-center/vehicles/lease";
 import { resolveTimeouts } from "@/lib/control-center/vehicles/commandState";
 import { GCS_LIVE_POLL_MS } from "@/lib/control-center/vehicles/constants";
 import { eventSortKey } from "@/lib/control-center/vehicles/eventKey";
@@ -74,6 +75,11 @@ interface GcsState {
   trail: [number, number][];
   control: boolean;
   now: number;
+  /** the operator's own position while "follow me" is on (drawn on the map) */
+  me: { lat: number; lon: number; accuracy: number } | null;
+  /** who holds control of the vehicle (server lease), and whether it is this page */
+  lease: LeaseInfo | null;
+  leaseMine: boolean;
 
   open: (vehicleId: string) => void;
   close: () => void;
@@ -92,7 +98,11 @@ interface GcsState {
   drive: (vx: number, yr: number) => boolean;
   /** Stream gimbal angles over the direct link; false if it is not open. */
   gimbalStream: (pitch: number, yaw: number, lock: boolean) => boolean;
-  setControl: (on: boolean) => void;
+  /**
+   * Take (or give back) control: acquires the server lease and renews it while
+   * on. Fails when another operator holds it unless `force` (a takeover).
+   */
+  setControl: (on: boolean, opts?: { force?: boolean }) => Promise<{ ok: boolean; lease: LeaseInfo | null }>;
   reconnectDirect: () => void;
 }
 
@@ -102,6 +112,18 @@ const SAMPLE_EVERY_MS = 500;
 const MAX_TRAIL = 1800;
 const TRAIL_MIN_STEP_DEG = 0.000003; // ~0.3 m
 
+/** This page, for the control lease (lib/control-center/vehicles/lease.ts). */
+export const CLIENT_ID =
+  typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
+export interface LeaseInfo {
+  cid: string;
+  name: string;
+  until: number;
+  since: number;
+}
+
+let leaseTimer: ReturnType<typeof setInterval> | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let direct: DirectLink | null = null;
@@ -159,6 +181,11 @@ function fromCloudCommand(c: VehicleCommand): GcsCommand {
   };
 }
 
+function stopLeaseRenewal() {
+  if (leaseTimer) clearInterval(leaseTimer);
+  leaseTimer = null;
+}
+
 export const useGcsStore = create<GcsState>()((set, get) => {
   /** Adopt a new state snapshot from `source` sampled at `at` (browser clock). */
   function acceptState(state: VehicleStateV2, source: LinkKind, at: number) {
@@ -202,12 +229,41 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     });
   }
 
+  async function postLease(vehicleId: string, action: "acquire" | "release", force = false): Promise<{ held: boolean; lease: LeaseInfo | null } | null> {
+    try {
+      const res = await fetch(`/api/control-center/vehicles/${vehicleId}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, cid: CLIENT_ID, force }),
+        keepalive: action === "release",
+      });
+      return (await res.json().catch(() => null)) as { held: boolean; lease: LeaseInfo | null } | null;
+    } catch {
+      return null;
+    }
+  }
+
+  function startLeaseRenewal(vehicleId: string) {
+    stopLeaseRenewal();
+    leaseTimer = setInterval(async () => {
+      if (!get().control || get().vehicleId !== vehicleId) return stopLeaseRenewal();
+      const res = await postLease(vehicleId, "acquire");
+      // Taken over, or the vehicle is gone: stop claiming control. A network
+      // blip (null) keeps trying; the lease lasts three renewals.
+      if (res && !res.held) {
+        stopLeaseRenewal();
+        direct?.setOperator(false);
+        set({ control: false, lease: res.lease, leaseMine: false });
+      }
+    }, LEASE_RENEW_MS);
+  }
+
   async function fetchTicket(vehicleId: string): Promise<TicketResponse | { error: string } | null> {
     try {
       const res = await fetch(`/api/control-center/vehicles/${vehicleId}/direct-ticket`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope: "control" }),
+        body: JSON.stringify({ scope: "control", cid: CLIENT_ID }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) return { error: body.error ?? String(res.status) };
@@ -231,6 +287,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     }
     const res = await apiRequest<{ command: VehicleCommand }>(`/api/control-center/vehicles/${id}/commands`, {
       method: "POST",
+      headers: { [CLIENT_HEADER]: CLIENT_ID },
       body: JSON.stringify(request),
     });
     if (!res) return null;
@@ -274,7 +331,7 @@ export const useGcsStore = create<GcsState>()((set, get) => {
       if (cursor) qs.set("after", cursor);
       if (get().control) qs.set("op", "1");
       const sent = Date.now();
-      const res = await apiRequest<{ vehicle: Vehicle; events: VehicleEvent[]; commands: VehicleCommand[]; now: number }>(
+      const res = await apiRequest<{ vehicle: Vehicle; events: VehicleEvent[]; commands: VehicleCommand[]; lease?: LeaseInfo | null; now: number }>(
         `/api/control-center/vehicles/${id}/live?${qs}`,
         undefined,
         { silent: true, timeoutMs: 8000 }
@@ -288,8 +345,18 @@ export const useGcsStore = create<GcsState>()((set, get) => {
       const clockOffset = res.now - (sent + rx) / 2; // server − browser
       const { vehicle } = res;
       const firstLoad = get().vehicle === null;
+      const lease = res.lease ?? null;
+      const leaseMine = lease?.cid === CLIENT_ID;
+      if (get().control && lease && !leaseMine) {
+        // Another operator took over: this page is only watching now.
+        stopLeaseRenewal();
+        direct?.setOperator(false);
+        set({ control: false });
+      }
       set((s) => ({
         vehicle,
+        lease,
+        leaseMine,
         link: { ...s.link, cloud: { ...s.link.cloud, ok: true, error: false } },
         messages: mergeMessages(
           s.messages,
@@ -350,6 +417,9 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     trail: [],
     control: false,
     now: Date.now(),
+    me: null,
+    lease: null,
+    leaseMine: false,
 
     open: (vehicleId) => {
       if (get().vehicleId === vehicleId) return;
@@ -366,6 +436,9 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     },
 
     close: () => {
+      const leaving = get().vehicleId;
+      if (leaving && get().control) void postLease(leaving, "release");
+      stopLeaseRenewal();
       if (pollTimer) clearInterval(pollTimer);
       if (tickTimer) clearInterval(tickTimer);
       pollTimer = tickTimer = null;
@@ -389,6 +462,9 @@ export const useGcsStore = create<GcsState>()((set, get) => {
         samples: [],
         trail: [],
         control: false,
+        me: null,
+        lease: null,
+        leaseMine: false,
       });
     },
 
@@ -442,10 +518,27 @@ export const useGcsStore = create<GcsState>()((set, get) => {
     drive: (vx, yr) => (direct?.isOpen ? direct.sendManual(vx, yr) : false),
     gimbalStream: (p, y, lock) => (direct?.isOpen && get().link.direct.scope === "control" ? direct.sendGimbal(p, y, lock) : false),
 
-    setControl: (on) => {
-      set({ control: on });
-      direct?.setOperator(on);
+    setControl: async (on, opts = {}) => {
+      const id = get().vehicleId;
+      if (!id) return { ok: false, lease: null };
+      if (!on) {
+        stopLeaseRenewal();
+        set({ control: false, leaseMine: false });
+        direct?.setOperator(false);
+        await postLease(id, "release");
+        void pollLive();
+        return { ok: true, lease: null };
+      }
+      const res = await postLease(id, "acquire", opts.force === true);
+      if (!res?.held) {
+        set({ lease: res?.lease ?? null, leaseMine: false });
+        return { ok: false, lease: res?.lease ?? null };
+      }
+      set({ control: true, lease: res.lease, leaseMine: true });
+      direct?.setOperator(true);
+      startLeaseRenewal(id);
       void pollLive();
+      return { ok: true, lease: res.lease };
     },
 
     reconnectDirect: () => {

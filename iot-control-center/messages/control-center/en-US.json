@@ -762,7 +762,8 @@
       "params": "Parameters",
       "logs": "Logs",
       "gimbal": "Gimbal",
-      "payload": "Payload"
+      "payload": "Payload",
+      "replay": "Replay"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -801,7 +802,10 @@
       "otherGcsTitle": "Another ground station (e.g. Mission Planner) is connected",
       "ridOk": "Remote ID",
       "ridBad": "Remote ID fault",
-      "ridTitle": "Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS)"
+      "ridTitle": "Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS)",
+      "traffic": "ADS-B {count}",
+      "trafficTitle": "No traffic needing attention (danger within 1 km / 150 m, caution within 3 km / 300 m)",
+      "trafficNearest": "Nearest: {name}, {dist} m, {dz} m relative"
     },
     "quick": {
       "alt": "Altitude",
@@ -817,7 +821,25 @@
       "heading": "Heading",
       "throttle": "Throttle",
       "crosstrack": "Cross-track",
-      "wind": "Wind"
+      "wind": "Wind",
+      "altAmsl": "Altitude AMSL",
+      "airspeed": "Airspeed",
+      "batteryPct": "Battery",
+      "sats": "Sats · HDOP",
+      "rssi": "Signal",
+      "ekf": "EKF",
+      "vibe": "Vibration",
+      "gimbalPitch": "Gimbal pitch",
+      "traffic": "Nearest traffic",
+      "piTemp": "Pi temp",
+      "customize": "Customise",
+      "customizeTitle": "Customise the quick panel",
+      "customizeDescription": "Pick the fields and their order. Saved in this browser only, separately for drones and rovers.",
+      "columns": "Columns",
+      "moveUp": "Move {name} up",
+      "moveDown": "Move {name} down",
+      "reset": "Reset to default",
+      "save": "Save"
     },
     "actions": {
       "sent": "Sent: {command}",
@@ -886,7 +908,10 @@
       "cmd_roi_none": "Cancel ROI",
       "cmd_payload_relay": "Payload relay",
       "cmd_payload_pulse": "Payload pulse",
-      "cmd_payload_servo": "Payload servo"
+      "cmd_payload_servo": "Payload servo",
+      "cmd_log_list": "List logs",
+      "cmd_log_download": "Copy log to Pi",
+      "cmd_log_cancel": "Cancel log download"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -938,7 +963,8 @@
       "ekfBad": "EKF error",
       "vibeHigh": "High vibration",
       "fenceBreach": "Fence breach",
-      "voiceOn": "Voice alerts on"
+      "voiceOn": "Voice alerts on",
+      "traffic": "Traffic {name}, {dist} metres, {dz} metres relative"
     },
     "map": {
       "layers": "Base map",
@@ -957,7 +983,8 @@
       "flyHere": "Fly here",
       "lookHere": "Point camera here",
       "setHomeHere": "Set home here",
-      "measure": "Measure distance"
+      "measure": "Measure distance",
+      "traffic": "ADS-B traffic"
     },
     "fly": {
       "title": "Fly here?",
@@ -1212,6 +1239,26 @@
         "alt": "Altitude",
         "remove": "Remove",
         "empty": "No rally points yet."
+      },
+      "orbitTool": "Orbit",
+      "orbitHint": "Click the point to circle on the map.",
+      "importNoFeatures": "No polygons, paths or placemarks in the file.",
+      "importNoPoints": "No placemarks (Point) in the file to use as rally points.",
+      "importedRally": "Imported {n} rally points",
+      "importedWaypoints": "Imported {n} waypoints (default altitude)",
+      "orbit": {
+        "title": "Orbit a point of interest",
+        "description": "A ring of waypoints around the centre, starting on the side nearest the vehicle and closing back on its start.",
+        "radius": "Radius (m)",
+        "alt": "Altitude (m above home)",
+        "points": "Waypoints per turn",
+        "turns": "Turns",
+        "ccw": "Counter-clockwise",
+        "roi": "Gimbal looks at the centre",
+        "roiHint": "Wraps the ring in DO_SET_ROI_LOCATION / ROI_NONE",
+        "summary": "{n} items, about {length}",
+        "cancel": "Cancel",
+        "insert": "Add to mission"
       }
     },
     "video": {
@@ -1320,7 +1367,17 @@
       "analyseTitle": "Analysing logs",
       "analyseDescription": "Use ArduPilot's own web tools: UAV Log Viewer for plots; WebTools for filter, PID and compass reviews. Drop the file in.",
       "dataflashTitle": "Autopilot DataFlash logs (.bin)",
-      "dataflashDescription": "Downloading over a serial link is slow and refused while armed. Pull the SD card, or use Mission Planner through mavlink-router while disarmed."
+      "dfDescription": "Copies .bin logs from the autopilot's SD card to the companion over MAVLink, then from the Pi to your browser. Disarmed only; the autopilot pauses logging during the transfer.",
+      "dfList": "List autopilot logs",
+      "dfArmed": "The vehicle is armed: ArduPilot only serves logs while disarmed.",
+      "dfNeedControl": "Take control above to list or copy logs.",
+      "dfNone": "No logs on the autopilot.",
+      "dfCopy": "Copy log #{id} to the Pi",
+      "dfCopied": "{name} copied to the Pi",
+      "dfCopyFailed": "Copy failed: {reason}",
+      "dfListFailed": "Could not list logs: {reason}",
+      "dfCancel": "Cancel",
+      "dfHint": "Speed depends on the autopilot-to-Pi link: hundreds of kB/s over USB or 921600 baud, about 5 kB/s over a telemetry radio (an hour for 20 MB). For very large logs, pull the SD card."
     },
     "gimbal": {
       "axis_p": "Pitch",
@@ -1354,6 +1411,55 @@
       "servos": "Servo outputs",
       "servo": "Servo {index}",
       "hint": "Commands go straight to the payload node (MAVLink component 25 by default); switch states are what the node reports. The autopilot forwards them only if that TELEM port runs MAVLink (SERIALx_PROTOCOL=2)."
-    }
+    },
+    "follow": {
+      "title": "Follow me",
+      "activeBadge": "Following · {n} sent",
+      "distance": "Distance (m)",
+      "bearing": "Bearing (°, 0 = north)",
+      "alt": "Altitude (m)",
+      "idle": "Uses this device's location (a phone's GPS is best) to keep the vehicle with you; the target updates when you move 3 m or every 5 s.",
+      "waitingFix": "Waiting for a location fix…",
+      "fix": "Accuracy ±{acc} m · {dist} to the vehicle",
+      "noGeolocation": "This browser has no geolocation.",
+      "geoDenied": "The browser denied location access.",
+      "locate": "Get my location",
+      "start": "Start following",
+      "stop": "Stop following",
+      "close": "Stop locating",
+      "block_poorFix": "Location not accurate enough (needs {acc} m or better).",
+      "block_noVehiclePos": "The vehicle's position is not known yet.",
+      "block_tooFar": "The vehicle is more than {max} m from you; bring it closer first.",
+      "stoppedFix": "No location for 5 s: stopped following. The vehicle holds its last target.",
+      "stoppedLink": "Link lost: stopped following.",
+      "stoppedControl": "Control released: stopped following.",
+      "confirmTitle": "Start following?",
+      "confirmDescription": "The vehicle switches to GUIDED, moves to {distance} m at {bearing}° from you and keeps following. Leaving this tab, losing your location or the link stops it (the vehicle holds its last target). Mind obstacles."
+    },
+    "replay": {
+      "title": "Flight replay",
+      "description": "Tracks kept in the cloud for 7 days (a point every 2 s while armed). For detail use the tlog or DataFlash log.",
+      "reload": "Reload",
+      "loadFailed": "Could not load the track history.",
+      "none": "No flights in this period (armed for over 20 s counts as a flight).",
+      "older": "Load older",
+      "maxAlt": "max {m} m",
+      "battery": "{used}% used",
+      "pick": "Pick a flight on the left.",
+      "play": "Play",
+      "pause": "Pause",
+      "position": "Replay position",
+      "elapsed": "Elapsed",
+      "clock": "Time",
+      "mode": "Mode",
+      "alt": "Altitude",
+      "speed": "Speed",
+      "bat": "Battery"
+    },
+    "leaseHeld": "{name} has control of this vehicle (since {since}). You are watching; switch on control to take over.",
+    "takenOver": "{name} took control; you are watching now.",
+    "controlFailed": "Could not take control, try again.",
+    "takeoverTitle": "Take over control?",
+    "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once."
   }
 }

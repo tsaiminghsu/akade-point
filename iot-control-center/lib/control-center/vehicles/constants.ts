@@ -50,6 +50,10 @@ export const COMMAND_TIMEOUT_MS: Record<VehicleCommandType, number> = {
   payload_relay: 10_000,
   payload_pulse: 10_000,
   payload_servo: 10_000,
+  log_list: 30_000,
+  // Over a telemetry radio (~5 kB/s) a 20 MB log takes about an hour.
+  log_download: 3 * 60 * 60_000,
+  log_cancel: 10_000,
 };
 
 /**
@@ -131,6 +135,9 @@ const COMMON_COMMANDS: VehicleCommandType[] = [
   "payload_relay",
   "payload_pulse",
   "payload_servo",
+  "log_list",
+  "log_download",
+  "log_cancel",
 ];
 
 /** The ESP32 rover base (MAV_AUTOPILOT_GENERIC) implements only these, with ArduPilot Rover's numbers. */

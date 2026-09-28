@@ -11,6 +11,7 @@ import {
   History,
   Home,
   MapPinPlus,
+  Orbit,
   Save,
   ScanLine,
   Trash2,
@@ -25,10 +26,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog";
-import { formatDistance } from "@/lib/control-center/vehicles/gcs/geo";
+import { bearingDeg, formatDistance } from "@/lib/control-center/vehicles/gcs/geo";
 import { MISSION_TYPE, type PlanKind, type VehicleFamily } from "@/lib/control-center/vehicles/plan/mavCmdMeta";
+import { isEmpty as noFeatures, kmlFromKmz, parseKml } from "@/lib/control-center/vehicles/plan/geoImport";
 import { missionStats, polygonsFromGeoJson, resumeFrom, validateFence, validateMission, type PlanIssue } from "@/lib/control-center/vehicles/plan/missionTools";
-import { diffItems, newKey } from "@/lib/control-center/vehicles/plan/planModel";
+import { blankItem, diffItems, newKey } from "@/lib/control-center/vehicles/plan/planModel";
 import { parseWaypointsFile, serializeWaypointsFile } from "@/lib/control-center/vehicles/waypoints";
 import type { MissionItem, Vehicle } from "@/lib/control-center/vehicles/types";
 import { useGcsStore } from "@/store/useGcsStore";
@@ -38,6 +40,7 @@ import { GcsMap } from "../map/GcsMap";
 import { FencePanel, RallyPanel } from "./FencePanel";
 import { ItemTable } from "./ItemTable";
 import { PlanOverlay } from "./PlanOverlay";
+import { OrbitDialog } from "./OrbitDialog";
 import { SurveyDialog } from "./SurveyDialog";
 
 const TRANSFER_TIMEOUT_MS = 150_000;
@@ -77,6 +80,7 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
   const [resumeOpen, setResumeOpen] = useState(false);
   const [resumeAt, setResumeAt] = useState("");
   const [circleRadius, setCircleRadius] = useState(100);
+  const [orbitAt, setOrbitAt] = useState<{ lat: number; lon: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -227,7 +231,37 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
     URL.revokeObjectURL(a.href);
   }
 
+  async function importKml(file: File) {
+    const text = /\.kmz$/i.test(file.name) ? await kmlFromKmz(await file.arrayBuffer()) : await file.text();
+    const f = text ? parseKml(text) : null;
+    if (!f || noFeatures(f)) {
+      toast.error(t("importNoFeatures"));
+      return;
+    }
+    if (kind === "fence") {
+      if (f.polygons.length === 0) return void toast.error(t("importNoPolygon"));
+      plan.updateFence((fe) => ({ ...fe, polygons: [...fe.polygons, ...f.polygons.map((p) => ({ key: newKey(), inclusion: true, points: p.points }))] }));
+      toast.success(t("importedPolygons", { n: f.polygons.length }));
+    } else if (kind === "rally") {
+      if (f.points.length === 0) return void toast.error(t("importNoPoints"));
+      for (const p of f.points) plan.addRally(p.lat, p.lon);
+      toast.success(t("importedRally", { n: f.points.length }));
+    } else if (f.paths.length > 0 || f.points.length > 0) {
+      // Paths and placemarks become waypoints at the plan's default altitude
+      // (KML heights are usually clamped to the ground or absolute).
+      const alt = family === "rover" ? 0 : plan.defaultAlt;
+      const pts = [...f.paths.flatMap((p) => p.points.map(([lat, lon]) => ({ lat, lon }))), ...f.points];
+      plan.appendItems(pts.map((p) => blankItem(16, p.lat, p.lon, alt)));
+      toast.success(t("importedWaypoints", { n: pts.length }));
+    } else {
+      plan.setKind("mission");
+      usePlanStore.setState({ draw: "survey", drawPoints: f.polygons[0].points });
+      setSurveyOpen(true);
+    }
+  }
+
   async function importFile(file: File) {
+    if (/\.km[lz]$/i.test(file.name)) return importKml(file);
     const text = await file.text();
     if (/\.(geo)?json$/i.test(file.name)) {
       let json: unknown;
@@ -295,6 +329,10 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
       case "fenceReturn":
         plan.setFenceReturn({ lat, lon });
         break;
+      case "orbit":
+        plan.clearDraw();
+        setOrbitAt({ lat, lon });
+        break;
       default:
         plan.select(null);
     }
@@ -355,7 +393,7 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
             <input
               ref={fileRef}
               type="file"
-              accept=".waypoints,.txt,.geojson,.json"
+              accept=".waypoints,.txt,.geojson,.json,.kml,.kmz"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -406,6 +444,9 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
               <Button size="sm" variant={draw === "survey" ? "default" : "outline"} className="h-7 gap-1 text-xs" onClick={() => plan.setDraw(draw === "survey" ? "none" : "survey")}>
                 <ScanLine className="h-3.5 w-3.5" /> {t("surveyTool")}
               </Button>
+              <Button size="sm" variant={draw === "orbit" ? "default" : "outline"} className="h-7 gap-1 text-xs" onClick={() => plan.setDraw(draw === "orbit" ? "none" : "orbit")}>
+                <Orbit className="h-3.5 w-3.5" /> {t("orbitTool")}
+              </Button>
               <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={plan.mission.items.length === 0} onClick={() => setResumeOpen(true)}>
                 <History className="h-3.5 w-3.5" /> {t("resume")}
               </Button>
@@ -437,6 +478,7 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
               </div>
             )}
             {draw === "addWp" && <p className="text-xs text-primary">{t("addHint")}</p>}
+            {draw === "orbit" && <p className="text-xs text-primary">{t("orbitHint")}</p>}
           </>
         )}
 
@@ -484,6 +526,12 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
       />
       <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title={t("deleteTitle", { name })} onConfirm={() => void remove()} />
       <SurveyDialog open={surveyOpen} onOpenChange={setSurveyOpen} vehicle={family} />
+      <OrbitDialog
+        centre={orbitAt}
+        onClose={() => setOrbitAt(null)}
+        vehicle={family}
+        startBearing={orbitAt && gcsState?.pos ? bearingDeg(orbitAt.lat, orbitAt.lon, gcsState.pos.lat, gcsState.pos.lon) : null}
+      />
       <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

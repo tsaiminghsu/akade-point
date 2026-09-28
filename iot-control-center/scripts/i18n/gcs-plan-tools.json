@@ -1,0 +1,68 @@
+{
+  "zh-TW": { "Gcs": { "plan": {
+    "orbitTool": "環繞",
+    "orbitHint": "在地圖上點選要環繞的中心點。",
+    "importNoFeatures": "檔案裡沒有可用的多邊形、路線或地標。",
+    "importNoPoints": "檔案裡沒有地標（Point）可當 Rally 點。",
+    "importedRally": "已匯入 {n} 個 Rally 點",
+    "importedWaypoints": "已匯入 {n} 個航點（高度用預設值）",
+    "orbit": {
+      "title": "環繞興趣點",
+      "description": "在中心點周圍產生一圈航點，從最靠近載具的那一側開始，繞完回到起點。",
+      "radius": "半徑（公尺）",
+      "alt": "高度（公尺，相對起飛點）",
+      "points": "每圈航點數",
+      "turns": "圈數",
+      "ccw": "逆時針",
+      "roi": "雲台鎖定中心點",
+      "roiHint": "前後加上 DO_SET_ROI_LOCATION／ROI_NONE",
+      "summary": "共 {n} 個項目，路線約 {length}",
+      "cancel": "取消",
+      "insert": "加入任務"
+    }
+  } } },
+  "en-US": { "Gcs": { "plan": {
+    "orbitTool": "Orbit",
+    "orbitHint": "Click the point to circle on the map.",
+    "importNoFeatures": "No polygons, paths or placemarks in the file.",
+    "importNoPoints": "No placemarks (Point) in the file to use as rally points.",
+    "importedRally": "Imported {n} rally points",
+    "importedWaypoints": "Imported {n} waypoints (default altitude)",
+    "orbit": {
+      "title": "Orbit a point of interest",
+      "description": "A ring of waypoints around the centre, starting on the side nearest the vehicle and closing back on its start.",
+      "radius": "Radius (m)",
+      "alt": "Altitude (m above home)",
+      "points": "Waypoints per turn",
+      "turns": "Turns",
+      "ccw": "Counter-clockwise",
+      "roi": "Gimbal looks at the centre",
+      "roiHint": "Wraps the ring in DO_SET_ROI_LOCATION / ROI_NONE",
+      "summary": "{n} items, about {length}",
+      "cancel": "Cancel",
+      "insert": "Add to mission"
+    }
+  } } },
+  "ja-JP": { "Gcs": { "plan": {
+    "orbitTool": "周回",
+    "orbitHint": "地図上で周回の中心をクリックしてください。",
+    "importNoFeatures": "ファイルに使えるポリゴン、ライン、地点がありません。",
+    "importNoPoints": "ラリーポイントにできる地点（Point）がファイルにありません。",
+    "importedRally": "ラリーポイントを {n} 件読み込みました",
+    "importedWaypoints": "ウェイポイントを {n} 件読み込みました（既定の高度）",
+    "orbit": {
+      "title": "注目地点を周回",
+      "description": "中心の周りにウェイポイントの輪を作ります。機体に近い側から始まり、一周して始点に戻ります。",
+      "radius": "半径（m）",
+      "alt": "高度（m、ホーム基準）",
+      "points": "1 周あたりの点数",
+      "turns": "周回数",
+      "ccw": "反時計回り",
+      "roi": "ジンバルを中心に向ける",
+      "roiHint": "前後に DO_SET_ROI_LOCATION／ROI_NONE を追加",
+      "summary": "{n} 項目、約 {length}",
+      "cancel": "キャンセル",
+      "insert": "ミッションに追加"
+    }
+  } } }
+}

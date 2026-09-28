@@ -10,6 +10,7 @@
  */
 
 import type { VehicleStateV2 } from "../types";
+import { trafficLabel, worstTraffic } from "./adsb";
 import { batteryLevel, ekfLevel, gpsLevel, vibeLevel, type BatteryThresholds, DEFAULT_BATTERY } from "./health";
 
 export type AlertKind =
@@ -25,6 +26,7 @@ export type AlertKind =
   | "ekfBad"
   | "vibeHigh"
   | "fenceBreach"
+  | "traffic"
   | "text";
 
 export type AlertSeverity = "info" | "warn" | "critical";
@@ -96,6 +98,8 @@ export class AlertEngine {
   private ekf = new Condition({ holdMs: 3000 });
   private vibe = new Condition({ holdMs: 5000 });
   private fence = new Condition({ holdMs: 0 });
+  // Manned traffic inside the alarm distance: say it at once, repeat while it stays close.
+  private traffic = new Condition({ holdMs: 0, repeatMs: 30_000 });
   private linkWasLost = false;
 
   constructor(private battery: BatteryThresholds = DEFAULT_BATTERY) {}
@@ -149,6 +153,13 @@ export class AlertEngine {
     if (this.vibe.step(vl === "unknown" ? null : vl === "bad", now)) push("vibeHigh", "warn");
 
     if (this.fence.step(state.fence ? state.fence.breach : null, now)) push("fenceBreach", "critical");
+
+    // No ADS-B block at all (no receiver) is "unknown", not "clear".
+    const worst = state.adsb === undefined || state.adsb === null ? null : worstTraffic(state.adsb);
+    if (this.traffic.step(state.adsb == null ? null : worst?.level === "alarm", now) && worst) {
+      const t = worst.target;
+      push("traffic", "critical", { name: trafficLabel(t), dist: t.d ?? 0, dz: t.dz === null ? "?" : `${t.dz > 0 ? "+" : ""}${t.dz}` });
+    }
 
     return out;
   }

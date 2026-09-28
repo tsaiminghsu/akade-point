@@ -762,7 +762,8 @@
       "params": "參數",
       "logs": "日誌",
       "gimbal": "雲台",
-      "payload": "酬載"
+      "payload": "酬載",
+      "replay": "回放"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -801,7 +802,10 @@
       "otherGcsTitle": "偵測到其他地面站（例如 Mission Planner）連線中",
       "ridOk": "Remote ID",
       "ridBad": "Remote ID 異常",
-      "ridTitle": "Remote ID 模組的解鎖狀態（OPEN_DRONE_ID_ARM_STATUS）"
+      "ridTitle": "Remote ID 模組的解鎖狀態（OPEN_DRONE_ID_ARM_STATUS）",
+      "traffic": "ADS-B {count}",
+      "trafficTitle": "附近沒有需要注意的航空器（1 公里 / 150 公尺內為危險，3 公里 / 300 公尺內為注意）",
+      "trafficNearest": "最近：{name}，{dist} 公尺，高度差 {dz} 公尺"
     },
     "quick": {
       "alt": "高度",
@@ -817,7 +821,25 @@
       "heading": "航向",
       "throttle": "油門",
       "crosstrack": "偏航誤差",
-      "wind": "風"
+      "wind": "風",
+      "altAmsl": "海拔高度",
+      "airspeed": "空速",
+      "batteryPct": "電量",
+      "sats": "衛星 · HDOP",
+      "rssi": "訊號",
+      "ekf": "EKF",
+      "vibe": "震動",
+      "gimbalPitch": "雲台俯仰",
+      "traffic": "最近航空器",
+      "piTemp": "Pi 溫度",
+      "customize": "自訂",
+      "customizeTitle": "自訂數值面板",
+      "customizeDescription": "勾選要顯示的欄位並調整順序；設定只存在這個瀏覽器，無人機與無人車分開記。",
+      "columns": "欄數",
+      "moveUp": "{name} 上移",
+      "moveDown": "{name} 下移",
+      "reset": "恢復預設",
+      "save": "儲存"
     },
     "actions": {
       "sent": "已送出：{command}",
@@ -886,7 +908,10 @@
       "cmd_roi_none": "取消注視點",
       "cmd_payload_relay": "酬載繼電器",
       "cmd_payload_pulse": "酬載脈衝",
-      "cmd_payload_servo": "酬載伺服"
+      "cmd_payload_servo": "酬載伺服",
+      "cmd_log_list": "讀取日誌清單",
+      "cmd_log_download": "複製日誌到 Pi",
+      "cmd_log_cancel": "取消日誌下載"
     },
     "messages": {
       "prearmTitle": "解鎖前檢查未通過（{count} 項）",
@@ -938,7 +963,8 @@
       "ekfBad": "EKF 異常",
       "vibeHigh": "震動過高",
       "fenceBreach": "超出電子圍籬",
-      "voiceOn": "語音警示已開啟"
+      "voiceOn": "語音警示已開啟",
+      "traffic": "注意航空器 {name}，距離 {dist} 公尺，高度差 {dz} 公尺"
     },
     "map": {
       "layers": "底圖",
@@ -957,7 +983,8 @@
       "flyHere": "飛到這裡",
       "lookHere": "雲台看這裡",
       "setHomeHere": "設為 Home",
-      "measure": "量距離"
+      "measure": "量距離",
+      "traffic": "ADS-B 航空器"
     },
     "fly": {
       "title": "飛到這裡？",
@@ -1212,6 +1239,26 @@
         "alt": "高度",
         "remove": "刪除",
         "empty": "還沒有 Rally 點。"
+      },
+      "orbitTool": "環繞",
+      "orbitHint": "在地圖上點選要環繞的中心點。",
+      "importNoFeatures": "檔案裡沒有可用的多邊形、路線或地標。",
+      "importNoPoints": "檔案裡沒有地標（Point）可當 Rally 點。",
+      "importedRally": "已匯入 {n} 個 Rally 點",
+      "importedWaypoints": "已匯入 {n} 個航點（高度用預設值）",
+      "orbit": {
+        "title": "環繞興趣點",
+        "description": "在中心點周圍產生一圈航點，從最靠近載具的那一側開始，繞完回到起點。",
+        "radius": "半徑（公尺）",
+        "alt": "高度（公尺，相對起飛點）",
+        "points": "每圈航點數",
+        "turns": "圈數",
+        "ccw": "逆時針",
+        "roi": "雲台鎖定中心點",
+        "roiHint": "前後加上 DO_SET_ROI_LOCATION／ROI_NONE",
+        "summary": "共 {n} 個項目，路線約 {length}",
+        "cancel": "取消",
+        "insert": "加入任務"
       }
     },
     "video": {
@@ -1320,7 +1367,17 @@
       "analyseTitle": "分析日誌",
       "analyseDescription": "用 ArduPilot 官方的網頁工具分析：UAV Log Viewer 可以畫圖；WebTools 有濾波器、PID、磁力計等檢查。直接把檔案拖進去即可。",
       "dataflashTitle": "飛控的 DataFlash 日誌（.bin）",
-      "dataflashDescription": "經序列埠下載很慢，而且解鎖時飛控會拒絕。建議取出 SD 卡，或上鎖後用 Mission Planner 經 mavlink-router 下載。"
+      "dfDescription": "經 MAVLink 從飛控 SD 卡把 .bin 複製到 companion，再從 Pi 下載到瀏覽器。只能在上鎖時進行，飛控在傳輸期間會暫停記錄。",
+      "dfList": "讀取飛控日誌",
+      "dfArmed": "飛控已解鎖：ArduPilot 只在上鎖時提供日誌。",
+      "dfNeedControl": "先在上方「取得控制權」才能讀取或複製日誌。",
+      "dfNone": "飛控上沒有日誌。",
+      "dfCopy": "把日誌 #{id} 複製到 Pi",
+      "dfCopied": "{name} 已複製到 Pi",
+      "dfCopyFailed": "複製失敗：{reason}",
+      "dfListFailed": "無法讀取清單：{reason}",
+      "dfCancel": "取消",
+      "dfHint": "速度取決於飛控到 Pi 的連線：USB／921600 約每秒數百 kB，數傳電台只有約 5 kB/s（20 MB 要一小時）。很大的日誌仍建議直接取 SD 卡。"
     },
     "gimbal": {
       "axis_p": "俯仰",
@@ -1354,6 +1411,55 @@
       "servos": "伺服輸出",
       "servo": "伺服 {index}",
       "hint": "指令直接送到酬載節點（預設 MAVLink 元件 25），開關狀態以節點回報為準。飛控要把該 TELEM 埠設成 MAVLink（SERIALx_PROTOCOL=2）才會轉送。"
-    }
+    },
+    "follow": {
+      "title": "跟隨我",
+      "activeBadge": "跟隨中 · 已送 {n} 次",
+      "distance": "距離（公尺）",
+      "bearing": "方位（度，0＝北）",
+      "alt": "高度（公尺）",
+      "idle": "用這台裝置的定位（手機 GPS 最準）讓載具跟著你，每次移動超過 3 公尺或每 5 秒更新一次目標點。",
+      "waitingFix": "等待定位…",
+      "fix": "定位精度 ±{acc} 公尺 · 距離載具 {dist}",
+      "noGeolocation": "這個瀏覽器不支援定位。",
+      "geoDenied": "瀏覽器拒絕了定位權限。",
+      "locate": "取得我的位置",
+      "start": "開始跟隨",
+      "stop": "停止跟隨",
+      "close": "關閉定位",
+      "block_poorFix": "定位精度不足（需要 {acc} 公尺以內）。",
+      "block_noVehiclePos": "還不知道載具位置。",
+      "block_tooFar": "載具離你超過 {max} 公尺，先把它飛近一點。",
+      "stoppedFix": "定位中斷超過 5 秒，已停止跟隨；載具停在最後的目標點。",
+      "stoppedLink": "連線中斷，已停止跟隨。",
+      "stoppedControl": "已釋放控制權，停止跟隨。",
+      "confirmTitle": "開始跟隨？",
+      "confirmDescription": "載具會切到 GUIDED，移動到你的位置 {bearing}° 方向 {distance} 公尺處，並持續跟著你。離開此頁籤、定位中斷或斷線都會停止跟隨（載具停在最後的目標點）。注意周圍障礙物。"
+    },
+    "replay": {
+      "title": "飛行回放",
+      "description": "雲端保存 7 天的軌跡（解鎖時每 2 秒一點）。細節請看 tlog 或 DataFlash。",
+      "reload": "重新載入",
+      "loadFailed": "無法載入軌跡紀錄。",
+      "none": "這段期間沒有飛行紀錄（解鎖超過 20 秒才算一次飛行）。",
+      "older": "載入更早的紀錄",
+      "maxAlt": "最高 {m} m",
+      "battery": "耗電 {used}%",
+      "pick": "從左邊選一次飛行。",
+      "play": "播放",
+      "pause": "暫停",
+      "position": "回放位置",
+      "elapsed": "經過",
+      "clock": "時間",
+      "mode": "模式",
+      "alt": "高度",
+      "speed": "速度",
+      "bat": "電量"
+    },
+    "leaseHeld": "{name} 正在控制這台載具（自 {since} 起）。你目前只能觀看；開啟「取得控制權」可接管。",
+    "takenOver": "{name} 接管了控制權，你現在只能觀看。",
+    "controlFailed": "無法取得控制權，請稍後再試。",
+    "takeoverTitle": "接管控制權？",
+    "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。"
   }
 }

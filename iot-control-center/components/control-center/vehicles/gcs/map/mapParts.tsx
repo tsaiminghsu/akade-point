@@ -69,11 +69,33 @@ export function VehicleMarker({
   return null;
 }
 
-/** Pans the map to follow a position while `enabled`. */
+/**
+ * Pans the map to follow a position while `enabled`. Positions arrive at up
+ * to 10 Hz; panTo during a zoom animation re-applies the old zoom and undoes
+ * the user's zoom, so it waits for zooms to finish and ignores sub-pixel moves.
+ */
 export function FollowView({ lat, lon, enabled }: { lat: number | null; lon: number | null; enabled: boolean }) {
   const map = useMap();
+  const zooming = useRef(false);
   useEffect(() => {
-    if (enabled && lat !== null && lon !== null) map.panTo([lat, lon], { animate: true, duration: 0.25 });
+    const start = () => {
+      zooming.current = true;
+    };
+    const end = () => {
+      zooming.current = false;
+    };
+    map.on("zoomstart", start);
+    map.on("zoomend", end);
+    return () => {
+      map.off("zoomstart", start);
+      map.off("zoomend", end);
+    };
+  }, [map]);
+  useEffect(() => {
+    if (!enabled || lat === null || lon === null || zooming.current) return;
+    const at = map.latLngToContainerPoint([lat, lon]);
+    if (at.distanceTo(map.getSize().divideBy(2)) < 2) return;
+    map.panTo([lat, lon], { animate: true, duration: 0.25 });
   }, [map, lat, lon, enabled]);
   return null;
 }

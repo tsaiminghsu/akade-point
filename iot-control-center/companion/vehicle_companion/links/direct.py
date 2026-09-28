@@ -52,6 +52,8 @@ class Client:
     remote: str
     scope: str = ""
     sub: str = ""
+    # the ground-station page (ticket "cid"), matched against the control lease
+    cid: str = ""
     operator: bool = False
     connected_at: float = field(default_factory=time.monotonic)
 
@@ -61,7 +63,7 @@ class Client:
 
 
 class DirectServer:
-    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None):
+    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None, dataflash=None, lease_holder: Callable[[], Optional[str]] = lambda: None):
         self.cfg = cfg
         self.vehicle_id = vehicle_id
         self.build_state = build_state
@@ -72,6 +74,8 @@ class DirectServer:
         self.clock = clock
         self.tlog = tlog
         self.gimbal = gimbal
+        self.dataflash = dataflash
+        self.lease_holder = lease_holder
         self.clients: set[Client] = set()
         self._pin_failures: dict[str, deque] = defaultdict(deque)
         self._runner: Optional[web.AppRunner] = None
@@ -88,6 +92,8 @@ class DirectServer:
         app.router.add_route("OPTIONS", "/files/{tail:.*}", self._preflight)
         app.router.add_get("/files/tlogs", self._tlog_list)
         app.router.add_get("/files/tlogs/{name}", self._tlog_get)
+        app.router.add_get("/files/logs", self._log_list)
+        app.router.add_get("/files/logs/{name}", self._log_get)
         return app
 
     async def start(self) -> None:
@@ -184,7 +190,7 @@ class DirectServer:
             remote = request.remote or "?"
             if self._pin_blocked(remote):
                 return False
-            if header[4:] == self.cfg.pin:
+            if hmac.compare_digest(header[4:].encode(), self.cfg.pin.encode()):
                 return True
             self._pin_failures[remote].append(time.monotonic())
         return False
@@ -201,6 +207,23 @@ class DirectServer:
         if not self._file_auth(request):
             return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
         path = self.tlog.resolve(request.match_info["name"]) if self.tlog is not None else None
+        if path is None:
+            return web.json_response({"error": "not found"}, status=404, headers=headers)
+        headers["Content-Disposition"] = f'attachment; filename="{path.name}"'
+        return web.FileResponse(path, headers=headers)
+
+    async def _log_list(self, request: web.Request) -> web.Response:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        files = self.dataflash.list_files() if self.dataflash is not None else []
+        return web.json_response({"files": files, "enabled": self.dataflash is not None}, headers=headers)
+
+    async def _log_get(self, request: web.Request) -> web.StreamResponse:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        path = self.dataflash.resolve(request.match_info["name"]) if self.dataflash is not None else None
         if path is None:
             return web.json_response({"error": "not found"}, status=404, headers=headers)
         headers["Content-Disposition"] = f'attachment; filename="{path.name}"'
@@ -259,6 +282,7 @@ class DirectServer:
             payload = tickets.verify(self.cfg.ticket_key, data["ticket"], self.vehicle_id, self.clock.now_ms())
             if payload:
                 client.scope, client.sub = payload["scope"], str(payload.get("sub", ""))
+                client.cid = str(payload.get("cid") or "")
         elif "pin" in data and self.cfg.pin:
             if self._pin_blocked(client.remote):
                 await client.ws.send_json({"k": "error", "code": "PIN_LOCKED", "msg": "too many attempts"})
@@ -300,6 +324,17 @@ class DirectServer:
         if client.scope != "control":
             if k in ("cmd", "manual", "op", "gimbal"):
                 await client.ws.send_json({"k": "error", "code": "VIEW_ONLY"})
+            return
+        holder = self.lease_holder()
+        if holder is not None and client.cid != holder and k in ("cmd", "manual", "op", "gimbal"):
+            # Another operator holds control in the Control Center.
+            if k == "cmd":
+                cmd_id = str((data.get("cmd") or {}).get("id", ""))
+                await client.ws.send_json(
+                    {"k": "ack", "a": {"v": 1, "id": cmd_id, "st": "failed", "code": "LEASE_HELD", "msg": "another operator has control", "t": self.clock.now_ms()}}
+                )
+            else:
+                await client.ws.send_json({"k": "error", "code": "LEASE_HELD"})
             return
         if k == "cmd":
             cmd = data.get("cmd") or {}

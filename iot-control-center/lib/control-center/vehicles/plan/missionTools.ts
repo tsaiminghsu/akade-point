@@ -340,3 +340,49 @@ export function polygonsFromGeoJson(json: unknown): [number, number][][] {
   visit(json);
   return out;
 }
+
+// ---- orbit -------------------------------------------------------------------
+
+export interface OrbitInput {
+  lat: number;
+  lon: number;
+  radius: number;
+  /** relative altitude of the ring (rovers: 0) */
+  alt: number;
+  /** waypoints per turn */
+  points: number;
+  turns: number;
+  ccw: boolean;
+  /** point the camera at the centre while circling */
+  roi: boolean;
+  /** start on the side facing this bearing from the centre (e.g. where the vehicle is) */
+  startBearing?: number;
+}
+
+/** Items per mission the generator will produce at most (ArduPilot has room for hundreds, keep plans readable). */
+export const ORBIT_MAX_ITEMS = 200;
+
+/**
+ * An orbit as a ring of waypoints (works for copters and rovers alike, unlike
+ * NAV_LOITER_TURNS), optionally wrapped in DO_SET_ROI_LOCATION / ROI_NONE so
+ * a gimbal keeps the centre in frame. The ring closes back on its first point.
+ */
+export function orbitItems(o: OrbitInput): PlanItem[] {
+  const points = Math.max(4, Math.min(72, Math.round(o.points)));
+  const turns = Math.max(1, Math.min(20, Math.round(o.turns)));
+  const radius = Math.max(1, o.radius);
+  const step = (o.ccw ? -360 : 360) / points;
+  const start = o.startBearing ?? 0;
+  const ring: PlanItem[] = [];
+  for (let t = 0; t < turns; t++) {
+    for (let i = 0; i < points; i++) {
+      const p = destination(o.lat, o.lon, start + i * step, radius);
+      ring.push(blankItem(16, p.lat, p.lon, o.alt));
+    }
+  }
+  const back = destination(o.lat, o.lon, start, radius);
+  ring.push(blankItem(16, back.lat, back.lon, o.alt));
+  const head = o.roi ? [blankItem(195, o.lat, o.lon, 0)] : [];
+  const tail = o.roi ? [blankItem(197, 0, 0, 0)] : [];
+  return [...head, ...ring, ...tail].slice(0, ORBIT_MAX_ITEMS);
+}

@@ -162,6 +162,14 @@ export const commandRequestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("payload_relay"), index: payloadIndex, on: z.boolean(), comp: payloadComp }),
   z.object({ type: z.literal("payload_pulse"), index: payloadIndex, ms: z.number().int().min(50).max(10_000), comp: payloadComp }),
   z.object({ type: z.literal("payload_servo"), index: payloadIndex, pwm: z.number().int().min(800).max(2200), comp: payloadComp }),
+  z.object({ type: z.literal("log_list") }),
+  z.object({
+    type: z.literal("log_download"),
+    id: z.number().int().min(0).max(0xffff),
+    size: z.number().int().positive(),
+    utc: z.number().int().min(0).optional(),
+  }),
+  z.object({ type: z.literal("log_cancel") }),
   z.object({ type: z.literal("reboot") }),
   z.object({ type: z.literal("param_get"), names: z.array(paramName).min(1).max(50) }),
   z.object({
@@ -234,6 +242,8 @@ export const paramSnapshotSchema = z.object({
 
 export const historyQuerySchema = z.object({
   since: z.coerce.number().int().positive().optional(),
+  /** newest point to include (paging back through older flights) */
+  until: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(2000).default(500),
 });
 

@@ -257,6 +257,25 @@
   color: #fff;
   text-shadow: 0 0 3px #000, 0 0 3px #000;
 }
+.gcs-adsb-label {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #e0f2fe;
+  text-shadow: 0 0 3px #000, 0 0 3px #000;
+}
+.gcs-adsb-label[data-level="warn"] {
+  color: #fde68a;
+}
+.gcs-adsb-label[data-level="alarm"] {
+  color: #fecaca;
+}
 /* Leaflet panes use z-index up to 1000; keep them from rising above dialogs. */
 .gcs-map {
   isolation: isolate;

@@ -6,6 +6,7 @@ import { listEvents } from "@/lib/dynamo/cc-vehicle-events";
 import { listCommandsByVehicle, markTimedOut } from "@/lib/dynamo/cc-vehicle-commands";
 import { resolveTimeouts } from "@/lib/control-center/vehicles/commandState";
 import { toVehicleView } from "@/lib/control-center/vehicles/view";
+import { activeLease } from "@/lib/control-center/vehicles/lease";
 
 /**
  * What the ground station polls over the cloud link, once a second: the live
@@ -35,5 +36,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     operator ? markOperatorSeen(params.id, now) : Promise.resolve(),
   ]);
 
-  return NextResponse.json({ vehicle: toVehicleView(vehicle, now), events, commands, now: Date.now() });
+  const lease = activeLease(vehicle.controlLease, now);
+  return NextResponse.json({
+    vehicle: toVehicleView(vehicle, now),
+    events,
+    commands,
+    lease: lease && { cid: lease.cid, name: lease.name, until: lease.until, since: lease.since },
+    now: Date.now(),
+  });
 }

@@ -31,6 +31,8 @@ export interface DirectTicketPayload {
   exp: number;
   /** nonce */
   n: string;
+  /** the ground-station page, matched against the control lease by the companion */
+  cid?: string;
 }
 
 export const DIRECT_TICKET_TTL_MS = 15 * 60 * 1000;
@@ -51,8 +53,8 @@ export function signTicket(key: string, payload: DirectTicketPayload): string {
   return `${body}.${sig}`;
 }
 
-export function newTicketPayload(vehicleId: string, userId: string, scope: DirectScope, now: number = Date.now()): DirectTicketPayload {
-  return { vid: vehicleId, sub: userId, scope, exp: now + DIRECT_TICKET_TTL_MS, n: randomBytes(9).toString("base64url") };
+export function newTicketPayload(vehicleId: string, userId: string, scope: DirectScope, now: number = Date.now(), cid?: string): DirectTicketPayload {
+  return { vid: vehicleId, sub: userId, scope, exp: now + DIRECT_TICKET_TTL_MS, n: randomBytes(9).toString("base64url"), ...(cid ? { cid } : {}) };
 }
 
 /** Verifies signature, vehicle and expiry. Returns the payload or null. */

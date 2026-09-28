@@ -71,6 +71,7 @@ MQTT 與 HTTPS 共用**同一份 JSON**。欄位定義的真實來源是 `lib/co
 | `video` | MediaMTX：串流就緒、觀看數、是否錄影；未設定或連不上為 `null` | MediaMTX API |
 | `payload` | 酬載元件的數值 `[{ comp, values: {名稱: 值} }]`，只含 5 秒內收到的 | NAMED_VALUE_FLOAT |
 | `rid` | Remote ID 模組解鎖狀態 `{ ok, error }`；沒有模組為 `null` | OPEN_DRONE_ID_ARM_STATUS |
+| `adsb` | ADS-B 航空器，由近到遠最多 20 架：`icao`、`cs`（呼號）、位置、`alt`（海拔）、`hdg`、`spd`、`vs`、`age`；`d` 水平距離、`dz` 高度差（對方減我方，公尺）。20 秒沒收到就移除；沒有接收機時為 `null` | ADSB_VEHICLE |
 
 v1 快照的格式見 git 歷史（`VehicleStateV1`）。伺服器端用 `summarize()`（`lib/control-center/vehicles/summary.ts`）同時讀兩版。
 
@@ -181,6 +182,17 @@ seq  current  frame  command  param1 param2 param3 param4  lat lon alt  autocont
 ```
 
 對映到 MissionItem：`current→cur`、`command→cmd`、`param1..4→p1..4`、`autocontinue→ac`。解析／輸出由 `lib/control-center/vehicles/waypoints.ts` 處理，容錯 CRLF 與空白，seq 0 保留以便原樣來回。
+
+## 控制租約
+
+- `POST /api/control-center/vehicles/{id}/control`：
+  - 請求：`{ action: "acquire" | "release", cid, force? }`。
+  - 回應：`{ held, lease, now }`。
+  - 別人持有時回 409，`force` 為接管。
+- 雲端指令帶 `x-gcs-client: <cid>` 標頭。有別人的有效租約時回 409 `{ code: "LEASE_HELD", lease: { name, until } }`。
+- `/live` 回應帶 `lease: { cid, name, until, since } | null`。
+- 裝置端遙測回應帶 `lease: { cid, sub, until } | null`（伺服器時鐘）。
+- 直連票證的 payload 可帶 `cid`。
 
 ## 直連（Direct）WebSocket
 

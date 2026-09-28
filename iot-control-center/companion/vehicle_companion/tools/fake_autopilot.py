@@ -152,6 +152,7 @@ class FakeAutopilot:
         prearm_fail: Optional[str] = None,
         prearm_every_s: float = 30.0,
         payload: bool = False,
+        adsb: bool = False,
     ):
         self.vehicle = vehicle
         self.sysid = sysid
@@ -170,6 +171,7 @@ class FakeAutopilot:
         self.gcs_mav = mavlink.MAVLink(out, srcSystem=255, srcComponent=190)
         self.payload_mav = mavlink.MAVLink(out, srcSystem=sysid, srcComponent=25)
         self.with_payload = payload
+        self.with_adsb = adsb
         self.relays = [False] * 4
         self.servos = [1500.0] * 2
         self.parser = mavlink.MAVLink(None)
@@ -215,6 +217,15 @@ class FakeAutopilot:
         self.inject_gcs_heartbeat = False
         self.foreign_ack_first = False
         self.drop_param_indices: set[int] = set()
+        # DataFlash logs: id -> (bytes, UTC seconds). Offsets in drop_log_offsets
+        # are skipped once, as a lossy link would.
+        self.dataflash: dict[int, tuple[bytes, int]] = {
+            1: (bytes((i * 7 + 3) % 256 for i in range(12_345)), 1_790_000_000),
+            2: (bytes((i * 13 + 1) % 256 for i in range(200_000)), 1_790_003_600),
+        }
+        self.drop_log_offsets: set[int] = set()
+        self.log_silent = False  # stop answering LOG_REQUEST_DATA
+        self.log_requests: list[tuple[int, int, int]] = []
         self.drop_mission_requests = 0
         self.upload_reject: Optional[int] = None
 
@@ -603,6 +614,34 @@ class FakeAutopilot:
             self._param_value(name, i)
         self.drop_param_indices = set()
 
+    # ---- DataFlash -------------------------------------------------------
+
+    def _on_log_request_list(self, msg) -> None:
+        if not self._for_me(msg, (0, 1)):
+            return
+        ids = sorted(self.dataflash)
+        for i in ids:
+            data, utc = self.dataflash[i]
+            self.mav.send(self.mav.log_entry_encode(i, len(ids), ids[-1] if ids else 0, utc, len(data)))
+
+    def _on_log_request_data(self, msg) -> None:
+        if not self._for_me(msg, (0, 1)) or msg.id not in self.dataflash:
+            return
+        self.log_requests.append((msg.id, msg.ofs, msg.count))
+        if self.log_silent:
+            return
+        data = self.dataflash[msg.id][0]
+        end = min(len(data), msg.ofs + msg.count)
+        ofs = msg.ofs
+        while ofs < end:
+            n = min(90, end - ofs)
+            if ofs in self.drop_log_offsets:
+                self.drop_log_offsets.discard(ofs)
+            else:
+                chunk = data[ofs:ofs + n]
+                self.mav.send(self.mav.log_data_encode(msg.id, ofs, n, chunk + bytes(90 - n)))
+            ofs += n
+
     def _on_param_request_read(self, msg) -> None:
         if not self._for_me(msg):
             return
@@ -740,8 +779,27 @@ class FakeAutopilot:
             self.payload_mav.send(self.payload_mav.named_value_float_encode(tb, b"PAY_VBAT", 12.4))
             for i, on in enumerate(self.relays):
                 self.payload_mav.send(self.payload_mav.named_value_float_encode(tb, f"RELAY{i}".encode(), 1.0 if on else 0.0))
+        if self.with_adsb:
+            self._adsb_traffic()
         if self.inject_gcs_heartbeat:
             self.gcs_mav.send(self.gcs_mav.heartbeat_encode(mavlink.MAV_TYPE_GCS, mavlink.MAV_AUTOPILOT_INVALID, 0, 0, mavlink.MAV_STATE_ACTIVE))
+
+    # (ICAO, callsign, orbit radius m, height above home m, period s)
+    ADSB_TRAFFIC = ((0x899001, "CAL123", 3000.0, 600.0, 240.0), (0x899002, "EVA456", 6000.0, 1200.0, 400.0), (0x899003, "N0NEAR", 250.0, 60.0, 120.0))
+
+    def _adsb_traffic(self) -> None:
+        """Aircraft circling home, as ArduPilot forwards them from its ADS-B
+        receiver (ADSB_VEHICLE from the autopilot component)."""
+        t = self.time_boot_ms() / 1000.0
+        for icao, cs, radius, height, period in self.ADSB_TRAFFIC:
+            a = 2 * math.pi * t / period
+            lat = self.home[0] + (radius * math.cos(a)) / 111_320.0
+            lon = self.home[1] + (radius * math.sin(a)) / (111_320.0 * math.cos(math.radians(self.home[0])))
+            hdg = (math.degrees(a) + 90.0) % 360.0
+            spd = 2 * math.pi * radius / period
+            self.mav.send(self.mav.adsb_vehicle_encode(
+                icao, int(lat * 1e7), int(lon * 1e7), 0, int((self.home[2] + height) * 1000), int(hdg * 100),
+                int(spd * 100), 0, cs.encode(), 1, 1, 1 | 2 | 4 | 8 | 16, 1200))
 
     def _emit(self, now: float) -> None:
         if now - self._last_hb >= 1.0:
@@ -840,11 +898,12 @@ def main() -> None:
     ap.add_argument("--prearm-fail", default=None, help="make arming fail with this pre-arm reason")
     ap.add_argument("--no-gimbal", action="store_true")
     ap.add_argument("--payload", action="store_true", help="also simulate an ESP32 payload node (component 25)")
+    ap.add_argument("--adsb", action="store_true", help="also simulate ADS-B traffic around home")
     args = ap.parse_args()
     host, port = args.to.rsplit(":", 1)
     lat, lon, alt = (float(x) for x in args.home.split(","))
     fake = FakeAutopilot((host, int(port)), vehicle=args.vehicle, home=(lat, lon, alt), sysid=args.sysid,
-                         speedup=args.speedup, prearm_fail=args.prearm_fail, gimbal=not args.no_gimbal, payload=args.payload).start()
+                         speedup=args.speedup, prearm_fail=args.prearm_fail, gimbal=not args.no_gimbal, payload=args.payload, adsb=args.adsb).start()
     print(f"fake {args.vehicle} (sysid {args.sysid}) sending to {args.to}; Ctrl+C to stop")
     try:
         while True:

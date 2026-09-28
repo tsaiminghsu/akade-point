@@ -5,7 +5,7 @@ import type { FenceDoc, MissionDoc, PlanItem, RallyPoint } from "@/lib/control-c
 import type { PlanKind } from "@/lib/control-center/vehicles/plan/mavCmdMeta";
 import type { MissionItem } from "@/lib/control-center/vehicles/types";
 
-export type DrawMode = "none" | "addWp" | "polygonIn" | "polygonOut" | "circleIn" | "circleOut" | "rally" | "survey" | "fenceReturn";
+export type DrawMode = "none" | "addWp" | "polygonIn" | "polygonOut" | "circleIn" | "circleOut" | "rally" | "survey" | "fenceReturn" | "orbit";
 
 interface PlanState {
   kind: PlanKind;

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Map as MapIcon, Video } from "lucide-react";
+import { Circle, CircleMarker } from "react-leaflet";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,6 +20,7 @@ import { Hud } from "./Hud";
 import { CommandLog, MessagesPanel } from "./MessagesPanel";
 import { QuickPanel } from "./QuickPanel";
 import { RoverDrivePad } from "./RoverDrivePad";
+import { FollowMePanel } from "./FollowMePanel";
 import { GimbalPanel } from "./GimbalPanel";
 import { PayloadPanel } from "./PayloadPanel";
 import { aimFromClick } from "@/lib/control-center/vehicles/gcs/aim";
@@ -39,6 +41,7 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
   const samples = useGcsStore((s) => s.samples);
   const trail = useGcsStore((s) => s.trail);
   const now = useGcsStore((s) => s.now);
+  const me = useGcsStore((s) => s.me);
   const send = useGcsStore((s) => s.send);
 
   const [flyTo, setFlyTo] = useState<{ lat: number; lon: number } | null>(null);
@@ -119,10 +122,11 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
           </TabsList>
           <div className="min-h-[260px] flex-1 overflow-y-auto overflow-x-hidden pt-2 lg:min-h-0">
             <TabsContent value="quick" className="mt-0">
-              <QuickPanel state={state} stale={stale} />
+              <QuickPanel state={state} stale={stale} family={rover ? "rover" : "copter"} />
             </TabsContent>
             <TabsContent value="actions" className="mt-0 space-y-4">
               {vehicle && <ActionsPanel vehicleType={vehicle.type} state={state} canCommand={canCommand} />}
+              {vehicle && <FollowMePanel state={state} canCommand={canCommand} rover={rover} />}
               <div className="border-t border-border pt-3">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{t("commands.title")}</p>
                 <CommandLog commands={commands} />
@@ -170,7 +174,14 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
             }
           />
         ) : (
-          <GcsMap state={state} trail={trail} target={target} canCommand={canCommand} onAction={onMapAction} vehicleLabel={vehicle?.name} />
+          <GcsMap state={state} trail={trail} target={target} canCommand={canCommand} onAction={onMapAction} vehicleLabel={vehicle?.name}>
+      {me && (
+        <>
+          <Circle center={[me.lat, me.lon]} radius={me.accuracy} pathOptions={{ color: "#3b82f6", weight: 1, fillOpacity: 0.1 }} />
+          <CircleMarker center={[me.lat, me.lon]} radius={6} pathOptions={{ color: "#fff", weight: 2, fillColor: "#3b82f6", fillOpacity: 1 }} />
+        </>
+      )}
+    </GcsMap>
         )}
         {hasVideo && (
           <>

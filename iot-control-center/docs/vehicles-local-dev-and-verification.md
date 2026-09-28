@@ -42,6 +42,11 @@ cd companion && .venv/Scripts/python -m vehicle_companion --config companion.loc
   - MP 1.3.83 啟動時，Altitude Angel 外掛會開瀏覽器要求登入。不需要這個功能的話，把 `plugins/AltitudeAngelWings*` 移出即可。
 - **SITL 的電池是 3S**（12.6 V 滿電），seed 腳本印出的 `battery_cells = 3` 就是依此設定。設錯會誤報「電池危險」。
 - **剛啟動約 20 秒內**，解鎖會被拒絕（`Arm: Need Position Estimate`），等 EKF 收斂即可。地面站會把這個原因顯示在指令結果上。
+- **模擬 ADS-B 與雲台**（參數寫入後重開 SITL，容器沒停就會保留）：
+  - ADS-B：`ADSB_TYPE=1`、`SIM_ADSB_TYPES=1`、`SIM_ADSB_COUNT=5`、`SIM_ADSB_RADIUS=4000`，再把 `ADSB_LIST_RADIUS` 設大（例如 10000）。
+  - 伺服雲台：`MNT1_TYPE=1`、`SERVO9/10/11_FUNCTION=7/6/8`。
+  - 注意：姿態（`GIMBAL_DEVICE_ATTITUDE_STATUS`）是飛控自己（comp 1）送出的，實機 STorM32 經飛控接時也是如此。
+  - fake autopilot 可加 `--adsb` 模擬三架繞 home 的飛機。
 - **家的位置**：`-e SITL_HOME=lat,lon,alt,hdg` 可改家的位置（預設台中）。`-e SPEEDUP=5` 可加速。
 
 沒有 Docker 時，改用 `python -m vehicle_companion.tools.fake_autopilot`（見 `companion/README.md`）。

@@ -33,7 +33,7 @@ def test_ticket_matches_the_server_vector():
     assert tickets.verify(KEY, "nope", "veh123", 1000) is None
 
 
-async def start_direct(rig, **cfg_kwargs):
+async def start_direct(rig, lease_holder=lambda: None, **cfg_kwargs):
     acks: list[dict] = []
     cfg = DirectConfig(enabled=True, host="127.0.0.1", port=0, ticket_key=KEY, **cfg_kwargs)
     streams = StreamManager(rig.conn, rig.commands)
@@ -48,14 +48,17 @@ async def start_direct(rig, **cfg_kwargs):
     executor = Executor(rig.handlers, sink, rig.clock)
     runner = asyncio.create_task(executor.run())
     server = DirectServer(cfg, "veh123", build_state=builder.build, executor=executor, status=rig.status,
-                          manual=manual, streams=streams, clock=rig.clock)
+                          manual=manual, streams=streams, clock=rig.clock, lease_holder=lease_holder)
     holder["direct"] = server
     await server.start()
     return server, runner, acks, manual, streams
 
 
-def ticket_for(scope="control", vid="veh123", exp=None):
-    return tickets.sign(KEY, {"vid": vid, "sub": "user1", "scope": scope, "exp": exp or time.time() * 1000 + 60_000, "n": "x"})
+def ticket_for(scope="control", vid="veh123", exp=None, cid=None):
+    payload = {"vid": vid, "sub": "user1", "scope": scope, "exp": exp or time.time() * 1000 + 60_000, "n": "x"}
+    if cid:
+        payload["cid"] = cid
+    return tickets.sign(KEY, payload)
 
 
 async def recv_kind(ws, kind, timeout=5.0):
@@ -191,3 +194,56 @@ async def test_rover_joystick_drives_and_deadman_stops():
         await server.stop()
         rig.fake.stop()
         rig.conn.stop()
+
+
+async def test_only_the_lease_holder_commands_over_the_direct_link():
+    rig = await make_rig("copter")
+    holder = {"cid": "page-A"}
+    server, runner, acks, manual, _ = await start_direct(rig, lease_holder=lambda: holder["cid"])
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with http.ws_connect(f"http://127.0.0.1:{server.port}/ws") as other, http.ws_connect(f"http://127.0.0.1:{server.port}/ws") as mine:
+                await other.send_json({"k": "auth", "ticket": ticket_for(cid="page-B")})
+                await mine.send_json({"k": "auth", "ticket": ticket_for(cid="page-A")})
+                await recv_kind(other, "hello")
+                await recv_kind(mine, "hello")
+
+                await other.send_json({"k": "cmd", "cmd": {"id": "d_x1", "type": "set_mode", "args": {"mode": "GUIDED"}}})
+                ack = await recv_kind(other, "ack")
+                assert ack["a"]["id"] == "d_x1" and ack["a"]["st"] == "failed" and ack["a"]["code"] == "LEASE_HELD"
+                await other.send_json({"k": "manual", "vx": 1.0, "yr": 0})
+                assert (await recv_kind(other, "error"))["code"] == "LEASE_HELD"
+                assert not manual.active
+                assert rig.fake.mode != "GUIDED"
+
+                await mine.send_json({"k": "cmd", "cmd": {"id": "d_x2", "type": "set_mode", "args": {"mode": "GUIDED"}}})
+                ack = await recv_kind(mine, "ack")
+                while ack["a"]["id"] != "d_x2":
+                    ack = await recv_kind(mine, "ack")
+                assert ack["a"]["st"] == "acked" and rig.fake.mode == "GUIDED"
+
+                # Lease lapsed (e.g. the cloud is unreachable): any control ticket works again.
+                holder["cid"] = None
+                await other.send_json({"k": "cmd", "cmd": {"id": "d_x3", "type": "set_mode", "args": {"mode": "LOITER"}}})
+                ack = await recv_kind(other, "ack")
+                while ack["a"]["id"] != "d_x3":
+                    ack = await recv_kind(other, "ack")
+                assert ack["a"]["st"] == "acked"
+    finally:
+        runner.cancel()
+        await server.stop()
+        rig.fake.stop()
+        rig.conn.stop()
+
+
+def test_cloud_lease_expires_on_the_server_clock():
+    from vehicle_companion.clock import Clock
+    from vehicle_companion.links.cloud import CloudLink
+
+    clock = Clock()
+    link = CloudLink("http://x", "vt", clock)
+    assert link.lease_holder() is None
+    link._lease = {"cid": "page-A", "sub": "u", "until": clock.now_ms() + 5000}
+    assert link.lease_holder() == "page-A"
+    link._lease["until"] = clock.now_ms() - 1
+    assert link.lease_holder() is None

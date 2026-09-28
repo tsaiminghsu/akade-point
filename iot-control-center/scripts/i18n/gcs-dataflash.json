@@ -1,0 +1,50 @@
+{
+  "zh-TW": { "Gcs": {
+    "actions": { "cmd_log_list": "讀取日誌清單", "cmd_log_download": "複製日誌到 Pi", "cmd_log_cancel": "取消日誌下載" },
+    "logs": {
+      "dfDescription": "經 MAVLink 從飛控 SD 卡把 .bin 複製到 companion，再從 Pi 下載到瀏覽器。只能在上鎖時進行，飛控在傳輸期間會暫停記錄。",
+      "dfList": "讀取飛控日誌",
+      "dfArmed": "飛控已解鎖：ArduPilot 只在上鎖時提供日誌。",
+      "dfNeedControl": "先在上方「取得控制權」才能讀取或複製日誌。",
+      "dfNone": "飛控上沒有日誌。",
+      "dfCopy": "把日誌 #{id} 複製到 Pi",
+      "dfCopied": "{name} 已複製到 Pi",
+      "dfCopyFailed": "複製失敗：{reason}",
+      "dfListFailed": "無法讀取清單：{reason}",
+      "dfCancel": "取消",
+      "dfHint": "速度取決於飛控到 Pi 的連線：USB／921600 約每秒數百 kB，數傳電台只有約 5 kB/s（20 MB 要一小時）。很大的日誌仍建議直接取 SD 卡。"
+    }
+  } },
+  "en-US": { "Gcs": {
+    "actions": { "cmd_log_list": "List logs", "cmd_log_download": "Copy log to Pi", "cmd_log_cancel": "Cancel log download" },
+    "logs": {
+      "dfDescription": "Copies .bin logs from the autopilot's SD card to the companion over MAVLink, then from the Pi to your browser. Disarmed only; the autopilot pauses logging during the transfer.",
+      "dfList": "List autopilot logs",
+      "dfArmed": "The vehicle is armed: ArduPilot only serves logs while disarmed.",
+      "dfNeedControl": "Take control above to list or copy logs.",
+      "dfNone": "No logs on the autopilot.",
+      "dfCopy": "Copy log #{id} to the Pi",
+      "dfCopied": "{name} copied to the Pi",
+      "dfCopyFailed": "Copy failed: {reason}",
+      "dfListFailed": "Could not list logs: {reason}",
+      "dfCancel": "Cancel",
+      "dfHint": "Speed depends on the autopilot-to-Pi link: hundreds of kB/s over USB or 921600 baud, about 5 kB/s over a telemetry radio (an hour for 20 MB). For very large logs, pull the SD card."
+    }
+  } },
+  "ja-JP": { "Gcs": {
+    "actions": { "cmd_log_list": "ログ一覧", "cmd_log_download": "ログを Pi にコピー", "cmd_log_cancel": "ログ転送を中止" },
+    "logs": {
+      "dfDescription": "フライトコントローラーの SD カードから .bin を MAVLink でコンパニオンにコピーし、Pi からブラウザにダウンロードします。ディスアーム中のみ可能で、転送中は記録が一時停止します。",
+      "dfList": "FC のログを読む",
+      "dfArmed": "アーム中です：ArduPilot はディスアーム中のみログを提供します。",
+      "dfNeedControl": "上の「操作権を取得」をオンにしてからログを読み取り／コピーしてください。",
+      "dfNone": "FC にログがありません。",
+      "dfCopy": "ログ #{id} を Pi にコピー",
+      "dfCopied": "{name} を Pi にコピーしました",
+      "dfCopyFailed": "コピー失敗：{reason}",
+      "dfListFailed": "一覧を取得できません：{reason}",
+      "dfCancel": "中止",
+      "dfHint": "速度は FC と Pi の接続次第です：USB／921600 なら毎秒数百 kB、テレメトリ無線では約 5 kB/s（20 MB で約 1 時間）。大きなログは SD カードを取り出すのがおすすめです。"
+    }
+  } }
+}
