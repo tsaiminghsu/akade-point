@@ -6,13 +6,13 @@ import { createMission, listMissionsByVehicle } from "@/lib/dynamo/cc-vehicle-mi
 import { missionCreateSchema } from "@/lib/control-center/vehicles/schemas";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("view", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const missions = await listMissionsByVehicle(params.id);
   return NextResponse.json({ missions });
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("mission"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("mission", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const vehicle = await getVehicle(params.id);
   if (!vehicle) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

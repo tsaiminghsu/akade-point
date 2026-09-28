@@ -141,6 +141,8 @@ class CameraComponent:
         self.conn = conn
         self.source = source
         self.dir = Path(photos_dir)
+        #: called with each new Photo (the uploader sends it right away)
+        self.on_captured: list = []
         self.model = model
         self.focal_mm = focal_mm
         self.sensor_mm = sensor_mm
@@ -343,6 +345,8 @@ class CameraComponent:
                 fh.write(json.dumps(photo.to_dict()) + "\n")
             self.photos.append(photo)
         self._send_captured(photo)
+        for cb in self.on_captured:
+            cb(photo)
         return photo
 
     def start_interval(self, interval_s: float, total: int, trigger: str = "gcs") -> None:

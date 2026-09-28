@@ -48,3 +48,6 @@ next-env.d.ts
 /companion/tlogs/
 /companion/.pytest_cache/
 *.egg-info/
+
+# Vehicle files in local dev (lib/vehicle-files/storage.ts)
+/.data/

@@ -13,7 +13,7 @@ import { requireAccess } from "@/lib/access-server";
 import type { VehicleCommandType } from "@/lib/control-center/vehicles/types";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("view", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 50, 1), 200);
 
@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const actor = await requireVehicleAccess("command");
+  const actor = await requireVehicleAccess("command", params.id);
   if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const vehicle = await getVehicle(params.id);

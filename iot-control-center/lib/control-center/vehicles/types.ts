@@ -134,6 +134,16 @@ export interface VehicleStateV2 {
     active: boolean;
     fc: { pending: number; loaded: number; ground: number | null; above: number | null } | null;
   } | null;
+  /** the companion's uploads to the cloud ([upload]; links/uploader.py): queue, the file in flight, last error */
+  upload?: {
+    queue: number;
+    queueBytes: number;
+    cur: { kind: string; name: string; pct: number } | null;
+    /** files sent since the companion started */
+    sent: number;
+    error: string | null;
+    paused: boolean;
+  } | null;
   /** MAVLink2 signing: whether the companion signs what it sends ([signing] passphrase set) */
   signing?: { on: boolean } | null;
   /** the companion as a MAVLink camera (ops/camera.py): photos taken, interval shooting, last photo */
@@ -206,6 +216,8 @@ export interface Vehicle {
   /** stable id chosen by the operator; also the IoT Thing name in prod */
   companionId: string;
   notes: string;
+  /** the store whose roles apply; null = none (global roles only) */
+  storeId: string | null;
   state: VehicleState | null;
   stateAt: number | null;
   lastSeenAt: number | null;

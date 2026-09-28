@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAccess } from "@/lib/access-server";
+import { requireAccess, requireAnyAccess } from "@/lib/access-server";
 import { createBrand, listBrands } from "@/lib/dynamo/cc-brands";
 
 const createSchema = z.object({
@@ -10,7 +10,8 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Brand names show next to any store; brand writes stay global.
+  if (!(await requireAnyAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const brands = await listBrands();
   return NextResponse.json({ brands });
 }

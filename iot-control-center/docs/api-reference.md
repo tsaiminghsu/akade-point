@@ -30,7 +30,7 @@
 | 方法 路徑 | Body／Query | 回應 |
 |:---|:---|:---|
 | `GET /vehicles` | — | `{ vehicles: Vehicle[] }`（各含推導的 `linkState`） |
-| `POST /vehicles` | `{ name, type: drone\|rover, companionId, notes? }` | `{ vehicle }`；companionId 重複 → 409 |
+| `POST /vehicles` | `{ name, type: drone\|rover, companionId, notes?, storeId? }` | `{ vehicle }`；companionId 重複 → 409 |
 | `GET /vehicles/{id}` | — | `{ vehicle }`；不存在 → 404 |
 | `PATCH /vehicles/{id}` | 上述欄位任一（非空），另可帶 `directUrl`（ws/wss）、`videoUrl`（http/https），`""` 清除 | `{ ok: true }`；companionId 撞其他載具 → 409 |
 | `DELETE /vehicles/{id}` | — | `{ ok: true }`（連帶撤 token、刪任務） |
@@ -48,6 +48,9 @@
 | `GET /vehicles/missions/{missionId}` | — | `{ mission }` |
 | `PATCH /vehicles/missions/{missionId}` | `{ name?, items? }`（非空） | `{ ok: true }` |
 | `DELETE /vehicles/missions/{missionId}` | — | `{ ok: true }` |
+| `GET /vehicles/{id}/files` | `?kind=photo\|tlog\|dataflash&before&limit`（≤200） | `{ files, nextBefore, storage }`（見 [`vehicles-files.md`](./vehicles-files.md)） |
+| `GET /vehicles/{id}/files/{fileId}/content` | `?download=1` | 檔案內容（S3 模式轉址到預簽連結） |
+| `DELETE /vehicles/{id}/files/{fileId}` | — | `{ ok: true }`（該門市的門市管理員以上） |
 
 **CommandRequest**（discriminated union，`type` 為判別鍵）：
 `{type:"arm"}`、`{type:"disarm",force?}`、`{type:"set_mode",mode}`、`{type:"takeoff",alt}`（僅 drone）、`{type:"goto",lat,lon,alt}`、`{type:"rtl"}`、`{type:"mission_start"}`、`{type:"mission_upload",missionId}`、`{type:"mission_download"}`。
@@ -63,6 +66,8 @@
 | `GET /device/vehicles/missions/{missionId}` | — | `{ mission: { id, name, items } }`；非本載具 → 404 |
 | `POST /device/vehicles/params` | `{ commandId?, params: { NAME: [value, type] }（≤3000）, fw? }` | `{ ok, capturedAt }`（param_fetch 後上傳的完整參數表） |
 | `POST /device/vehicles/missions/download` | `{ commandId, items[], mtype? }` | `{ missionId }`（建立 `source:download` 任務） |
+
+照片與日誌上雲（宣告、上傳、完成）見 [`vehicles-files.md`](./vehicles-files.md#api)。
 
 欄位定義見 [`vehicles-message-contract.md`](./vehicles-message-contract.md)。
 

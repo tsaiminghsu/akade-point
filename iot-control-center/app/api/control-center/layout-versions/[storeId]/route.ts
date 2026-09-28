@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAccess } from "@/lib/access-server";
+import { requireAccessAt } from "@/lib/access-server";
 import { createVersion, listVersionsByStore } from "@/lib/dynamo/cc-layout-versions";
 import type { Widget } from "@/lib/control-center/types";
 
@@ -16,13 +16,13 @@ const createSchema = z.object({
 });
 
 export async function GET(_req: Request, { params }: { params: { storeId: string } }) {
-  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccessAt("read", params.storeId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const versions = await listVersionsByStore(params.storeId);
   return NextResponse.json({ versions });
 }
 
 export async function POST(req: Request, { params }: { params: { storeId: string } }) {
-  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccessAt("store.manage", params.storeId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const contentLength = Number(req.headers.get("content-length") ?? 0);
   if (contentLength > MAX_PAYLOAD_BYTES) {

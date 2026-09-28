@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireAccess } from "@/lib/access-server";
+import { requireAccess, requireAccessAt } from "@/lib/access-server";
 import { issueMachineToken } from "@/lib/machine-auth";
 import { getMachine } from "@/lib/dynamo/cc-machines";
 import { listTokensByMachine, revokeAllForMachine } from "@/lib/dynamo/cc-machine-tokens";
@@ -12,7 +12,7 @@ const issueSchema = z.object({ label: z.string().trim().max(60).optional() });
 
 /** The machine's board tokens, without hashes, newest first. */
 export async function GET(_req: Request, { params }: Ctx) {
-  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccessAt("read", (await getMachine(params.id))?.storeId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const tokens = await listTokensByMachine(params.id);
   return NextResponse.json({
     tokens: tokens

@@ -13,6 +13,8 @@ export interface CCVehicle {
   type: "drone" | "rover";
   companionId: string;
   notes: string;
+  /** the store it belongs to; its roles apply (docs/permissions.md). "" / absent = no store: global roles only */
+  storeId?: string;
   state: Record<string, unknown> | null;
   stateAt: number | null;
   lastSeenAt: number | null;
@@ -33,6 +35,7 @@ export type CCVehicleInput = {
   type: "drone" | "rover";
   companionId: string;
   notes?: string;
+  storeId?: string;
 };
 
 export async function listVehicles(): Promise<CCVehicle[]> {
@@ -65,6 +68,7 @@ export async function createVehicle(input: CCVehicleInput): Promise<CCVehicle> {
     type: input.type,
     companionId: input.companionId,
     notes: input.notes ?? "",
+    ...(input.storeId && { storeId: input.storeId }),
     state: null,
     stateAt: null,
     lastSeenAt: null,

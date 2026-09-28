@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Eye, Pencil, Plane, Car, Trash2 } from "lucide-react";
@@ -13,6 +13,7 @@ import { PaginationBar, usePagination } from "@/components/control-center/shared
 import { LinkStateBadge } from "./LinkStateBadge";
 import { VehicleFormDialog } from "./VehicleFormDialog";
 import { useVehiclesStore } from "@/store/useVehiclesStore";
+import { useMachinesStore } from "@/store/useMachinesStore";
 import { fixLabel, summarize } from "@/lib/control-center/vehicles/summary";
 import type { Vehicle } from "@/lib/control-center/vehicles/types";
 
@@ -29,6 +30,8 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
   const tCommon = useTranslations("Common");
   const locale = useLocale();
   const removeVehicle = useVehiclesStore((s) => s.removeVehicle);
+  const stores = useMachinesStore((s) => s.stores);
+  const storeNames = useMemo(() => new Map(stores.map((s) => [s.id, s.name])), [stores]);
 
   const [editing, setEditing] = useState<Vehicle | undefined>(undefined);
   const [deleting, setDeleting] = useState<Vehicle | undefined>(undefined);
@@ -48,6 +51,7 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
               <TableHead>{t("link")}</TableHead>
               <TableHead>{tCommon("name")}</TableHead>
               <TableHead>{t("companionId")}</TableHead>
+              <TableHead>{t("store")}</TableHead>
               <TableHead>{t("armed")}</TableHead>
               <TableHead>{t("mode")}</TableHead>
               <TableHead>{t("battery")}</TableHead>
@@ -72,6 +76,7 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                     </Link>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{v.companionId}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{(v.storeId && storeNames.get(v.storeId)) || "—"}</TableCell>
                   <TableCell className="text-xs">{s?.armed == null ? "—" : s.armed ? t("armedYes") : t("armedNo")}</TableCell>
                   <TableCell className="text-xs">{s?.mode ?? "—"}</TableCell>
                   <TableCell className="text-xs tabular-nums">{s?.batPct == null ? "—" : `${Math.round(s.batPct)}%`}</TableCell>

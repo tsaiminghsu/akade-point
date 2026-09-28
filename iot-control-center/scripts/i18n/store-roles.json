@@ -1,0 +1,86 @@
+{
+  "zh-TW": {
+    "Roles": {
+      "storeGrantsCount": "{count} 間門市",
+      "storeGrantsNone": "未指派門市",
+      "storeGrantsTitle": "門市權限",
+      "storeGrantsDescription": "在某間門市，會取「全域角色」與「該門市角色」中較高的一個。系統管理員只能全域指派。",
+      "storeGrantsNoStores": "還沒有門市。",
+      "storeGrantNone": "無（依全域角色）",
+      "storeRoleAt": "{store} 的角色",
+      "atStore": "{store}：{role}",
+      "devViewAs": "開發環境：以使用者身分檢視",
+      "devBackToAdmin": "回到 Dev Admin",
+      "cancel": "取消",
+      "save": "儲存"
+    },
+    "UsersPage": {
+      "storeRoles": "門市權限",
+      "administratorsSub": "擁有全域或門市角色的使用者"
+    },
+    "VehicleForm": {
+      "storeLabel": "所屬門市",
+      "noStore": "不屬於任何門市",
+      "storeHint": "該門市的角色可以操作這台載具；不屬於門市的載具只有全域角色能看。"
+    },
+    "VehiclesTable": {
+      "store": "門市"
+    }
+  },
+  "en-US": {
+    "Roles": {
+      "storeGrantsCount": "{count, plural, one {# store} other {# stores}}",
+      "storeGrantsNone": "No stores",
+      "storeGrantsTitle": "Store roles",
+      "storeGrantsDescription": "At a store the higher of the global role and that store's role counts. System admin can only be granted globally.",
+      "storeGrantsNoStores": "There are no stores yet.",
+      "storeGrantNone": "None (global role applies)",
+      "storeRoleAt": "Role at {store}",
+      "atStore": "{store}: {role}",
+      "devViewAs": "Dev only: view as a user",
+      "devBackToAdmin": "Back to Dev Admin",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "UsersPage": {
+      "storeRoles": "Store roles",
+      "administratorsSub": "Users with a global or store role"
+    },
+    "VehicleForm": {
+      "storeLabel": "Store",
+      "noStore": "No store",
+      "storeHint": "That store's roles can operate this vehicle; a vehicle of no store is visible to global roles only."
+    },
+    "VehiclesTable": {
+      "store": "Store"
+    }
+  },
+  "ja-JP": {
+    "Roles": {
+      "storeGrantsCount": "{count} 店舗",
+      "storeGrantsNone": "店舗なし",
+      "storeGrantsTitle": "店舗ごとの権限",
+      "storeGrantsDescription": "店舗では「全体のロール」と「その店舗のロール」の高い方が適用されます。システム管理者は全体でのみ付与できます。",
+      "storeGrantsNoStores": "まだ店舗がありません。",
+      "storeGrantNone": "なし（全体のロール）",
+      "storeRoleAt": "{store} のロール",
+      "atStore": "{store}：{role}",
+      "devViewAs": "開発環境：ユーザーとして表示",
+      "devBackToAdmin": "Dev Admin に戻る",
+      "cancel": "キャンセル",
+      "save": "保存"
+    },
+    "UsersPage": {
+      "storeRoles": "店舗ごとの権限",
+      "administratorsSub": "全体または店舗のロールを持つユーザー"
+    },
+    "VehicleForm": {
+      "storeLabel": "所属店舗",
+      "noStore": "店舗なし",
+      "storeHint": "その店舗のロールでこの機体を操作できます。店舗に属さない機体は全体のロールのみ閲覧できます。"
+    },
+    "VehiclesTable": {
+      "store": "店舗"
+    }
+  }
+}

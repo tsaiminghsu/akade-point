@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Copy, Cpu, Joystick, RotateCcw, Save, Search, Undo2 } from "lucide-react";
 import { toast } from "sonner";
+import { useCanAt } from "@/store/useAccessStore";
 
 import {
   AlertDialog,
@@ -90,6 +91,9 @@ export default function ClawConfigsPageContent() {
 
   const storeName = useMemo(() => new Map(stores.map((s) => [s.id, s.name])), [stores]);
   const machine = machines.find((m) => m.id === selectedId) ?? null;
+  const mayManageAt = useCanAt("store.manage");
+  // Per-store roles: saving and copying need store-admin at this machine's store.
+  const mayEdit = !!machine && mayManageAt(machine.storeId);
   const dirty = Boolean(draft && base && !sameDraft(draft, base));
 
   /** Latest load() call; an older one that resolves late is dropped. */
@@ -337,13 +341,13 @@ export default function ClawConfigsPageContent() {
                     variant="outline"
                     size="sm"
                     onClick={() => setCopyOpen(true)}
-                    disabled={dirty || machines.length < 2}
+                    disabled={dirty || machines.length < 2 || !mayEdit}
                     aria-label={t("copyTo")}
                     title={dirty ? t("copyNeedsSave") : t("copyTo")}
                   >
                     <Copy className="h-4 w-4 xl:mr-1.5" /> <span className="hidden xl:inline">{t("copyTo")}</span>
                   </Button>
-                  <Button size="sm" onClick={() => void save()} disabled={!dirty || saving}>
+                  <Button size="sm" onClick={() => void save()} disabled={!dirty || saving || !mayEdit}>
                     <Save className="mr-1.5 h-4 w-4" /> {saving ? t("saving") : t("save")}
                   </Button>
                 </div>

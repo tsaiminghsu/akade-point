@@ -551,7 +551,7 @@
     "totalUsers": "Total Users",
     "totalUsersSub": "All registered accounts",
     "administrators": "Control Center access",
-    "administratorsSub": "Users with any Control Center role",
+    "administratorsSub": "Users with a global or store role",
     "totalPoints": "Total Points",
     "totalPointsSub": "Combined reward balance",
     "totalTickets": "Total Tickets",
@@ -573,7 +573,8 @@
     "regularUser": "User",
     "anonymousUser": "Anonymous User",
     "forbiddenTitle": "Not allowed",
-    "forbiddenDescription": "Only system admins can see users and assign roles."
+    "forbiddenDescription": "Only system admins can see users and assign roles.",
+    "storeRoles": "Store roles"
   },
   "Vehicles": {
     "title": "Vehicles",
@@ -607,7 +608,8 @@
     "deleteDescription": "This cannot be undone. Its companion token is revoked and its missions are deleted.",
     "armedYes": "Yes",
     "armedNo": "No",
-    "never": "Never"
+    "never": "Never",
+    "store": "Store"
   },
   "VehicleForm": {
     "addTitle": "Add Vehicle",
@@ -622,7 +624,10 @@
     "fillRequired": "Please fill in name and companion ID",
     "createVehicle": "Add Vehicle",
     "saveChanges": "Save Changes",
-    "tokenHint": "After adding, open the Setup tab to generate a companion token."
+    "tokenHint": "After adding, open the Setup tab to generate a companion token.",
+    "storeLabel": "Store",
+    "noStore": "No store",
+    "storeHint": "That store's roles can operate this vehicle; a vehicle of no store is visible to global roles only."
   },
   "VehicleLink": {
     "online": "Online",
@@ -1464,7 +1469,8 @@
       "mode": "Mode",
       "alt": "Altitude",
       "speed": "Speed",
-      "bat": "Battery"
+      "bat": "Battery",
+      "photos": "{n, plural, one {# photo} other {# photos}}"
     },
     "leaseHeld": "{name} has control of this vehicle (since {since}). You are watching; switch on control to take over.",
     "takenOver": "{name} took control; you are watching now.",
@@ -1514,6 +1520,33 @@
       "enabledToast": "Signing key written to the autopilot",
       "disabledToast": "Signing disabled on the autopilot",
       "failed": "Could not change signing: {reason}"
+    },
+    "cloud": {
+      "title": "Cloud files",
+      "description": "Photos (with where they were taken) and logs the companion uploaded; available while the vehicle is off or out of range.",
+      "refresh": "Refresh",
+      "uploading": "Uploading {name} ({pct}%)",
+      "queued": "{n, plural, one {# file} other {# files}} waiting ({size})",
+      "more": "{n} more after it",
+      "upToDate": "Everything is uploaded",
+      "errNoStorage": "The server has no file storage; uploads paused",
+      "errRetrying": "Upload failed ({code}); retrying later",
+      "kind_photo": "Photos",
+      "kind_dataflash": "DataFlash",
+      "kind_tlog": "Telemetry logs",
+      "noStorage": "The server has no file storage configured (VEHICLE_FILES_BUCKET), so photos and logs cannot be uploaded.",
+      "loadFailed": "Could not load the cloud files",
+      "none_photo": "No photos uploaded yet. Set [upload] enabled = true in the companion config and turn the camera on.",
+      "none_dataflash": "No DataFlash logs uploaded yet. Logs downloaded from the autopilot are uploaded automatically.",
+      "none_tlog": "No telemetry logs uploaded yet. Each flight's log is uploaded after disarming.",
+      "noGeo": "No position",
+      "older": "Load older",
+      "download": "Download {name}",
+      "delete": "Delete {name}",
+      "deleteTitle": "Delete this cloud file?",
+      "deleteDescription": "\"{name}\" will be deleted from the cloud for good. The original on the Pi is not touched.",
+      "deleted": "Deleted",
+      "deleteFailed": "Could not delete it"
     }
   },
   "Roles": {
@@ -1531,6 +1564,18 @@
     "readOnlyBanner": "Your role is {role}: you can only view this page; changes need {need}.",
     "need_alert_handle": "operator or above",
     "need_store_manage": "store admin or above",
-    "need_vehicle_command": "operator or above"
+    "need_vehicle_command": "operator or above",
+    "storeGrantsCount": "{count, plural, one {# store} other {# stores}}",
+    "storeGrantsNone": "No stores",
+    "storeGrantsTitle": "Store roles",
+    "storeGrantsDescription": "At a store the higher of the global role and that store's role counts. System admin can only be granted globally.",
+    "storeGrantsNoStores": "There are no stores yet.",
+    "storeGrantNone": "None (global role applies)",
+    "storeRoleAt": "Role at {store}",
+    "atStore": "{store}: {role}",
+    "devViewAs": "Dev only: view as a user",
+    "devBackToAdmin": "Back to Dev Admin",
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

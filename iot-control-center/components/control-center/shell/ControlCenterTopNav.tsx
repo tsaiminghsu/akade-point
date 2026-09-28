@@ -165,6 +165,11 @@ export function ControlCenterTopNav() {
             <DropdownMenuLabel className="space-y-0.5">
               <span className="block truncate">{me.name ?? t("userMenu.opsAdmin")}</span>
               {me.role && <span className="block text-xs font-normal text-muted-foreground">{tRole(me.role)}</span>}
+              {Object.entries(me.stores).map(([id, r]) => (
+                <span key={id} className="block truncate text-xs font-normal text-muted-foreground">
+                  {tRole("atStore", { role: tRole(r), store: stores.find((s) => s.id === id)?.name ?? id })}
+                </span>
+              ))}
             </DropdownMenuLabel>
             {me.devRoleSwitch && (
               <>
@@ -172,10 +177,11 @@ export function ControlCenterTopNav() {
                 <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">{tRole("devSwitch")}</DropdownMenuLabel>
                 {ROLES.map((r) => (
                   <DropdownMenuItem key={r} onSelect={() => me.setDevRole(r)} className="text-xs">
-                    {me.role === r ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />}
+                    {!me.devAs && me.role === r ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />}
                     {tRole(r)}
                   </DropdownMenuItem>
                 ))}
+                <DevViewAs current={me.devAs} onPick={me.setDevAs} />
               </>
             )}
             <DropdownMenuSeparator />
@@ -190,5 +196,40 @@ export function ControlCenterTopNav() {
 
       <SearchCommand open={commandOpen} onOpenChange={setCommandOpen} />
     </header>
+  );
+}
+
+/** Local dev: act as a user from the roles table, with their per-store grants. */
+function DevViewAs({ current, onPick }: { current: string | null; onPick: (userId: string | null) => void }) {
+  const tRole = useTranslations("Roles");
+  const [users, setUsers] = useState<{ userId: string; role: string | null; stores: Record<string, string> }[] | null>(null);
+  useEffect(() => {
+    fetch("/api/control-center/dev/grants")
+      .then((r) => (r.ok ? r.json() : { users: [] }))
+      .then((d: { users: typeof users }) => setUsers(d.users ?? []))
+      .catch(() => setUsers([]));
+  }, []);
+  if (!users?.length && !current) return null;
+  return (
+    <>
+      <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">{tRole("devViewAs")}</DropdownMenuLabel>
+      {(users ?? []).map((u) => (
+        <DropdownMenuItem key={u.userId} onSelect={() => onPick(u.userId)} className="text-xs">
+          {current === u.userId ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />}
+          <span className="truncate">{u.userId}</span>
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {[u.role ? tRole(u.role) : null, Object.keys(u.stores).length ? tRole("storeGrantsCount", { count: Object.keys(u.stores).length }) : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        </DropdownMenuItem>
+      ))}
+      {current && (
+        <DropdownMenuItem onSelect={() => onPick(null)} className="text-xs">
+          <span className="w-3.5" />
+          {tRole("devBackToAdmin")}
+        </DropdownMenuItem>
+      )}
+    </>
   );
 }

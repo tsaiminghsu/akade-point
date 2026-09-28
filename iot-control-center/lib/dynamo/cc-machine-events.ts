@@ -95,8 +95,8 @@ export function listEventsByStore(storeId: string, opts: RecentOpts): Promise<CC
  * few dozen, switch to a GSI with a constant partition key plus a timestamp
  * sort key — that costs a table update and a backfill, so it isn't worth it yet.
  */
-export async function listRecentEvents(opts: RecentOpts): Promise<CCMachineEvent[]> {
-  const stores = await listStores();
+export async function listRecentEvents(opts: RecentOpts, only?: string[]): Promise<CCMachineEvent[]> {
+  const stores = only ? only.map((id) => ({ id })) : await listStores();
   const lists: CCMachineEvent[][] = [];
   for (const group of chunk(stores, STORE_FANOUT_CONCURRENCY)) {
     lists.push(...(await Promise.all(group.map((store) => listEventsByStore(store.id, opts)))));

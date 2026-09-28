@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAccess } from "@/lib/access-server";
+import { requireAccessAt } from "@/lib/access-server";
 import { getStoreSettings, updateStoreSettings } from "@/lib/dynamo/cc-store-settings";
 
 const patchSchema = z.object({
@@ -31,13 +31,13 @@ const patchSchema = z.object({
   });
 
 export async function GET(_req: Request, { params }: { params: { storeId: string } }) {
-  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccessAt("read", params.storeId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const settings = await getStoreSettings(params.storeId);
   return NextResponse.json({ settings });
 }
 
 export async function PATCH(req: Request, { params }: { params: { storeId: string } }) {
-  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccessAt("store.manage", params.storeId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = patchSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   await updateStoreSettings(params.storeId, body.data);

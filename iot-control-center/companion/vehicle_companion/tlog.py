@@ -1,8 +1,10 @@
 """Telemetry log (.tlog) recorder, the format Mission Planner and MAVExplorer
 read: each packet is prefixed with an 8-byte big-endian microsecond timestamp.
 
-One file per companion start, and a new one each time the vehicle arms, so a
-flight is one file. Old files are deleted once the directory exceeds
+One file per companion start, a new one each time the vehicle arms and
+another when it disarms, so a flight is exactly one closed file ("-flight")
+as soon as it ends (the uploader sends it then) and time on the ground goes
+to "-ground" files. Old files are deleted once the directory exceeds
 `max_total_mb`. Writes come from the MAVLink reader thread and the writer, so
 they are serialised with a lock; the file is buffered and flushed once a
 second."""
@@ -82,11 +84,13 @@ class TlogWriter:
                 self._open("cont")
 
     def on_heartbeat(self, hb) -> None:
-        """Start a fresh file on each disarmed→armed transition."""
+        """Start a fresh file on each arm and each disarm."""
         armed = bool(hb.base_mode & mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
         with self._lock:
             if self._armed is False and armed:
                 self._open("flight")
+            elif self._armed is True and not armed:
+                self._open("ground")
             self._armed = armed
 
     def list_files(self) -> list[dict]:

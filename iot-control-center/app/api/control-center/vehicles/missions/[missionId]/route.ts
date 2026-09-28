@@ -5,14 +5,16 @@ import { deleteMission, getMission, updateMission } from "@/lib/dynamo/cc-vehicl
 import { missionPatchSchema } from "@/lib/control-center/vehicles/schemas";
 
 export async function GET(_req: Request, { params }: { params: { missionId: string } }) {
-  if (!(await requireVehicleAccess("view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const mission = await getMission(params.missionId);
+  if (!(await requireVehicleAccess("view", mission?.vehicleId ?? null))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!mission) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ mission });
 }
 
 export async function PATCH(req: Request, { params }: { params: { missionId: string } }) {
-  if (!(await requireVehicleAccess("mission"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const mission = await getMission(params.missionId);
+  if (!mission) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!(await requireVehicleAccess("mission", mission.vehicleId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = missionPatchSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   await updateMission(params.missionId, body.data);
@@ -20,7 +22,9 @@ export async function PATCH(req: Request, { params }: { params: { missionId: str
 }
 
 export async function DELETE(_req: Request, { params }: { params: { missionId: string } }) {
-  if (!(await requireVehicleAccess("mission"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const mission = await getMission(params.missionId);
+  if (!mission) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!(await requireVehicleAccess("mission", mission.vehicleId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   await deleteMission(params.missionId);
   return NextResponse.json({ ok: true });
 }

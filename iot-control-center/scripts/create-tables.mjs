@@ -1,7 +1,7 @@
 /**
  * Run once to create every DynamoDB table this app needs:
  *   akade-auth and akade-users (shared with the Akade Point app — creating
- *   them here is idempotent) plus the seventeen akade-cc-* tables.
+ *   them here is idempotent) plus every akade-cc-* table.
  *
  * Usage:
  *   node scripts/create-tables.mjs
@@ -469,9 +469,25 @@ await createTable({
   KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
 });
 
+// 23. akade-cc-vehicle-files — photos and logs a vehicle uploaded (the bytes are
+//     in S3 or, locally, on disk). fileId = <kind>.<t>.<sha prefix> sorts by time.
+await createTable({
+  TableName: "akade-cc-vehicle-files",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [
+    { AttributeName: "vehicleId", AttributeType: "S" },
+    { AttributeName: "fileId", AttributeType: "S" },
+  ],
+  KeySchema: [
+    { AttributeName: "vehicleId", KeyType: "HASH" },
+    { AttributeName: "fileId", KeyType: "RANGE" },
+  ],
+});
+
 await enableTtl("akade-cc-machine-events", "expiresAt");
 await enableTtl("akade-cc-alerts", "expiresAt");
 await enableTtl("akade-cc-vehicle-telemetry", "expiresAt");
+await enableTtl("akade-cc-vehicle-files", "expiresAt");
 await enableTtl("akade-cc-vehicle-commands", "expiresAt");
 await enableTtl("akade-cc-vehicle-events", "expiresAt");
 

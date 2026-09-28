@@ -551,7 +551,7 @@
     "totalUsers": "ユーザー総数",
     "totalUsersSub": "登録済みの全アカウント",
     "administrators": "コントロールセンター利用可",
-    "administratorsSub": "いずれかの役割を持つユーザー",
+    "administratorsSub": "全体または店舗のロールを持つユーザー",
     "totalPoints": "ポイント合計",
     "totalPointsSub": "累計報酬ポイント",
     "totalTickets": "チケット合計",
@@ -573,7 +573,8 @@
     "regularUser": "ユーザー",
     "anonymousUser": "匿名ユーザー",
     "forbiddenTitle": "権限がありません",
-    "forbiddenDescription": "ユーザーの閲覧と役割の設定はシステム管理者のみ可能です。"
+    "forbiddenDescription": "ユーザーの閲覧と役割の設定はシステム管理者のみ可能です。",
+    "storeRoles": "店舗ごとの権限"
   },
   "Vehicles": {
     "title": "機体",
@@ -607,7 +608,8 @@
     "deleteDescription": "元に戻せません。Companion トークンは失効し、ミッションも削除されます。",
     "armedYes": "はい",
     "armedNo": "いいえ",
-    "never": "なし"
+    "never": "なし",
+    "store": "店舗"
   },
   "VehicleForm": {
     "addTitle": "機体を追加",
@@ -622,7 +624,10 @@
     "fillRequired": "名前と Companion ID を入力してください",
     "createVehicle": "機体を追加",
     "saveChanges": "変更を保存",
-    "tokenHint": "追加後、「設定」タブで Companion トークンを生成してください。"
+    "tokenHint": "追加後、「設定」タブで Companion トークンを生成してください。",
+    "storeLabel": "所属店舗",
+    "noStore": "店舗なし",
+    "storeHint": "その店舗のロールでこの機体を操作できます。店舗に属さない機体は全体のロールのみ閲覧できます。"
   },
   "VehicleLink": {
     "online": "オンライン",
@@ -1464,7 +1469,8 @@
       "mode": "モード",
       "alt": "高度",
       "speed": "速度",
-      "bat": "電池"
+      "bat": "電池",
+      "photos": "写真 {n} 枚"
     },
     "leaseHeld": "{name} がこの機体を操作中です（{since} から）。現在は閲覧のみです。「操作権を取得」をオンにすると引き継げます。",
     "takenOver": "{name} が操作権を引き継ぎました。現在は閲覧のみです。",
@@ -1514,6 +1520,33 @@
       "enabledToast": "署名鍵を FC に書き込みました",
       "disabledToast": "FC の署名を無効にしました",
       "failed": "署名を変更できません：{reason}"
+    },
+    "cloud": {
+      "title": "クラウドのファイル",
+      "description": "コンパニオンがアップロードした写真（撮影位置付き）とログ。機体の電源が切れていても、圏外でも見られます。",
+      "refresh": "再読み込み",
+      "uploading": "{name} をアップロード中（{pct}%）",
+      "queued": "アップロード待ち {n} 件（{size}）",
+      "more": "ほか {n} 件",
+      "upToDate": "すべてアップロード済み",
+      "errNoStorage": "サーバーにファイルの保存先がないため、アップロードを停止中",
+      "errRetrying": "アップロード失敗（{code}）。後で再試行します",
+      "kind_photo": "写真",
+      "kind_dataflash": "DataFlash",
+      "kind_tlog": "テレメトリログ",
+      "noStorage": "サーバーにファイルの保存先（VEHICLE_FILES_BUCKET）が設定されていないため、写真やログをアップロードできません。",
+      "loadFailed": "クラウドのファイルを読み込めません",
+      "none_photo": "まだ写真はありません。コンパニオンの設定で [upload] enabled = true にし、カメラを有効にしてください。",
+      "none_dataflash": "まだ DataFlash ログはありません。フライトコントローラーからダウンロードしたログは自動でアップロードされます。",
+      "none_tlog": "まだテレメトリログはありません。各フライトのログはディスアーム後に自動でアップロードされます。",
+      "noGeo": "位置なし",
+      "older": "さらに古いものを読み込む",
+      "download": "{name} をダウンロード",
+      "delete": "{name} を削除",
+      "deleteTitle": "クラウドのファイルを削除しますか？",
+      "deleteDescription": "「{name}」をクラウドから削除します。元に戻せません。Pi 上の元ファイルはそのままです。",
+      "deleted": "削除しました",
+      "deleteFailed": "削除できませんでした"
     }
   },
   "Roles": {
@@ -1531,6 +1564,18 @@
     "readOnlyBanner": "あなたの役割は「{role}」です。このページは閲覧のみで、変更には{need}が必要です。",
     "need_alert_handle": "オペレーター以上",
     "need_store_manage": "店舗管理者以上",
-    "need_vehicle_command": "オペレーター以上"
+    "need_vehicle_command": "オペレーター以上",
+    "storeGrantsCount": "{count} 店舗",
+    "storeGrantsNone": "店舗なし",
+    "storeGrantsTitle": "店舗ごとの権限",
+    "storeGrantsDescription": "店舗では「全体のロール」と「その店舗のロール」の高い方が適用されます。システム管理者は全体でのみ付与できます。",
+    "storeGrantsNoStores": "まだ店舗がありません。",
+    "storeGrantNone": "なし（全体のロール）",
+    "storeRoleAt": "{store} のロール",
+    "atStore": "{store}：{role}",
+    "devViewAs": "開発環境：ユーザーとして表示",
+    "devBackToAdmin": "Dev Admin に戻る",
+    "cancel": "キャンセル",
+    "save": "保存"
   }
 }

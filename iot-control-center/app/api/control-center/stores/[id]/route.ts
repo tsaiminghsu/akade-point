@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAccess } from "@/lib/access-server";
+import { requireAccess, requireAccessAt } from "@/lib/access-server";
 import { deleteStore, updateStore } from "@/lib/dynamo/cc-stores";
 
 const patchSchema = z.object({
@@ -16,13 +16,14 @@ const patchSchema = z.object({
   });
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccessAt("store.manage", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = patchSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   await updateStore(params.id, body.data);
   return NextResponse.json({ ok: true });
 }
 
+/** Deleting a store takes a global store-admin, not one of that store's. */
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const ok = await deleteStore(params.id);

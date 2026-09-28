@@ -1,0 +1,98 @@
+{
+  "zh-TW": {
+    "Gcs": {
+      "cloud": {
+        "title": "雲端檔案",
+        "description": "companion 上傳的照片（含拍攝位置）與日誌；載具關機或離線時也看得到。",
+        "refresh": "重新整理",
+        "uploading": "正在上傳 {name}（{pct}%）",
+        "queued": "待上傳 {n} 個檔案（{size}）",
+        "more": "之後還有 {n} 個",
+        "upToDate": "都已上傳",
+        "errNoStorage": "伺服器未設定檔案儲存，暫停上傳",
+        "errRetrying": "上傳失敗（{code}），稍後重試",
+        "kind_photo": "照片",
+        "kind_dataflash": "DataFlash",
+        "kind_tlog": "遙測日誌",
+        "noStorage": "伺服器沒有設定檔案儲存（VEHICLE_FILES_BUCKET），無法上傳照片與日誌。",
+        "loadFailed": "無法載入雲端檔案",
+        "none_photo": "還沒有上傳的照片。在 companion 設定 [upload] enabled = true 並開啟相機。",
+        "none_dataflash": "還沒有上傳的 DataFlash 日誌。從飛控下載後會自動上傳。",
+        "none_tlog": "還沒有上傳的遙測日誌。每次飛行結束、上鎖後會自動上傳。",
+        "noGeo": "沒有定位",
+        "older": "載入較舊的",
+        "download": "下載 {name}",
+        "delete": "刪除 {name}",
+        "deleteTitle": "刪除雲端檔案？",
+        "deleteDescription": "「{name}」會從雲端刪除，無法復原。Pi 上的原始檔不受影響。",
+        "deleted": "已刪除",
+        "deleteFailed": "無法刪除"
+      },
+      "replay": { "photos": "{n} 張照片" }
+    }
+  },
+  "en-US": {
+    "Gcs": {
+      "cloud": {
+        "title": "Cloud files",
+        "description": "Photos (with where they were taken) and logs the companion uploaded; available while the vehicle is off or out of range.",
+        "refresh": "Refresh",
+        "uploading": "Uploading {name} ({pct}%)",
+        "queued": "{n, plural, one {# file} other {# files}} waiting ({size})",
+        "more": "{n} more after it",
+        "upToDate": "Everything is uploaded",
+        "errNoStorage": "The server has no file storage; uploads paused",
+        "errRetrying": "Upload failed ({code}); retrying later",
+        "kind_photo": "Photos",
+        "kind_dataflash": "DataFlash",
+        "kind_tlog": "Telemetry logs",
+        "noStorage": "The server has no file storage configured (VEHICLE_FILES_BUCKET), so photos and logs cannot be uploaded.",
+        "loadFailed": "Could not load the cloud files",
+        "none_photo": "No photos uploaded yet. Set [upload] enabled = true in the companion config and turn the camera on.",
+        "none_dataflash": "No DataFlash logs uploaded yet. Logs downloaded from the autopilot are uploaded automatically.",
+        "none_tlog": "No telemetry logs uploaded yet. Each flight's log is uploaded after disarming.",
+        "noGeo": "No position",
+        "older": "Load older",
+        "download": "Download {name}",
+        "delete": "Delete {name}",
+        "deleteTitle": "Delete this cloud file?",
+        "deleteDescription": "\"{name}\" will be deleted from the cloud for good. The original on the Pi is not touched.",
+        "deleted": "Deleted",
+        "deleteFailed": "Could not delete it"
+      },
+      "replay": { "photos": "{n, plural, one {# photo} other {# photos}}" }
+    }
+  },
+  "ja-JP": {
+    "Gcs": {
+      "cloud": {
+        "title": "クラウドのファイル",
+        "description": "コンパニオンがアップロードした写真（撮影位置付き）とログ。機体の電源が切れていても、圏外でも見られます。",
+        "refresh": "再読み込み",
+        "uploading": "{name} をアップロード中（{pct}%）",
+        "queued": "アップロード待ち {n} 件（{size}）",
+        "more": "ほか {n} 件",
+        "upToDate": "すべてアップロード済み",
+        "errNoStorage": "サーバーにファイルの保存先がないため、アップロードを停止中",
+        "errRetrying": "アップロード失敗（{code}）。後で再試行します",
+        "kind_photo": "写真",
+        "kind_dataflash": "DataFlash",
+        "kind_tlog": "テレメトリログ",
+        "noStorage": "サーバーにファイルの保存先（VEHICLE_FILES_BUCKET）が設定されていないため、写真やログをアップロードできません。",
+        "loadFailed": "クラウドのファイルを読み込めません",
+        "none_photo": "まだ写真はありません。コンパニオンの設定で [upload] enabled = true にし、カメラを有効にしてください。",
+        "none_dataflash": "まだ DataFlash ログはありません。フライトコントローラーからダウンロードしたログは自動でアップロードされます。",
+        "none_tlog": "まだテレメトリログはありません。各フライトのログはディスアーム後に自動でアップロードされます。",
+        "noGeo": "位置なし",
+        "older": "さらに古いものを読み込む",
+        "download": "{name} をダウンロード",
+        "delete": "{name} を削除",
+        "deleteTitle": "クラウドのファイルを削除しますか？",
+        "deleteDescription": "「{name}」をクラウドから削除します。元に戻せません。Pi 上の元ファイルはそのままです。",
+        "deleted": "削除しました",
+        "deleteFailed": "削除できませんでした"
+      },
+      "replay": { "photos": "写真 {n} 枚" }
+    }
+  }
+}

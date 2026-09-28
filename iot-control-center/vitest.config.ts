@@ -13,6 +13,7 @@ export default defineConfig({
       'lib/control-center/**/*.test.ts',
       'lib/dynamo/**/*.test.ts',
       'lib/iot/**/*.test.ts',
+      'lib/vehicle-files/**/*.test.ts',
       'store/**/*.test.ts',
       'components/**/__tests__/*.test.ts',
     ],

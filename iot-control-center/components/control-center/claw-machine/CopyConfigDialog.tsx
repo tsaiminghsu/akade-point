@@ -20,6 +20,7 @@ import { MAX_COPY_TARGETS } from "@/lib/control-center/claw/schemas";
 import type { Machine } from "@/lib/control-center/types";
 import { useClawConfigsStore } from "@/store/useClawConfigsStore";
 import { useMachinesStore } from "@/store/useMachinesStore";
+import { useCanAt } from "@/store/useAccessStore";
 
 interface CopyConfigDialogProps {
   open: boolean;
@@ -34,6 +35,7 @@ export function CopyConfigDialog({ open, onOpenChange, source, draft }: CopyConf
   const t = useTranslations("ClawConfigs");
   const tCommon = useTranslations("Common");
   const machines = useMachinesStore((s) => s.machines);
+  const mayManageAt = useCanAt("store.manage");
   const stores = useMachinesStore((s) => s.stores);
 
   const [parts, setParts] = useState<Set<ClawConfigPart>>(() => new Set(["settings"]));
@@ -48,13 +50,14 @@ export function CopyConfigDialog({ open, onOpenChange, source, draft }: CopyConf
   }, [open]);
 
   const groups = useMemo(() => {
-    const others = machines.filter((m) => m.id !== source.id);
+    // Only machines in stores this user manages (per-store roles).
+    const others = machines.filter((m) => m.id !== source.id && mayManageAt(m.storeId));
     // The source machine's store first: that's where a copy usually goes.
     const ordered = [...stores].sort((a, b) => Number(b.id === source.storeId) - Number(a.id === source.storeId));
     return ordered
       .map((store) => ({ store, machines: others.filter((m) => m.storeId === store.id) }))
       .filter((g) => g.machines.length > 0);
-  }, [machines, stores, source]);
+  }, [machines, stores, source, mayManageAt]);
 
   const toggle = <T,>(set: Set<T>, value: T, on: boolean) => {
     const next = new Set(set);

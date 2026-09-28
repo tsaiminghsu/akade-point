@@ -20,7 +20,7 @@ const bodySchema = z.object({
  * every few seconds while it stays on; release when it is switched off.
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const actor = await requireVehicleAccess("command");
+  const actor = await requireVehicleAccess("command", params.id);
   if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = bodySchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
