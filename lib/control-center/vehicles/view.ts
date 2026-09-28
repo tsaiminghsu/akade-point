@@ -11,6 +11,7 @@ export function toVehicleView(v: CCVehicle, now: number = Date.now()): Vehicle {
     type: v.type,
     companionId: v.companionId,
     notes: v.notes,
+    storeId: v.storeId || null,
     state: (v.state as VehicleState | null) ?? null,
     stateAt: v.stateAt,
     lastSeenAt: v.lastSeenAt,

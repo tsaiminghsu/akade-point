@@ -1,4 +1,4 @@
-import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { createId } from "@paralleldrive/cuid2";
 import { chunk } from "@/lib/control-center/batch";
 import { batchPutAll } from "./batch";
@@ -90,13 +90,18 @@ export function listAlertsByStore(storeId: string, opts: RecentOpts): Promise<CC
 
 /** The newest `limit` alerts across every store, via the store-index GSI.
  *  See listRecentEvents for why this fans out per store instead of scanning. */
-export async function listRecentAlerts(opts: RecentOpts): Promise<CCAlert[]> {
-  const stores = await listStores();
+export async function listRecentAlerts(opts: RecentOpts, only?: string[]): Promise<CCAlert[]> {
+  const stores = only ? only.map((id) => ({ id })) : await listStores();
   const lists: CCAlert[][] = [];
   for (const group of chunk(stores, STORE_FANOUT_CONCURRENCY)) {
     lists.push(...(await Promise.all(group.map((store) => listAlertsByStore(store.id, opts)))));
   }
   return mergeRecent(lists, (a) => a.createdAt, opts.limit, (a) => a.id);
+}
+
+export async function getAlert(id: string): Promise<CCAlert | null> {
+  const res = await ddb.send(new GetCommand({ TableName: TABLES.CC_ALERTS, Key: { id } }));
+  return (res.Item as CCAlert) ?? null;
 }
 
 export async function updateAlertStatus(id: string, status: CCAlertStatus): Promise<void> {

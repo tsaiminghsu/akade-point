@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { requireAccess } from "@/lib/access-server";
+import { canAt, requireAnyAccess } from "@/lib/access-server";
+import { storesAllowing } from "@/lib/control-center/access";
+import { getMachine } from "@/lib/dynamo/cc-machines";
 import {
   createEvent,
   listEventsByMachine,
@@ -10,7 +12,8 @@ import {
 import { eventCreateSchema, recentQuerySchema } from "./schema";
 
 export async function GET(req: Request) {
-  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const actor = await requireAnyAccess("read");
+  if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const query = recentQuerySchema.safeParse(Object.fromEntries(searchParams));
@@ -18,11 +21,14 @@ export async function GET(req: Request) {
 
   const { limit, before, storeId, machineId } = query.data;
   const opts = { limit, before };
+  if (storeId && !canAt(actor, "read", storeId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (machineId && !canAt(actor, "read", (await getMachine(machineId))?.storeId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const where = storesAllowing(actor, "read");
   const events = machineId
     ? await listEventsByMachine(machineId, opts)
     : storeId
       ? await listEventsByStore(storeId, opts)
-      : await listRecentEvents(opts);
+      : await listRecentEvents(opts, where === "all" ? undefined : where);
 
   // `nextBefore` is an exclusive upper bound, so a page boundary that falls
   // inside one simulation tick (many events sharing a timestamp) can skip the
@@ -33,10 +39,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!(await requireAccess("simulate"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const actor = await requireAnyAccess("simulate");
+  if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const json = await req.json().catch(() => null);
   const body = eventCreateSchema.safeParse(json);
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  if (!canAt(actor, "simulate", body.data.storeId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { timestamp, ...rest } = body.data;
   const event = await createEvent({ ...rest, timestamp: timestamp ?? Date.now() });
   return NextResponse.json({ event });

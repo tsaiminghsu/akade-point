@@ -82,7 +82,7 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
   const [resumeAt, setResumeAt] = useState("");
   const [circleRadius, setCircleRadius] = useState(100);
   // Stored plans need the mission role; editing locally is open to anyone.
-  const mayPlan = useCan("vehicle.mission");
+  const mayPlan = useCan("vehicle.mission", vehicle.storeId);
   const [orbitAt, setOrbitAt] = useState<{ lat: number; lon: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 

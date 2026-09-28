@@ -551,7 +551,7 @@
     "totalUsers": "使用者總數",
     "totalUsersSub": "所有已註冊帳號",
     "administrators": "可進入控制中心",
-    "administratorsSub": "擁有任一控制中心角色的使用者",
+    "administratorsSub": "擁有全域或門市角色的使用者",
     "totalPoints": "點數總計",
     "totalPointsSub": "所有累計獎勵點數",
     "totalTickets": "票券總計",
@@ -573,7 +573,8 @@
     "regularUser": "一般使用者",
     "anonymousUser": "匿名使用者",
     "forbiddenTitle": "權限不足",
-    "forbiddenDescription": "只有系統管理員可以查看使用者與設定角色。"
+    "forbiddenDescription": "只有系統管理員可以查看使用者與設定角色。",
+    "storeRoles": "門市權限"
   },
   "Vehicles": {
     "title": "載具",
@@ -607,7 +608,8 @@
     "deleteDescription": "此操作無法復原，會一併撤銷其 Companion Token 並刪除其任務。",
     "armedYes": "是",
     "armedNo": "否",
-    "never": "從未"
+    "never": "從未",
+    "store": "門市"
   },
   "VehicleForm": {
     "addTitle": "新增載具",
@@ -622,7 +624,10 @@
     "fillRequired": "請填寫名稱與 Companion ID",
     "createVehicle": "新增載具",
     "saveChanges": "儲存變更",
-    "tokenHint": "新增後請到「設定」分頁產生 Companion Token。"
+    "tokenHint": "新增後請到「設定」分頁產生 Companion Token。",
+    "storeLabel": "所屬門市",
+    "noStore": "不屬於任何門市",
+    "storeHint": "該門市的角色可以操作這台載具；不屬於門市的載具只有全域角色能看。"
   },
   "VehicleLink": {
     "online": "連線中",
@@ -1531,6 +1536,18 @@
     "readOnlyBanner": "你的角色是「{role}」，這頁只能查看；修改需要{need}。",
     "need_alert_handle": "操作員以上",
     "need_store_manage": "門市管理員以上",
-    "need_vehicle_command": "操作員以上"
+    "need_vehicle_command": "操作員以上",
+    "storeGrantsCount": "{count} 間門市",
+    "storeGrantsNone": "未指派門市",
+    "storeGrantsTitle": "門市權限",
+    "storeGrantsDescription": "在某間門市，會取「全域角色」與「該門市角色」中較高的一個。系統管理員只能全域指派。",
+    "storeGrantsNoStores": "還沒有門市。",
+    "storeGrantNone": "無（依全域角色）",
+    "storeRoleAt": "{store} 的角色",
+    "atStore": "{store}：{role}",
+    "devViewAs": "開發環境：以使用者身分檢視",
+    "devBackToAdmin": "回到 Dev Admin",
+    "cancel": "取消",
+    "save": "儲存"
   }
 }

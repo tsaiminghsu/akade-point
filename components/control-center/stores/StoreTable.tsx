@@ -11,10 +11,12 @@ import { ConfirmDialog } from "@/components/control-center/shared/ConfirmDialog"
 import { StoreFormDialog } from "./StoreFormDialog";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import type { Store } from "@/lib/control-center/types";
-import { useCan } from "@/store/useAccessStore";
+import { useCan, useCanAt } from "@/store/useAccessStore";
 
 export function StoreTable() {
+  // Creating and deleting stores is for global store-admins; a store's own admins may edit it.
   const mayManage = useCan("store.manage");
+  const mayManageAt = useCanAt("store.manage");
   const t = useTranslations("StoreTable");
   const tCommon = useTranslations("Common");
   const stores = useMachinesStore((s) => s.stores);
@@ -89,7 +91,7 @@ export function StoreTable() {
                         {t("switchTo")}
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon-sm" disabled={!mayManage} onClick={() => openEdit(store)}>
+                    <Button variant="ghost" size="icon-sm" disabled={!mayManageAt(store.id)} onClick={() => openEdit(store)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button

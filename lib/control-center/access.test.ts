@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { allows, capabilities, effectiveRole, isRole, MIN_ROLE, ROLES } from "./access";
+import {
+  allows,
+  allowsAt,
+  allowsSomewhere,
+  capabilities,
+  cleanStoreRoles,
+  effectiveRole,
+  hasAnyAccess,
+  isRole,
+  isStoreRole,
+  MIN_ROLE,
+  NO_GRANTS,
+  roleAt,
+  ROLES,
+  storeFilter,
+  storesAllowing,
+  strongestRole,
+} from "./access";
 
 describe("roles", () => {
   it("each role includes the ones below it", () => {
@@ -32,5 +49,50 @@ describe("roles", () => {
     expect(capabilities("operator")["vehicle.mission"]).toBe(true);
     expect(capabilities(null).read).toBe(false);
     expect(ROLES).toHaveLength(4);
+  });
+});
+
+describe("per-store roles", () => {
+  const g = { role: "viewer" as const, stores: { s1: "store-admin" as const, s2: "operator" as const } };
+  const scoped = { role: null, stores: { s1: "operator" as const } };
+
+  it("takes the higher of the global and the store role at a store", () => {
+    expect(roleAt(g, "s1")).toBe("store-admin");
+    expect(roleAt(g, "s3")).toBe("viewer");
+    expect(roleAt(g, null)).toBe("viewer");
+    expect(roleAt({ role: "system-admin", stores: { s1: "viewer" } }, "s1")).toBe("system-admin");
+    expect(allowsAt(g, "store.manage", "s1")).toBe(true);
+    expect(allowsAt(g, "store.manage", "s2")).toBe(false);
+    expect(allowsAt(g, "store.manage")).toBe(false);
+  });
+
+  it("confines a store-only user to their stores", () => {
+    expect(allowsAt(scoped, "read", "s1")).toBe(true);
+    expect(allowsAt(scoped, "read", "s2")).toBe(false);
+    // things of no store (unassigned vehicles, brands' admin) need a global role
+    expect(allowsAt(scoped, "read", null)).toBe(false);
+    expect(allowsSomewhere(scoped, "vehicle.command")).toBe(true);
+    expect(allowsSomewhere(scoped, "store.manage")).toBe(false);
+    expect(storesAllowing(scoped, "read")).toEqual(["s1"]);
+    expect(storesAllowing(g, "read")).toBe("all");
+    expect(storesAllowing(g, "store.manage")).toEqual(["s1"]);
+    const f = storeFilter(scoped, "read");
+    expect([f("s1"), f("s2"), f(null), f(undefined)]).toEqual([true, false, false, false]);
+    expect(storeFilter(g, "read")(null)).toBe(true);
+  });
+
+  it("never grants the global-only actions through a store", () => {
+    const top = { role: null, stores: { s1: "store-admin" as const } };
+    for (const a of ["users.manage", "token.manage", "vehicle.manage"] as const) expect(allowsSomewhere(top, a)).toBe(false);
+    expect(cleanStoreRoles({ s1: "system-admin", s2: "operator", "": "viewer", s3: 5 })).toEqual({ s2: "operator" });
+    expect(cleanStoreRoles(null)).toEqual({});
+    expect(isStoreRole("system-admin")).toBe(false);
+  });
+
+  it("knows who has any access and their strongest role", () => {
+    expect(hasAnyAccess(NO_GRANTS)).toBe(false);
+    expect(hasAnyAccess(scoped)).toBe(true);
+    expect(strongestRole(g)).toBe("store-admin");
+    expect(strongestRole(NO_GRANTS)).toBeNull();
   });
 });

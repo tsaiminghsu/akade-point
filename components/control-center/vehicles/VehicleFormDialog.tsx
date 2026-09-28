@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useVehiclesStore } from "@/store/useVehiclesStore";
+import { useMachinesStore } from "@/store/useMachinesStore";
 import type { Vehicle, VehicleType } from "@/lib/control-center/vehicles/types";
 
 interface VehicleFormDialogProps {
@@ -26,6 +27,8 @@ interface VehicleFormDialogProps {
   /** After creating, open this vehicle's drawer on the Setup tab to issue a token. */
   onCreated?: (vehicle: Vehicle) => void;
 }
+
+const NO_STORE = "__none";
 
 export function VehicleFormDialog({ open, onOpenChange, vehicle, onCreated }: VehicleFormDialogProps) {
   const t = useTranslations("VehicleForm");
@@ -38,6 +41,8 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, onCreated }: Ve
   const [type, setType] = useState<VehicleType>("drone");
   const [companionId, setCompanionId] = useState("");
   const [notes, setNotes] = useState("");
+  const [storeId, setStoreId] = useState("");
+  const stores = useMachinesStore((s) => s.stores);
 
   useEffect(() => {
     if (!open) return;
@@ -45,6 +50,7 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, onCreated }: Ve
     setType(vehicle?.type ?? "drone");
     setCompanionId(vehicle?.companionId ?? "");
     setNotes(vehicle?.notes ?? "");
+    setStoreId(vehicle?.storeId ?? "");
   }, [open, vehicle]);
 
   async function handleSubmit() {
@@ -53,10 +59,10 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, onCreated }: Ve
       return;
     }
     if (vehicle) {
-      const ok = await updateVehicle(vehicle.id, { name, type, companionId, notes });
+      const ok = await updateVehicle(vehicle.id, { name, type, companionId, notes, storeId });
       if (ok) onOpenChange(false);
     } else {
-      const created = await addVehicle({ name, type, companionId, notes });
+      const created = await addVehicle({ name, type, companionId, notes, ...(storeId && { storeId }) });
       if (created) {
         onOpenChange(false);
         onCreated?.(created);
@@ -92,6 +98,23 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, onCreated }: Ve
           <div className="space-y-1.5">
             <Label>{t("companionIdLabel")}</Label>
             <Input value={companionId} onChange={(e) => setCompanionId(e.target.value)} placeholder={t("companionIdPlaceholder")} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("storeLabel")}</Label>
+            <Select value={storeId || NO_STORE} onValueChange={(v) => setStoreId(v === NO_STORE ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_STORE}>{t("noStore")}</SelectItem>
+                {stores.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">{t("storeHint")}</p>
           </div>
           <div className="space-y-1.5">
             <Label>{t("notesLabel")}</Label>

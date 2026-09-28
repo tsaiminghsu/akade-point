@@ -8,14 +8,14 @@ import { vehiclePatchSchema } from "@/lib/control-center/vehicles/schemas";
 import { toVehicleView } from "@/lib/control-center/vehicles/view";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("view", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const vehicle = await getVehicle(params.id);
   if (!vehicle) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ vehicle: toVehicleView(vehicle) });
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("manage", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = vehiclePatchSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("manage", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   // Best-effort cleanup of dependents; the vehicle row goes last.
   await revokeAllForVehicle(params.id);
   await deleteAllForVehicle(params.id);

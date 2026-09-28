@@ -72,5 +72,82 @@ export function capabilities(role: Role | null): Record<Action, boolean> {
   return Object.fromEntries((Object.keys(MIN_ROLE) as Action[]).map((a) => [a, allows(role, a)])) as Record<Action, boolean>;
 }
 
+// ---- per-store roles -------------------------------------------------------------
+
+/**
+ * Roles that can be granted for one store. system-admin is global only: what
+ * it adds (users, device tokens, vehicles) is not any one store's.
+ */
+export const STORE_ROLES = ["viewer", "operator", "store-admin"] as const;
+export type StoreRole = (typeof STORE_ROLES)[number];
+
+export function isStoreRole(v: unknown): v is StoreRole {
+  return typeof v === "string" && (STORE_ROLES as readonly string[]).includes(v);
+}
+
+/**
+ * What a user may do: a global role that applies to every store (and to what
+ * belongs to no store), plus roles granted for single stores. At a store the
+ * higher of the two counts, so a global viewer can be a store-admin of one
+ * shop.
+ */
+export interface Grants {
+  role: Role | null;
+  stores: Record<string, StoreRole>;
+}
+
+export const NO_GRANTS: Grants = { role: null, stores: {} };
+
+const higher = (a: Role | null, b: Role | null): Role | null => (!a ? b : !b ? a : ROLES.indexOf(a) >= ROLES.indexOf(b) ? a : b);
+
+/** The role that counts at `storeId`; null/undefined asks about things that belong to no store (global role only). */
+export function roleAt(g: Grants, storeId?: string | null): Role | null {
+  return higher(g.role, storeId ? (g.stores[storeId] ?? null) : null);
+}
+
+export function allowsAt(g: Grants, action: Action, storeId?: string | null): boolean {
+  return allows(roleAt(g, storeId), action);
+}
+
+/** Whether `action` is allowed anywhere: globally or at some store. */
+export function allowsSomewhere(g: Grants, action: Action): boolean {
+  return allows(g.role, action) || Object.values(g.stores).some((r) => allows(r, action));
+}
+
+/** Everywhere `action` is allowed: "all" stores (the global role allows it) or these store ids. */
+export function storesAllowing(g: Grants, action: Action): "all" | string[] {
+  if (allows(g.role, action)) return "all";
+  return Object.entries(g.stores)
+    .filter(([, r]) => allows(r, action))
+    .map(([id]) => id);
+}
+
+/** A predicate over store ids for filtering lists; items of no store pass only with a global role. */
+export function storeFilter(g: Grants, action: Action): (storeId: string | null | undefined) => boolean {
+  const where = storesAllowing(g, action);
+  if (where === "all") return () => true;
+  const set = new Set(where);
+  return (storeId) => !!storeId && set.has(storeId);
+}
+
+export function hasAnyAccess(g: Grants): boolean {
+  return g.role !== null || Object.keys(g.stores).length > 0;
+}
+
+/** Keeps only well-formed store grants (a stored map may hold junk or stale roles). */
+export function cleanStoreRoles(v: unknown): Record<string, StoreRole> {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  const out: Record<string, StoreRole> = {};
+  for (const [id, r] of Object.entries(v as Record<string, unknown>)) if (id && isStoreRole(r)) out[id] = r;
+  return out;
+}
+
+/** The strongest role held anywhere, for labels ("store-admin at 2 stores"). */
+export function strongestRole(g: Grants): Role | null {
+  return Object.values(g.stores).reduce<Role | null>((acc, r) => higher(acc, r), g.role);
+}
+
 /** Dev-only role switch (see lib/access-server.ts). */
 export const DEV_ROLE_COOKIE = "cc_dev_role";
+/** Dev-only: act as a user from the roles table, with their per-store grants. */
+export const DEV_AS_COOKIE = "cc_dev_as";

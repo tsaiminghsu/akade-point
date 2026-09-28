@@ -8,7 +8,7 @@ import { deriveDirectKey, masterKey } from "@/lib/control-center/vehicles/direct
 
 /** Token metadata (no hashes, no plaintext). */
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("provision"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("provision", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const tokens = (await listTokensByVehicle(params.id)).map((t) => ({
     tokenId: t.tokenId,
     label: t.label,
@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
 /** Issues a new token, revoking any previous ones. Plaintext is returned once. */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("provision"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("provision", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const vehicle = await getVehicle(params.id);
   if (!vehicle) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

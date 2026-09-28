@@ -91,6 +91,8 @@ export const vehicleCreateSchema = z.object({
   type: z.enum(["drone", "rover"]),
   companionId: z.string().min(1),
   notes: z.string().optional(),
+  /** "" = no store */
+  storeId: z.string().max(64).optional(),
 });
 
 /** "" clears the field; otherwise it must be the right kind of URL. */
@@ -108,6 +110,8 @@ export const vehiclePatchSchema = z
     type: z.enum(["drone", "rover"]).optional(),
     companionId: z.string().min(1).optional(),
     notes: z.string().optional(),
+    /** "" = no store (global roles only) */
+    storeId: z.string().max(64).optional(),
     directUrl: optionalUrl(/^wss?:\/\//),
     videoUrl: optionalUrl(/^https?:\/\//),
   })

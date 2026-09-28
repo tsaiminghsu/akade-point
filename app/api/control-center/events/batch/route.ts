@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAccess } from "@/lib/access-server";
+import { requireAnyAccess, storeFilter } from "@/lib/access-server";
 import { createEvents } from "@/lib/dynamo/cc-machine-events";
 import { eventBatchSchema } from "../schema";
 
@@ -8,11 +8,14 @@ import { eventBatchSchema } from "../schema";
  *  posts one batch instead of one request per event. Records come back in the
  *  same order they were sent, carrying their server-assigned ids. */
 export async function POST(req: Request) {
-  if (!(await requireAccess("simulate"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const actor = await requireAnyAccess("simulate");
+  if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const json = await req.json().catch(() => null);
   const body = eventBatchSchema.safeParse(json);
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  const allowed = storeFilter(actor, "simulate");
+  if (!body.data.events.every((x) => allowed(x.storeId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const now = Date.now();
   const events = await createEvents(

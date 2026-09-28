@@ -9,20 +9,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { User } from "@/lib/dynamo/users";
 import { RoleSelect } from "@/components/control-center/users/RoleSelect";
 import { currentActor } from "@/lib/access-server";
-import { allows, effectiveRole, type Role } from "@/lib/control-center/access";
+import { allows, cleanStoreRoles, effectiveRole, type Role } from "@/lib/control-center/access";
+import type { RoleRecord } from "@/lib/dynamo/cc-roles";
+import { StoreGrants } from "@/components/control-center/users/StoreGrants";
 
 export const metadata: Metadata = { title: "Users" };
 
-async function getUsersData(loadError: string): Promise<{ users: User[]; roles: Map<string, Role>; error: string | null }> {
+async function getUsersData(
+  loadError: string
+): Promise<{ users: User[]; roles: Map<string, RoleRecord>; stores: { id: string; name: string }[]; error: string | null }> {
   try {
-    const [{ listUsers }, { listRoles }] = await Promise.all([import("@/lib/dynamo/users"), import("@/lib/dynamo/cc-roles")]);
-    const [users, roles] = await Promise.all([listUsers(), listRoles()]);
-    return { users, roles: new Map(roles.map((r) => [r.userId, r.role])), error: null };
+    const [{ listUsers }, { listRoles }, { listStores }] = await Promise.all([
+      import("@/lib/dynamo/users"),
+      import("@/lib/dynamo/cc-roles"),
+      import("@/lib/dynamo/cc-stores"),
+    ]);
+    const [users, roles, stores] = await Promise.all([listUsers(), listRoles(), listStores()]);
+    return {
+      users,
+      roles: new Map(roles.map((r) => [r.userId, r])),
+      stores: stores.map((s) => ({ id: s.id, name: s.name })).sort((a, b) => a.name.localeCompare(b.name)),
+      error: null,
+    };
   } catch (error) {
     console.error("Failed to load control center users:", error);
     return {
       users: [],
       roles: new Map(),
+      stores: [],
       error: loadError,
     };
   }
@@ -63,10 +77,11 @@ export default async function UsersPage() {
   if (!actor || !allows(actor.role, "users.manage")) {
     return <ErrorState title={t("forbiddenTitle")} description={t("forbiddenDescription")} className="m-6 min-h-[360px]" />;
   }
-  const { users, roles, error } = await getUsersData(t("loadError"));
+  const { users, roles, stores, error } = await getUsersData(t("loadError"));
   const sortedUsers = [...users].sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0));
-  const roleOf = (user: User) => effectiveRole(roles.get(user.userId), user.isAdmin);
-  const adminCount = sortedUsers.filter((user) => roleOf(user) !== null).length;
+  const roleOf = (user: User): Role | null => effectiveRole(roles.get(user.userId)?.role, user.isAdmin);
+  const storeGrantsOf = (user: User) => cleanStoreRoles(roles.get(user.userId)?.stores);
+  const adminCount = sortedUsers.filter((user) => roleOf(user) !== null || Object.keys(storeGrantsOf(user)).length > 0).length;
   const totalPoints = sortedUsers.reduce((sum, user) => sum + (user.totalPoints ?? 0), 0);
   const totalTickets = sortedUsers.reduce((sum, user) => sum + (user.ticketCount ?? 0), 0);
   const latestUpdate =
@@ -146,6 +161,7 @@ export default async function UsersPage() {
                 <TableHead className="text-right">{t("points")}</TableHead>
                 <TableHead className="text-right">{t("tickets")}</TableHead>
                 <TableHead className="text-right">{t("role")}</TableHead>
+                <TableHead className="text-right">{t("storeRoles")}</TableHead>
                 <TableHead className="text-right">{t("joined")}</TableHead>
                 <TableHead className="text-right">{t("updated")}</TableHead>
               </TableRow>
@@ -173,7 +189,10 @@ export default async function UsersPage() {
                       {(user.ticketCount ?? 0).toLocaleString(locale)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <RoleSelect userId={user.userId} role={roles.get(user.userId) ?? null} isAdmin={user.isAdmin} self={user.userId === actor.id} />
+                      <RoleSelect userId={user.userId} role={roles.get(user.userId)?.role ?? null} isAdmin={user.isAdmin} self={user.userId === actor.id} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <StoreGrants userId={user.userId} stores={stores} grants={storeGrantsOf(user)} self={user.userId === actor.id} />
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(user.createdAt, locale)}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(user.updatedAt, locale)}</TableCell>

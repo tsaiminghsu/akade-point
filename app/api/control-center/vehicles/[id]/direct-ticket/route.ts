@@ -14,7 +14,7 @@ import { deriveDirectKey, masterKey, newTicketPayload, signTicket } from "@/lib/
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const body = (await req.json().catch(() => ({}))) as { scope?: string; cid?: string };
   const scope = body.scope === "view" ? "view" : "control";
-  const actor = await requireVehicleAccess(scope === "control" ? "command" : "view");
+  const actor = await requireVehicleAccess(scope === "control" ? "command" : "view", params.id);
   if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const vehicle = await getVehicle(params.id);

@@ -18,7 +18,7 @@ import { activeLease } from "@/lib/control-center/vehicles/lease";
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url);
   const operator = searchParams.get("op") === "1";
-  const actor = await requireVehicleAccess(operator ? "command" : "view");
+  const actor = await requireVehicleAccess(operator ? "command" : "view", params.id);
   if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const now = Date.now();

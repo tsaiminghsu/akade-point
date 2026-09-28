@@ -551,7 +551,7 @@
     "totalUsers": "Total Users",
     "totalUsersSub": "All registered accounts",
     "administrators": "Control Center access",
-    "administratorsSub": "Users with any Control Center role",
+    "administratorsSub": "Users with a global or store role",
     "totalPoints": "Total Points",
     "totalPointsSub": "Combined reward balance",
     "totalTickets": "Total Tickets",
@@ -573,7 +573,8 @@
     "regularUser": "User",
     "anonymousUser": "Anonymous User",
     "forbiddenTitle": "Not allowed",
-    "forbiddenDescription": "Only system admins can see users and assign roles."
+    "forbiddenDescription": "Only system admins can see users and assign roles.",
+    "storeRoles": "Store roles"
   },
   "Vehicles": {
     "title": "Vehicles",
@@ -607,7 +608,8 @@
     "deleteDescription": "This cannot be undone. Its companion token is revoked and its missions are deleted.",
     "armedYes": "Yes",
     "armedNo": "No",
-    "never": "Never"
+    "never": "Never",
+    "store": "Store"
   },
   "VehicleForm": {
     "addTitle": "Add Vehicle",
@@ -622,7 +624,10 @@
     "fillRequired": "Please fill in name and companion ID",
     "createVehicle": "Add Vehicle",
     "saveChanges": "Save Changes",
-    "tokenHint": "After adding, open the Setup tab to generate a companion token."
+    "tokenHint": "After adding, open the Setup tab to generate a companion token.",
+    "storeLabel": "Store",
+    "noStore": "No store",
+    "storeHint": "That store's roles can operate this vehicle; a vehicle of no store is visible to global roles only."
   },
   "VehicleLink": {
     "online": "Online",
@@ -1531,6 +1536,18 @@
     "readOnlyBanner": "Your role is {role}: you can only view this page; changes need {need}.",
     "need_alert_handle": "operator or above",
     "need_store_manage": "store admin or above",
-    "need_vehicle_command": "operator or above"
+    "need_vehicle_command": "operator or above",
+    "storeGrantsCount": "{count, plural, one {# store} other {# stores}}",
+    "storeGrantsNone": "No stores",
+    "storeGrantsTitle": "Store roles",
+    "storeGrantsDescription": "At a store the higher of the global role and that store's role counts. System admin can only be granted globally.",
+    "storeGrantsNoStores": "There are no stores yet.",
+    "storeGrantNone": "None (global role applies)",
+    "storeRoleAt": "Role at {store}",
+    "atStore": "{store}: {role}",
+    "devViewAs": "Dev only: view as a user",
+    "devBackToAdmin": "Back to Dev Admin",
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

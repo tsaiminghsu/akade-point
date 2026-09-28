@@ -5,7 +5,7 @@ import { listPoints } from "@/lib/dynamo/cc-vehicle-telemetry";
 import { historyQuerySchema } from "@/lib/control-center/vehicles/schemas";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  if (!(await requireVehicleAccess("view"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireVehicleAccess("view", params.id))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const query = historyQuerySchema.safeParse(Object.fromEntries(searchParams));
   if (!query.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });

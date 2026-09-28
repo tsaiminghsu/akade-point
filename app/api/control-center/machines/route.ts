@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAccess } from "@/lib/access-server";
+import { requireAccessAt, requireAnyAccess, storeFilter } from "@/lib/access-server";
 import { createMachine, listMachines, listMachinesByGroup, listMachinesByStore } from "@/lib/dynamo/cc-machines";
 
 const createSchema = z.object({
@@ -12,7 +12,8 @@ const createSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const actor = await requireAnyAccess("read");
+  if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const storeId = searchParams.get("storeId");
   const groupId = searchParams.get("groupId");
@@ -22,12 +23,13 @@ export async function GET(req: Request) {
       : storeId
         ? await listMachinesByStore(storeId)
         : await listMachines();
-  return NextResponse.json({ machines });
+  const allowed = storeFilter(actor, "read");
+  return NextResponse.json({ machines: machines.filter((m) => allowed(m.storeId)) });
 }
 
 export async function POST(req: Request) {
-  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const body = createSchema.safeParse(await req.json());
+  const body = createSchema.safeParse(await req.json().catch(() => null));
+  if (!(await requireAccessAt("store.manage", body.success ? body.data.storeId : undefined))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   const { name, deviceId, storeId, groupId, status } = body.data;

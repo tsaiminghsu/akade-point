@@ -16,7 +16,7 @@ import { useCan } from "@/store/useAccessStore";
 const STATUS_TABS: (MachineStatus | "all")[] = ["all", "online", "warning", "alarm", "offline"];
 
 export default function MachinesPageContent() {
-  const mayManage = useCan("store.manage");
+  const mayManage = useCan("store.manage", "any");
   const t = useTranslations("Machines");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Status");

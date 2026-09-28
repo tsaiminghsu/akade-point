@@ -39,7 +39,7 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
   const lease = useGcsStore((s) => s.lease);
   const leaseMine = useGcsStore((s) => s.leaseMine);
   const [takeover, setTakeover] = useState<LeaseInfo | null>(null);
-  const mayCommand = useCan("vehicle.command");
+  const mayCommand = useCan("vehicle.command", vehicle?.storeId ?? null);
   const [wasInControl, setWasInControl] = useState(false);
 
   // Control dropped because someone else holds the lease now: say so.

@@ -29,8 +29,9 @@ interface VehiclesState {
 
   getVehicle: (id: string) => Vehicle | undefined;
 
-  addVehicle: (input: { name: string; type: "drone" | "rover"; companionId: string; notes?: string }) => Promise<Vehicle | null>;
-  updateVehicle: (id: string, patch: Partial<Pick<Vehicle, "name" | "type" | "companionId" | "notes">>) => Promise<boolean>;
+  addVehicle: (input: { name: string; type: "drone" | "rover"; companionId: string; notes?: string; storeId?: string }) => Promise<Vehicle | null>;
+  /** `storeId: ""` takes the vehicle out of any store. */
+  updateVehicle: (id: string, patch: Partial<Pick<Vehicle, "name" | "type" | "companionId" | "notes">> & { storeId?: string }) => Promise<boolean>;
   removeVehicle: (id: string) => Promise<boolean>;
   issueToken: (id: string, label?: string) => Promise<{ token: string; tokenId: string; createdAt: number; directKey: string | null } | null>;
 
@@ -138,7 +139,9 @@ export const useVehiclesStore = create<VehiclesState>()((set, get) => ({
     });
     if (!res) return false;
     set((s) => {
-      const vehicles = s.vehicles.map((v) => (v.id === id ? { ...v, ...patch } : v));
+      const vehicles = s.vehicles.map((v) =>
+        v.id === id ? { ...v, ...patch, storeId: patch.storeId === undefined ? v.storeId : patch.storeId || null } : v
+      );
       return { vehicles, vehiclesById: byId(vehicles) };
     });
     return true;

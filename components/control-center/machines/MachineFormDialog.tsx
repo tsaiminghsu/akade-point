@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMachinesStore } from "@/store/useMachinesStore";
+import { useCanAt } from "@/store/useAccessStore";
 import type { Machine, MachineStatus } from "@/lib/control-center/types";
 
 interface MachineFormDialogProps {
@@ -31,7 +32,10 @@ export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDi
   const t = useTranslations("MachineForm");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Status");
-  const stores = useMachinesStore((s) => s.stores);
+  const mayManageAt = useCanAt("store.manage");
+  const allStores = useMachinesStore((s) => s.stores);
+  // Only stores this user manages (per-store roles); the API refuses the rest.
+  const stores = useMemo(() => allStores.filter((s) => mayManageAt(s.id)), [allStores, mayManageAt]);
   const groups = useMachinesStore((s) => s.groups);
   const addMachine = useMachinesStore((s) => s.addMachine);
   const updateMachine = useMachinesStore((s) => s.updateMachine);
@@ -47,7 +51,7 @@ export function MachineFormDialog({ open, onOpenChange, machine }: MachineFormDi
 
   useEffect(() => {
     if (!open) return;
-    const initialStoreId = machine?.storeId ?? activeStoreId ?? stores[0]?.id ?? "";
+    const initialStoreId = machine?.storeId ?? (stores.some((s) => s.id === activeStoreId) ? activeStoreId : stores[0]?.id) ?? "";
     setName(machine?.name ?? "");
     setDeviceId(machine?.deviceId ?? "");
     setStoreId(initialStoreId);

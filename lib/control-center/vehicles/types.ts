@@ -206,6 +206,8 @@ export interface Vehicle {
   /** stable id chosen by the operator; also the IoT Thing name in prod */
   companionId: string;
   notes: string;
+  /** the store whose roles apply; null = none (global roles only) */
+  storeId: string | null;
   state: VehicleState | null;
   stateAt: number | null;
   lastSeenAt: number | null;
