@@ -74,6 +74,7 @@ class Handlers:
         video=None,
         gimbal=None,
         payload=None,
+        dataflash=None,
     ):
         self.conn = conn
         self.commands = commands
@@ -86,6 +87,7 @@ class Handlers:
         self.video = video
         self.gimbal = gimbal
         self.payload = payload
+        self.dataflash = dataflash
 
     # ---- plumbing ------------------------------------------------------
 
@@ -466,6 +468,42 @@ class Handlers:
         values = {n: (None if p is None else display_value(p.value, p.type)) for n, p in got.items()}
         missing = [n for n, v in values.items() if v is None]
         return self.ack(cmd_id, not missing, "OK" if not missing else "PARAM_NOT_FOUND", ", ".join(missing), {"params": values})
+
+    # ---- DataFlash logs ------------------------------------------------------
+
+    def _logs(self):
+        if self.dataflash is None:
+            raise CommandFailed("NO_LOGS", "DataFlash download is not configured")
+        if is_armed(self._hb()):
+            raise CommandFailed("ARMED", "the autopilot only serves logs while disarmed")
+        return self.dataflash
+
+    async def _h_log_list(self, cmd_id: str, args: dict) -> dict:
+        from ..mav.logs import LogError
+
+        try:
+            logs = await self._logs().list()
+        except LogError as exc:
+            return self.ack(cmd_id, False, exc.code, exc.msg)
+        return self.ack(cmd_id, True, "OK", "", {"logs": logs})
+
+    async def _h_log_download(self, cmd_id: str, args: dict) -> dict:
+        """Copies one log to the companion; the browser then fetches it over the
+        direct link's /files/logs. Progress is in the state (`logdl`)."""
+        from ..mav.logs import LogError
+
+        client = self._logs()
+        try:
+            path = await client.download(int(args["id"]), int(args["size"]), int(args.get("utc", 0)))
+        except LogError as exc:
+            return self.ack(cmd_id, False, exc.code, exc.msg)
+        return self.ack(cmd_id, True, "OK", "", {"name": path.name, "bytes": path.stat().st_size})
+
+    async def _h_log_cancel(self, cmd_id: str, args: dict) -> dict:
+        if self.dataflash is None:
+            return self.ack(cmd_id, False, "NO_LOGS", "DataFlash download is not configured")
+        self.dataflash.cancel()
+        return self.ack(cmd_id, True, "OK")
 
     async def _h_param_fetch(self, cmd_id: str, args: dict) -> dict:
         """The whole parameter table. Stored on the server as a snapshot (for

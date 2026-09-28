@@ -142,7 +142,7 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
           {vehicle && <ParamsView vehicle={vehicle} canCommand={canCommand} />}
         </TabsContent>
         <TabsContent value="logs" className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          {vehicle && <LogsView vehicle={vehicle} />}
+          {vehicle && <LogsView vehicle={vehicle} canCommand={canCommand} />}
         </TabsContent>
         <TabsContent value="setup" className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           {vehicle && <VehicleSetupPanel vehicle={vehicle} />}

@@ -187,7 +187,8 @@ class MavConnection:
         mtype = msg.get_type()
         src = (msg.get_srcSystem(), msg.get_srcComponent())
         self.rx_count += 1
-        if self.tlog is not None:
+        # A DataFlash download would copy the whole .bin into the tlog as well.
+        if self.tlog is not None and mtype != "LOG_DATA":
             buf = msg.get_msgbuf()
             if buf:
                 self.tlog.write(bytes(buf))

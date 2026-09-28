@@ -87,6 +87,8 @@ class Config:
     # Telemetry logs; empty disables recording.
     tlog_dir: str = "tlogs"
     tlog_max_mb: int = 2048
+    # DataFlash logs copied from the autopilot (log_download); served on /files/logs.
+    dataflash_dir: str = "dataflash"
     log_level: str = "INFO"
     mqtt: MqttConfig = field(default_factory=MqttConfig)
     direct: DirectConfig = field(default_factory=DirectConfig)

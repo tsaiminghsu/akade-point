@@ -61,7 +61,7 @@ class Client:
 
 
 class DirectServer:
-    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None):
+    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None, dataflash=None):
         self.cfg = cfg
         self.vehicle_id = vehicle_id
         self.build_state = build_state
@@ -72,6 +72,7 @@ class DirectServer:
         self.clock = clock
         self.tlog = tlog
         self.gimbal = gimbal
+        self.dataflash = dataflash
         self.clients: set[Client] = set()
         self._pin_failures: dict[str, deque] = defaultdict(deque)
         self._runner: Optional[web.AppRunner] = None
@@ -88,6 +89,8 @@ class DirectServer:
         app.router.add_route("OPTIONS", "/files/{tail:.*}", self._preflight)
         app.router.add_get("/files/tlogs", self._tlog_list)
         app.router.add_get("/files/tlogs/{name}", self._tlog_get)
+        app.router.add_get("/files/logs", self._log_list)
+        app.router.add_get("/files/logs/{name}", self._log_get)
         return app
 
     async def start(self) -> None:
@@ -184,7 +187,7 @@ class DirectServer:
             remote = request.remote or "?"
             if self._pin_blocked(remote):
                 return False
-            if header[4:] == self.cfg.pin:
+            if hmac.compare_digest(header[4:].encode(), self.cfg.pin.encode()):
                 return True
             self._pin_failures[remote].append(time.monotonic())
         return False
@@ -201,6 +204,23 @@ class DirectServer:
         if not self._file_auth(request):
             return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
         path = self.tlog.resolve(request.match_info["name"]) if self.tlog is not None else None
+        if path is None:
+            return web.json_response({"error": "not found"}, status=404, headers=headers)
+        headers["Content-Disposition"] = f'attachment; filename="{path.name}"'
+        return web.FileResponse(path, headers=headers)
+
+    async def _log_list(self, request: web.Request) -> web.Response:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        files = self.dataflash.list_files() if self.dataflash is not None else []
+        return web.json_response({"files": files, "enabled": self.dataflash is not None}, headers=headers)
+
+    async def _log_get(self, request: web.Request) -> web.StreamResponse:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        path = self.dataflash.resolve(request.match_info["name"]) if self.dataflash is not None else None
         if path is None:
             return web.json_response({"error": "not found"}, status=404, headers=headers)
         headers["Content-Disposition"] = f'attachment; filename="{path.name}"'

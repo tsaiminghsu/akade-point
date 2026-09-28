@@ -42,6 +42,8 @@ async def settle(ex, acks, n, timeout=3.0):
 def test_lanes():
     assert lane_of("rtl") == "priority"
     assert lane_of("disarm") == "priority"
+    # A long log download must not hold up mission or parameter work.
+    assert lane_of("log_download") == "logs" and lane_of("mission_upload") == "slow"
     assert lane_of("mission_upload") == "slow"
     assert lane_of("goto") == "fast"
 

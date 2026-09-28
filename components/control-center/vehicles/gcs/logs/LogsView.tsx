@@ -8,6 +8,7 @@ import { Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Vehicle } from "@/lib/control-center/vehicles/types";
 import { useGcsStore } from "@/store/useGcsStore";
+import { DataflashPanel } from "./DataflashPanel";
 
 interface TlogFile {
   name: string;
@@ -23,7 +24,7 @@ const size = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.ma
  * downloaded over the direct link. Log analysis is left to ArduPilot's own
  * browser tools rather than rebuilt here.
  */
-export function LogsView({ vehicle }: { vehicle: Vehicle }) {
+export function LogsView({ vehicle, canCommand }: { vehicle: Vehicle; canCommand: boolean }) {
   const t = useTranslations("Gcs.logs");
   const fileFetch = useGcsStore((s) => s.fileFetch);
   const [files, setFiles] = useState<TlogFile[] | null>(null);
@@ -65,6 +66,7 @@ export function LogsView({ vehicle }: { vehicle: Vehicle }) {
 
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="min-w-0 space-y-6">
       <section className="min-w-0 space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -100,6 +102,8 @@ export function LogsView({ vehicle }: { vehicle: Vehicle }) {
           </ul>
         )}
       </section>
+      <DataflashPanel vehicle={vehicle} canCommand={canCommand} />
+      </div>
       <aside className="space-y-3 text-xs">
         <div className="space-y-2 rounded-md border border-border/60 p-3">
           <h3 className="text-sm font-semibold">{t("analyseTitle")}</h3>
@@ -110,10 +114,6 @@ export function LogsView({ vehicle }: { vehicle: Vehicle }) {
           <a className="flex items-center gap-1.5 text-primary hover:underline" href="https://firmware.ardupilot.org/Tools/WebTools/" target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-3.5 w-3.5" /> ArduPilot WebTools
           </a>
-        </div>
-        <div className="space-y-1 rounded-md border border-border/60 p-3 text-muted-foreground">
-          <h3 className="text-sm font-semibold text-foreground">{t("dataflashTitle")}</h3>
-          <p>{t("dataflashDescription")}</p>
         </div>
       </aside>
     </div>

@@ -1,11 +1,13 @@
-"""Runs commands in three lanes so a slow operation never blocks a safety one.
+"""Runs commands in lanes so a slow operation never blocks a safety one.
 
 * priority — disarm, RTL, land, hold, mission pause. They run at once: a
   queued or running normal command is cancelled first (acked PREEMPTED), so a
   goto issued before RTL can never execute after it.
 * fast — everything else that talks to the autopilot briefly, one at a time.
 * slow — mission/fence/rally transfers and parameter batches, one at a time,
-  independent of the other two lanes.
+  independent of the other lanes.
+* gimbal — gimbal and payload-node commands.
+* logs — DataFlash listing and downloads, which can take an hour.
 
 Commands are deduplicated by id (the server resends a command every second
 until it is acked). A duplicate of a finished command re-sends the stored ack:
@@ -29,6 +31,10 @@ PRIORITY = frozenset({"disarm", "rtl", "land", "hold", "mission_pause"})
 # commands; they never wait behind a slow goto or preempt one.
 GIMBAL = frozenset({"gimbal_pitchyaw", "gimbal_mode", "roi_location", "roi_none", "payload_relay", "payload_pulse", "payload_servo"})
 SLOW = frozenset({"mission_upload", "mission_download", "mission_clear", "param_get", "param_set", "param_fetch"})
+# DataFlash transfers can run for an hour over a radio; they get a lane of
+# their own so mission and parameter work is not stuck behind them (ArduPilot
+# serves the log protocol independently of the mission/parameter protocols).
+LOGS = frozenset({"log_list", "log_download"})
 
 DEFAULT_TIMEOUT_S = 15.0
 TYPE_TIMEOUT_S = {
@@ -39,6 +45,9 @@ TYPE_TIMEOUT_S = {
     "param_get": 60.0,
     "param_set": 120.0,
     "param_fetch": 240.0,
+    "log_list": 30.0,
+    # A telemetry radio moves ~5 kB/s: an hour per 20 MB. Cancel with log_cancel.
+    "log_download": 3 * 3600.0,
 }
 # Allowance for delivery latency and clock error when checking expiry.
 EXPIRY_GRACE_MS = 1500
@@ -51,6 +60,8 @@ def lane_of(ctype: str) -> str:
         return "slow"
     if ctype in GIMBAL:
         return "gimbal"
+    if ctype in LOGS:
+        return "logs"
     return "fast"
 
 
@@ -61,7 +72,7 @@ class Executor:
         self.clock = clock
         self.seen_max = seen_max
         self._seen: OrderedDict[str, Optional[dict]] = OrderedDict()
-        self._queues = {"priority": asyncio.Queue(), "fast": asyncio.Queue(), "slow": asyncio.Queue(), "gimbal": asyncio.Queue()}
+        self._queues = {"priority": asyncio.Queue(), "fast": asyncio.Queue(), "slow": asyncio.Queue(), "gimbal": asyncio.Queue(), "logs": asyncio.Queue()}
         self._fast_current: Optional[tuple[dict, asyncio.Task]] = None
         self._preempted: set[str] = set()
         self._listeners: list[Callable[[dict, dict], None]] = []

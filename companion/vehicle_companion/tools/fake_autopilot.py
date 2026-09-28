@@ -217,6 +217,15 @@ class FakeAutopilot:
         self.inject_gcs_heartbeat = False
         self.foreign_ack_first = False
         self.drop_param_indices: set[int] = set()
+        # DataFlash logs: id -> (bytes, UTC seconds). Offsets in drop_log_offsets
+        # are skipped once, as a lossy link would.
+        self.dataflash: dict[int, tuple[bytes, int]] = {
+            1: (bytes((i * 7 + 3) % 256 for i in range(12_345)), 1_790_000_000),
+            2: (bytes((i * 13 + 1) % 256 for i in range(200_000)), 1_790_003_600),
+        }
+        self.drop_log_offsets: set[int] = set()
+        self.log_silent = False  # stop answering LOG_REQUEST_DATA
+        self.log_requests: list[tuple[int, int, int]] = []
         self.drop_mission_requests = 0
         self.upload_reject: Optional[int] = None
 
@@ -604,6 +613,34 @@ class FakeAutopilot:
                 continue
             self._param_value(name, i)
         self.drop_param_indices = set()
+
+    # ---- DataFlash -------------------------------------------------------
+
+    def _on_log_request_list(self, msg) -> None:
+        if not self._for_me(msg, (0, 1)):
+            return
+        ids = sorted(self.dataflash)
+        for i in ids:
+            data, utc = self.dataflash[i]
+            self.mav.send(self.mav.log_entry_encode(i, len(ids), ids[-1] if ids else 0, utc, len(data)))
+
+    def _on_log_request_data(self, msg) -> None:
+        if not self._for_me(msg, (0, 1)) or msg.id not in self.dataflash:
+            return
+        self.log_requests.append((msg.id, msg.ofs, msg.count))
+        if self.log_silent:
+            return
+        data = self.dataflash[msg.id][0]
+        end = min(len(data), msg.ofs + msg.count)
+        ofs = msg.ofs
+        while ofs < end:
+            n = min(90, end - ofs)
+            if ofs in self.drop_log_offsets:
+                self.drop_log_offsets.discard(ofs)
+            else:
+                chunk = data[ofs:ofs + n]
+                self.mav.send(self.mav.log_data_encode(msg.id, ofs, n, chunk + bytes(90 - n)))
+            ofs += n
 
     def _on_param_request_read(self, msg) -> None:
         if not self._for_me(msg):

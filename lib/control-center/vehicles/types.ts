@@ -121,6 +121,8 @@ export interface VehicleStateV2 {
   rid?: { ok: boolean; error: string | null } | null;
   /** ADS-B traffic (ADSB_VEHICLE), nearest first, at most 20 */
   adsb?: AdsbTarget[] | null;
+  /** DataFlash log being copied to the companion (log_download), or the last one */
+  logdl?: { id: number; size: number; got: number; pct: number; bps: number; done: boolean; error: string | null } | null;
   fw: string | null;
 }
 
@@ -227,7 +229,10 @@ export type VehicleCommandType =
   | "roi_none"
   | "payload_relay"
   | "payload_pulse"
-  | "payload_servo";
+  | "payload_servo"
+  | "log_list"
+  | "log_download"
+  | "log_cancel";
 
 /** Where a command was issued: through this server, or straight to the
  *  companion over the direct link (then reported back for the log). */
