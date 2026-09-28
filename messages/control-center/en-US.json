@@ -808,7 +808,10 @@
       "ridTitle": "Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS)",
       "traffic": "ADS-B {count}",
       "trafficTitle": "No traffic needing attention (danger within 1 km / 150 m, caution within 3 km / 300 m)",
-      "trafficNearest": "Nearest: {name}, {dist} m, {dz} m relative"
+      "trafficNearest": "Nearest: {name}, {dist} m, {dz} m relative",
+      "terrainOk": "Terrain",
+      "terrainPending": "Terrain loading {n}",
+      "terrainTitle": "The companion serves SRTM terrain to the autopilot. Ground {ground} m AMSL, {above} m above it; missing tiles: {missing}"
     },
     "quick": {
       "alt": "Altitude",
@@ -842,7 +845,8 @@
       "moveUp": "Move {name} up",
       "moveDown": "Move {name} down",
       "reset": "Reset to default",
-      "save": "Save"
+      "save": "Save",
+      "aboveTerrain": "Above terrain"
     },
     "actions": {
       "sent": "Sent: {command}",

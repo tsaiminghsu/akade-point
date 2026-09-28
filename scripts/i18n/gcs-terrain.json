@@ -1,0 +1,14 @@
+{
+  "zh-TW": { "Gcs": {
+    "status": { "terrainOk": "地形", "terrainPending": "地形載入中 {n}", "terrainTitle": "companion 以 SRTM 供應地形給飛控。地面海拔 {ground} m，距地 {above} m；缺少的圖磚：{missing}" },
+    "quick": { "aboveTerrain": "距地高度" }
+  } },
+  "en-US": { "Gcs": {
+    "status": { "terrainOk": "Terrain", "terrainPending": "Terrain loading {n}", "terrainTitle": "The companion serves SRTM terrain to the autopilot. Ground {ground} m AMSL, {above} m above it; missing tiles: {missing}" },
+    "quick": { "aboveTerrain": "Above terrain" }
+  } },
+  "ja-JP": { "Gcs": {
+    "status": { "terrainOk": "地形", "terrainPending": "地形読み込み中 {n}", "terrainTitle": "コンパニオンが SRTM 地形を FC に供給しています。地表の海抜 {ground} m、対地 {above} m。不足タイル：{missing}" },
+    "quick": { "aboveTerrain": "対地高度" }
+  } }
+}

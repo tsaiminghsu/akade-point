@@ -123,6 +123,17 @@ export interface VehicleStateV2 {
   adsb?: AdsbTarget[] | null;
   /** DataFlash log being copied to the companion (log_download), or the last one */
   logdl?: { id: number; size: number; got: number; pct: number; bps: number; done: boolean; error: string | null } | null;
+  /**
+   * Terrain served to the autopilot from SRTM (terrain/server.py): blocks sent,
+   * tiles it lacks, and the autopilot's own TERRAIN_REPORT (blocks pending /
+   * loaded, ground height AMSL and height above it).
+   */
+  terrain?: {
+    served: number;
+    missing: string[] | null;
+    active: boolean;
+    fc: { pending: number; loaded: number; ground: number | null; above: number | null } | null;
+  } | null;
   /** MAVLink2 signing: whether the companion signs what it sends ([signing] passphrase set) */
   signing?: { on: boolean } | null;
   /** the companion as a MAVLink camera (ops/camera.py): photos taken, interval shooting, last photo */

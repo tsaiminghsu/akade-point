@@ -808,7 +808,10 @@
       "ridTitle": "Remote ID 模組的解鎖狀態（OPEN_DRONE_ID_ARM_STATUS）",
       "traffic": "ADS-B {count}",
       "trafficTitle": "附近沒有需要注意的航空器（1 公里 / 150 公尺內為危險，3 公里 / 300 公尺內為注意）",
-      "trafficNearest": "最近：{name}，{dist} 公尺，高度差 {dz} 公尺"
+      "trafficNearest": "最近：{name}，{dist} 公尺，高度差 {dz} 公尺",
+      "terrainOk": "地形",
+      "terrainPending": "地形載入中 {n}",
+      "terrainTitle": "companion 以 SRTM 供應地形給飛控。地面海拔 {ground} m，距地 {above} m；缺少的圖磚：{missing}"
     },
     "quick": {
       "alt": "高度",
@@ -842,7 +845,8 @@
       "moveUp": "{name} 上移",
       "moveDown": "{name} 下移",
       "reset": "恢復預設",
-      "save": "儲存"
+      "save": "儲存",
+      "aboveTerrain": "距地高度"
     },
     "actions": {
       "sent": "已送出：{command}",

@@ -70,6 +70,7 @@ MQTT 與 HTTPS 共用**同一份 JSON**。欄位定義的真實來源是 `lib/co
 | `mount` | 雲台姿態（度）`p/y/r`，`src` 為 device 或 mount | GIMBAL_DEVICE_ATTITUDE_STATUS、MOUNT_STATUS |
 | `video` | MediaMTX：串流就緒、觀看數、是否錄影；未設定或連不上為 `null` | MediaMTX API |
 | `payload` | 酬載元件的數值 `[{ comp, values: {名稱: 值} }]`，只含 5 秒內收到的 | NAMED_VALUE_FLOAT |
+| `terrain` | `{ served, missing, active, fc: { pending, loaded, ground, above } }`：companion 送出的地形區塊數、缺的 SRTM 圖磚，以及飛控的 TERRAIN_REPORT | TERRAIN_REQUEST/REPORT |
 | `signing` | `{ on }`：companion 是否對送出的訊息簽章 | config |
 | `camera` | companion 相機：`n` 照片數、`busy`、`interval`（連拍秒數或 null）、`error`、`last`（最後一張的 idx/name/t/lat/lon）；未啟用為 `null` | ops/camera.py |
 | `rid` | Remote ID 模組解鎖狀態 `{ ok, error }`；沒有模組為 `null` | OPEN_DRONE_ID_ARM_STATUS |

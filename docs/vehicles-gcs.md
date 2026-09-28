@@ -234,6 +234,26 @@ STorM32 的接線與參數見 [`vehicles-gimbal-storm32.md`](./vehicles-gimbal-s
 - 對方沒有回報高度時，只依距離判斷。
 - ArduPilot 只轉送 `ADSB_LIST_RADIUS`（預設 2 公里）以內的航空器；想在地圖上看得更遠，請調大這個參數。
 
+## 地形
+
+飛控的地形跟隨、以地形為基準的任務高度（terrain frame）都需要地形資料。
+- **供應方式**：companion 以 SRTM 回應 ArduPilot 的 `TERRAIN_REQUEST`，和 Mission Planner 連線時做的一樣。
+- **地面站顯示**：狀態列有「地形」徽章（載入中會顯示剩餘區塊）；數值面板可加「距地高度」。
+
+**設定**：
+```toml
+[terrain]
+enabled = true
+dir = "/var/lib/vehicle-companion/drone/terrain"   # 放 N24E120.hgt.zip 之類的 SRTM 圖磚
+download = false   # true：Pi 連得上網時，自動從 terrain.ardupilot.org 下載缺的圖磚
+```
+
+- **圖磚**：來源是 `https://terrain.ardupilot.org/SRTM1/<名稱>.hgt.zip`，每張約 1–4 MB，涵蓋 1°×1°。台灣本島大致需要 N21–N25、E119–E122 範圍內的圖磚。
+- **companion 會替你設好的**：ArduPilot 只在 `TERRAIN_REQUEST` 有訊息頻率的連線上詢問地形，這在 SITL 實測時才發現。companion 啟用地形時會自動設 1 Hz，不用另外調 `SRx_EXTRA3`。
+- **驗證**（ArduCopter 4.7.1 SITL，家設在台中大坑山區）：
+  - 約 20 秒載入 336 個區塊。
+  - 用 `TERRAIN_CHECK` 查 8 個點，飛控的地面高度與 SRTM 相差 −4.4 到 +2.1 公尺（飛控用 100 公尺格點內插）。
+
 ## 相機
 
 companion 可以當 MAVLink 相機：

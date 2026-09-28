@@ -71,6 +71,7 @@ export const QUICK_FIELDS: FieldDef[] = [
     for: BOTH,
     get: (s) => ({ value: s?.vibe ? n(Math.max(s.vibe.x, s.vibe.y, s.vibe.z)) : "—", unit: "m/s²", tone: s ? tone(vibeLevel(s.vibe)) : undefined }),
   },
+  { key: "aboveTerrain", for: ["copter"], get: (s) => ({ value: n(s?.terrain?.fc?.above, 1), unit: "m" }) },
   { key: "gimbalPitch", for: BOTH, get: (s) => ({ value: n(s?.mount?.p), unit: "°" }) },
   {
     key: "traffic",

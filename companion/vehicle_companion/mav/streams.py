@@ -41,6 +41,8 @@ DEFAULT_RATES: dict[str, float] = {
     "GIMBAL_DEVICE_ATTITUDE_STATUS": 2,
     # ADS-B traffic from the autopilot's receiver (ADSB_TYPE); one aircraft per message.
     "ADSB_VEHICLE": 5,
+    # The autopilot's terrain view (ignored when TERRAIN_ENABLE is 0).
+    "TERRAIN_REPORT": 0.5,
 }
 
 

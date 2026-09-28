@@ -70,6 +70,17 @@ class CameraConfig:
 
 
 @dataclass
+class TerrainConfig:
+    """Terrain for the autopilot from SRTM tiles (terrain/server.py)."""
+
+    enabled: bool = False
+    dir: str = "terrain"
+    #: fetch missing tiles from ArduPilot's terrain server when online
+    download: bool = False
+    server: str = "https://terrain.ardupilot.org/SRTM1"
+
+
+@dataclass
 class SigningConfig:
     """MAVLink2 signing. The key is SHA-256 of the passphrase, as Mission
     Planner and QGroundControl derive it, so the same passphrase works there."""
@@ -130,6 +141,7 @@ class Config:
     remote_id: RemoteIdConfig = field(default_factory=RemoteIdConfig)
     camera: CameraConfig = field(default_factory=CameraConfig)
     signing: SigningConfig = field(default_factory=SigningConfig)
+    terrain: TerrainConfig = field(default_factory=TerrainConfig)
 
     @staticmethod
     def from_dict(data: dict) -> "Config":
@@ -142,7 +154,7 @@ class Config:
         unknown = set(data) - known - {"forward_udp"}
         if unknown:
             raise ValueError(f"unknown config keys: {', '.join(sorted(unknown))}")
-        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id", "camera", "signing")}
+        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id", "camera", "signing", "terrain")}
         cfg = Config(**kwargs)
         cfg.api_base = cfg.api_base.rstrip("/")
         cfg.mqtt = MqttConfig(**data.get("mqtt", {}))
@@ -151,6 +163,7 @@ class Config:
         cfg.remote_id = RemoteIdConfig(**data.get("remote_id", {}))
         cfg.camera = CameraConfig(**data.get("camera", {}))
         cfg.signing = SigningConfig(**data.get("signing", {}))
+        cfg.terrain = TerrainConfig(**data.get("terrain", {}))
         if cfg.signing.passphrase and len(cfg.signing.passphrase) < 12:
             raise ValueError("signing.passphrase must be at least 12 characters")
         if cfg.camera.source not in ("rtsp", "rpicam", "test"):

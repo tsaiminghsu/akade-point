@@ -54,6 +54,8 @@ EVENT_TYPES = frozenset(
         "ADSB_VEHICLE",
         # Commands addressed to components the companion plays (the camera).
         "COMMAND_LONG",
+        # The autopilot asking for terrain blocks.
+        "TERRAIN_REQUEST",
     }
 )
 

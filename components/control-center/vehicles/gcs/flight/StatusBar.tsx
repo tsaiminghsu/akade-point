@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Activity, Battery, Cable, Cpu, Fingerprint, Plane, Radio, Satellite, ShieldAlert, Users, Waves, Wifi } from "lucide-react";
+import { Activity, Battery, Cable, Cpu, Fingerprint, Mountain, Plane, Radio, Satellite, ShieldAlert, Users, Waves, Wifi } from "lucide-react";
 
 import { trafficLabel, worstTraffic } from "@/lib/control-center/vehicles/gcs/adsb";
 
@@ -87,6 +87,19 @@ export function StatusBar({ state, stale, link }: { state: VehicleStateV2 | null
         {prearm === "bad" ? t("prearmFail", { count: Math.max(1, s?.health.msgs.length ?? 0) }) : prearm === "ok" ? t("prearmOk") : t("prearmUnknown")}
       </Chip>
       {s?.adsb != null && <TrafficChip list={s.adsb} ic={ic} />}
+      {s?.terrain?.fc && (
+        <Chip
+          level={s.terrain.missing ? "warn" : s.terrain.fc.pending > 0 ? "warn" : "ok"}
+          icon={<Mountain className={ic} />}
+          title={t("terrainTitle", {
+            ground: s.terrain.fc.ground ?? "—",
+            above: s.terrain.fc.above ?? "—",
+            missing: s.terrain.missing?.join(", ") ?? "—",
+          })}
+        >
+          {s.terrain.fc.pending > 0 ? t("terrainPending", { n: s.terrain.fc.pending }) : t("terrainOk")}
+        </Chip>
+      )}
       {s?.rid && (
         <Chip level={s.rid.ok ? "ok" : "bad"} icon={<Fingerprint className={ic} />} title={s.rid.error ?? t("ridTitle")}>
           {s.rid.ok ? t("ridOk") : t("ridBad")}

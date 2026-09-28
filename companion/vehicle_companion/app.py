@@ -26,6 +26,7 @@ from .ops.gimbal import GimbalControl, GimbalStreamer
 from .ops.manual import ManualDrive
 from .mav.logs import DataflashClient
 from .ops.adsb import AdsbTracker
+from .terrain.server import TerrainServer
 from .ops.camera import CameraComponent, RpicamCapture, RtspCapture, TestCapture
 from .ops.payload import PayloadControl, PayloadMonitor, RemoteId
 from .state import StateBuilder
@@ -77,6 +78,10 @@ def build(config: Config) -> Companion:
     params = ParamClient(conn)
     status = StatusLog(clock.now_ms)
     streams = StreamManager(conn, commands)
+    if config.terrain.enabled:
+        # ArduPilot only asks for terrain on links where TERRAIN_REQUEST has a
+        # rate (SRx_EXTRA3 or a message interval); nobody else sets it here.
+        streams.rates["TERRAIN_REQUEST"] = 1.0
     sysinfo = SysInfo()
     cloud = CloudLink(
         config.api_base,
@@ -100,6 +105,10 @@ def build(config: Config) -> Companion:
     adsb = AdsbTracker(conn)
     if config.signing.key is not None:
         conn.enable_signing(config.signing.key)
+    terrain = None
+    if config.terrain.enabled:
+        terrain = TerrainServer(conn, config.terrain.dir, download=config.terrain.download, server=config.terrain.server)
+        conn.add_listener("TERRAIN_REQUEST", terrain.on_request)
     dataflash = DataflashClient(conn, config.dataflash_dir) if config.dataflash_dir else None
     camera = None
     if config.camera.enabled:
@@ -124,6 +133,7 @@ def build(config: Config) -> Companion:
         adsb_state=adsb.state_block,
         logdl_state=(dataflash.state_block if dataflash else (lambda: None)),
         camera_state=camera.state_block if camera else None,
+        terrain_state=terrain.state_block if terrain else None,
         rid_state=remote_id.state_block,
     )
     handlers = Handlers(

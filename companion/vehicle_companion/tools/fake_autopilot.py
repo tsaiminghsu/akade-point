@@ -654,6 +654,11 @@ class FakeAutopilot:
                 self.mav.send(self.mav.log_data_encode(msg.id, ofs, n, chunk + bytes(90 - n)))
             ofs += n
 
+    def _on_terrain_data(self, msg) -> None:
+        cb = getattr(self, "on_terrain_data", None)
+        if cb is not None:
+            cb(msg)
+
     def _on_setup_signing(self, msg) -> None:
         if not self._for_me(msg, (0, 1)):
             return

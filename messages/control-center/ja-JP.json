@@ -808,7 +808,10 @@
       "ridTitle": "Remote ID モジュールのアーム状態（OPEN_DRONE_ID_ARM_STATUS）",
       "traffic": "ADS-B {count}",
       "trafficTitle": "注意が必要な航空機はありません（1 km / 150 m 以内は危険、3 km / 300 m 以内は注意）",
-      "trafficNearest": "最接近：{name}、{dist} m、高度差 {dz} m"
+      "trafficNearest": "最接近：{name}、{dist} m、高度差 {dz} m",
+      "terrainOk": "地形",
+      "terrainPending": "地形読み込み中 {n}",
+      "terrainTitle": "コンパニオンが SRTM 地形を FC に供給しています。地表の海抜 {ground} m、対地 {above} m。不足タイル：{missing}"
     },
     "quick": {
       "alt": "高度",
@@ -842,7 +845,8 @@
       "moveUp": "{name} を上へ",
       "moveDown": "{name} を下へ",
       "reset": "既定に戻す",
-      "save": "保存"
+      "save": "保存",
+      "aboveTerrain": "対地高度"
     },
     "actions": {
       "sent": "送信しました：{command}",

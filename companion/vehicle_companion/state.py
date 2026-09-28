@@ -142,7 +142,9 @@ class StateBuilder:
         adsb_state: Callable[[], Optional[list]] = lambda: None,
         logdl_state: Callable[[], Optional[dict]] = lambda: None,
         camera_state: Optional[Callable[[], dict]] = None,
+        terrain_state: Optional[Callable[[], dict]] = None,
     ):
+        self.terrain_state = terrain_state
         self.signing = lambda: {"on": conn.signing_key is not None}
         self.conn = conn
         self.status = status
@@ -314,6 +316,7 @@ class StateBuilder:
             "logdl": self.logdl_state(),
             "camera": self.camera_state() if self.camera_state else None,
             "signing": self.signing(),
+            "terrain": self.terrain_state() if self.terrain_state and linked else None,
             "rid": self.rid_state() if linked else None,
             "fw": firmware_string(version, hb),
         }
