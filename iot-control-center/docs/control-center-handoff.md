@@ -451,7 +451,10 @@ GSI（定義於 `scripts/create-tables.mjs`）：
   - MinIO 已不再提供映像或執行檔；LocalStack `latest` 需要 auth token，所以固定用 4.12，並設 `S3_SKIP_SIGNATURE_VALIDATION=0`。
 - **待辦**：
   - 真實 AWS bucket 與 Amplify SSR role 的權限。
-  - 讓門市管理員指派自己門市的角色（目前只有系統管理員能指派）。
+  - 角色變更的稽核紀錄（目前只存最後的 `updatedBy`／`updatedAt`）。
+- **門市管理員指派自己門市的角色**：已完成，見 `docs/permissions.md` 同名段落。
+  - 新動作 `store.members`；規則集中在 `canAssignStoreRole`（最高到自己的等級，只能改比自己低的人）。
+  - 以 Email 或 ID 查人，不列出全部帳號；寫入只更新單一門市那一格，並行不互蓋。
 
 ## 11. 娃娃機設定模組（多台機台各自保存）
 

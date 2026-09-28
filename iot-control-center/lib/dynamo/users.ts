@@ -196,6 +196,30 @@ export async function listUsers(): Promise<User[]> {
   return (res.Items ?? []) as User[];
 }
 
+/**
+ * The user with this e-mail, for adding someone to a store's team by address.
+ * akade-users (shared with akade-point) has no e-mail index, so this scans;
+ * fine for the user counts here, add a GSI on this table's owner side if it grows.
+ */
+export async function findUserByEmail(email: string): Promise<User | null> {
+  const wanted = email.trim().toLowerCase();
+  let startKey: Record<string, unknown> | undefined;
+  do {
+    const res = await ddb.send(
+      new ScanCommand({
+        TableName: TABLES.USERS,
+        FilterExpression: "attribute_exists(email)",
+        ProjectionExpression: "userId, displayName, email, isAdmin",
+        ExclusiveStartKey: startKey,
+      })
+    );
+    const hit = ((res.Items ?? []) as User[]).find((u) => u.email?.trim().toLowerCase() === wanted);
+    if (hit) return hit;
+    startKey = res.LastEvaluatedKey;
+  } while (startKey);
+  return null;
+}
+
 export async function setAdmin(userId: string, isAdmin: boolean): Promise<void> {
   await ddb.send(
     new UpdateCommand({

@@ -243,7 +243,8 @@
     "machines": "機台数",
     "switchTo": "切り替え",
     "deleteTitle": "「{name}」を削除しますか？",
-    "deleteDescription": "この操作は元に戻せません。先に配下の機台を再割り当てまたは削除してください。"
+    "deleteDescription": "この操作は元に戻せません。先に配下の機台を再割り当てまたは削除してください。",
+    "members": "{name} のメンバー"
   },
   "BrandForm": {
     "editTitle": "ブランドを編集",
@@ -1577,5 +1578,31 @@
     "devBackToAdmin": "Dev Admin に戻る",
     "cancel": "キャンセル",
     "save": "保存"
+  },
+  "StoreMembers": {
+    "title": "{store} のメンバー",
+    "description": "店舗管理者はこの店舗のロールを付与・削除できます。自分と同じレベルまでで、同格以上の人は変更できません。全体のロールや他の店舗には影響しません。",
+    "loading": "読み込み中…",
+    "empty": "この店舗にはまだメンバーがいません。",
+    "you": "（あなた）",
+    "globalRole": "全体：{role}",
+    "storeOnly": "店舗のロールのみ",
+    "noStoreRole": "店舗のロールなし",
+    "viaGlobal": "全体のロールによる",
+    "roleOf": "{name} のこの店舗でのロール",
+    "remove": "{name} の店舗ロールを削除",
+    "addTitle": "メンバーを追加",
+    "addPlaceholder": "メールアドレスまたはユーザー ID",
+    "find": "検索",
+    "add": "追加",
+    "alreadyMember": "すでにメンバーです。上で変更してください",
+    "addHint": "相手が一度 LINE でログインしている必要があります。完全なメールアドレスか ID でのみ検索でき、アカウント一覧は表示されません。",
+    "notFound": "アカウントが見つかりません",
+    "lookupFailed": "検索に失敗しました",
+    "saved": "店舗のロールを更新しました",
+    "removed": "店舗のロールを削除しました",
+    "saveFailed": "更新できませんでした",
+    "notAllowed": "この人のロールは変更できないか、自分より上のロールは付与できません",
+    "loadFailed": "メンバーを読み込めませんでした"
   }
 }

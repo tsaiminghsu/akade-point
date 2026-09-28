@@ -33,7 +33,9 @@ export type Action =
   /** machine (ESP32) and vehicle (companion) device tokens */
   | "token.manage"
   /** see users and assign roles */
-  | "users.manage";
+  | "users.manage"
+  /** see who has a role at a store and assign store roles there (canAssignStoreRole limits which) */
+  | "store.members";
 
 export const MIN_ROLE: Record<Action, Role> = {
   read: "viewer",
@@ -46,6 +48,7 @@ export const MIN_ROLE: Record<Action, Role> = {
   "vehicle.manage": "system-admin",
   "token.manage": "system-admin",
   "users.manage": "system-admin",
+  "store.members": "store-admin",
 };
 
 export function isRole(v: unknown): v is Role {
@@ -140,6 +143,23 @@ export function cleanStoreRoles(v: unknown): Record<string, StoreRole> {
   const out: Record<string, StoreRole> = {};
   for (const [id, r] of Object.entries(v as Record<string, unknown>)) if (id && isStoreRole(r)) out[id] = r;
   return out;
+}
+
+/**
+ * Whether `actor` may change `target`'s role at `storeId` to `next` (null =
+ * remove the store role). Store admins run their own shop's team:
+ * - only at stores where they hold "store.members";
+ * - never above their own role there (a store-admin can make store-admins);
+ * - only for people below them there, so peers and superiors (another
+ *   store-admin, a global store-admin, a system-admin) are left alone.
+ * System-admins, above every store role, may change anyone's.
+ */
+export function canAssignStoreRole(actor: Grants, target: Grants, storeId: string, next: StoreRole | null): boolean {
+  const mine = roleAt(actor, storeId);
+  if (!mine || !allows(mine, "store.members")) return false;
+  const rank = (r: Role | null) => (r ? ROLES.indexOf(r) : -1);
+  if (next && rank(next) > rank(mine)) return false;
+  return rank(roleAt(target, storeId)) < rank(mine);
 }
 
 /** The strongest role held anywhere, for labels ("store-admin at 2 stores"). */
