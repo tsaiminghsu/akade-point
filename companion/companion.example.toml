@@ -48,6 +48,8 @@ history_armed_s = 2.0
 # Telemetry logs (.tlog, one file per flight). Under systemd use the state directory.
 tlog_dir = "/var/lib/vehicle-companion/drone/tlogs"
 tlog_max_mb = 2048
+# DataFlash logs copied from the autopilot (Logs tab), served to the browser over the direct link.
+dataflash_dir = "dataflash"
 
 log_level = "INFO"
 

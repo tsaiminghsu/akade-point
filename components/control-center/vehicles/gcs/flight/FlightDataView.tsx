@@ -122,7 +122,7 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
           </TabsList>
           <div className="min-h-[260px] flex-1 overflow-y-auto overflow-x-hidden pt-2 lg:min-h-0">
             <TabsContent value="quick" className="mt-0">
-              <QuickPanel state={state} stale={stale} />
+              <QuickPanel state={state} stale={stale} family={rover ? "rover" : "copter"} />
             </TabsContent>
             <TabsContent value="actions" className="mt-0 space-y-4">
               {vehicle && <ActionsPanel vehicleType={vehicle.type} state={state} canCommand={canCommand} />}

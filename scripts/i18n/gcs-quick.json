@@ -1,0 +1,20 @@
+{
+  "zh-TW": { "Gcs": { "quick": {
+    "altAmsl": "海拔高度", "airspeed": "空速", "batteryPct": "電量", "sats": "衛星 · HDOP", "rssi": "訊號", "ekf": "EKF", "vibe": "震動",
+    "gimbalPitch": "雲台俯仰", "traffic": "最近航空器", "piTemp": "Pi 溫度",
+    "customize": "自訂", "customizeTitle": "自訂數值面板", "customizeDescription": "勾選要顯示的欄位並調整順序；設定只存在這個瀏覽器，無人機與無人車分開記。",
+    "columns": "欄數", "moveUp": "{name} 上移", "moveDown": "{name} 下移", "reset": "恢復預設", "save": "儲存"
+  } } },
+  "en-US": { "Gcs": { "quick": {
+    "altAmsl": "Altitude AMSL", "airspeed": "Airspeed", "batteryPct": "Battery", "sats": "Sats · HDOP", "rssi": "Signal", "ekf": "EKF", "vibe": "Vibration",
+    "gimbalPitch": "Gimbal pitch", "traffic": "Nearest traffic", "piTemp": "Pi temp",
+    "customize": "Customise", "customizeTitle": "Customise the quick panel", "customizeDescription": "Pick the fields and their order. Saved in this browser only, separately for drones and rovers.",
+    "columns": "Columns", "moveUp": "Move {name} up", "moveDown": "Move {name} down", "reset": "Reset to default", "save": "Save"
+  } } },
+  "ja-JP": { "Gcs": { "quick": {
+    "altAmsl": "海抜高度", "airspeed": "対気速度", "batteryPct": "電池残量", "sats": "衛星 · HDOP", "rssi": "信号", "ekf": "EKF", "vibe": "振動",
+    "gimbalPitch": "ジンバルピッチ", "traffic": "最寄りの航空機", "piTemp": "Pi 温度",
+    "customize": "カスタマイズ", "customizeTitle": "数値パネルのカスタマイズ", "customizeDescription": "表示する項目と順序を選びます。このブラウザにのみ保存され、ドローンとローバーで別々に記憶します。",
+    "columns": "列数", "moveUp": "{name} を上へ", "moveDown": "{name} を下へ", "reset": "既定に戻す", "save": "保存"
+  } } }
+}
