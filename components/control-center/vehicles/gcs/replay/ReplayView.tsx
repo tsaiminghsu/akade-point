@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useMap } from "react-leaflet";
+import { CircleMarker, Popup, useMap } from "react-leaflet";
 import { History, Pause, Play, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { sampleAt, segmentFlights, type Flight } from "@/lib/control-center/vehi
 import type { TelemetryPoint, Vehicle } from "@/lib/control-center/vehicles/types";
 import { GcsMap } from "../map/GcsMap";
 import { VehicleMarker } from "../map/mapParts";
+import { useCloudFiles } from "../logs/useCloudFiles";
 
 const PAGE = 2000;
 const SPEEDS = [1, 4, 16] as const;
@@ -82,6 +83,13 @@ export function ReplayView({ vehicle }: { vehicle: Vehicle }) {
   const flight: Flight | null = selected === null ? null : (flights.find((f) => f.start === selected) ?? null);
   const sample = flight ? sampleAt(flight.points, at) : null;
   const track = useMemo(() => (flight ? flight.points.map((p) => [p.lat, p.lon] as [number, number]) : []), [flight]);
+  // Photos the companion uploaded during this flight (a minute either side for clock slack).
+  const cloudPhotos = useCloudFiles(vehicle.id, "photo", 200).files;
+  const photosIn = (f: Flight) => cloudPhotos.filter((p) => p.t >= f.start - 60_000 && p.t <= f.end + 60_000).length;
+  const flightPhotos = useMemo(
+    () => (flight ? cloudPhotos.filter((p) => p.geo && p.t >= flight.start - 60_000 && p.t <= flight.end + 60_000) : []),
+    [flight, cloudPhotos]
+  );
 
   function choose(f: Flight) {
     setSelected(f.start);
@@ -140,6 +148,7 @@ export function ReplayView({ vehicle }: { vehicle: Vehicle }) {
                 <span className="block tabular-nums text-muted-foreground">
                   {duration(f.end - f.start)} · {formatDistance(f.distance)} · {t("maxAlt", { m: Math.round(f.maxRel) })}
                   {f.batStart !== null && f.batEnd !== null ? ` · ${t("battery", { used: Math.max(0, Math.round(f.batStart - f.batEnd)) })}` : ""}
+                  {photosIn(f) > 0 ? ` · ${t("photos", { n: photosIn(f) })}` : ""}
                 </span>
               </button>
             </li>
@@ -156,6 +165,17 @@ export function ReplayView({ vehicle }: { vehicle: Vehicle }) {
         <div className="h-[360px] lg:min-h-0 lg:flex-1">
           <GcsMap state={null} trail={track} target={null} canCommand={false} contextMenu={false} follow={false}>
             {flight && <FitTrack points={flight.points} />}
+            {flightPhotos.map((p) => (
+              <CircleMarker key={p.fileId} center={[p.geo!.lat, p.geo!.lon]} radius={5} pathOptions={{ color: "#fff", weight: 1, fillColor: "#a855f7", fillOpacity: 0.9 }}>
+                <Popup>
+                  <a href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block w-48">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- presigned / authenticated URL */}
+                    <img src={p.url ?? ""} alt={p.name} className="w-full rounded" />
+                    <span className="mt-1 block text-[11px] tabular-nums">{new Date(p.t).toLocaleTimeString()}</span>
+                  </a>
+                </Popup>
+              </CircleMarker>
+            ))}
             {sample && <VehicleMarker lat={sample.lat} lon={sample.lon} heading={sample.hdg} cls={vehicle.type === "rover" ? "rover" : "copter"} label={vehicle.name} />}
           </GcsMap>
         </div>

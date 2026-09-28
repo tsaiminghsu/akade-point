@@ -12,6 +12,8 @@ from .clock import Clock
 from .config import Config
 from .links.cloud import CloudLink
 from .links.direct import DirectServer
+from .links.uploader import Uploader, dataflash_candidates, photo_candidates, tlog_candidates
+from .mav.vehicle import is_armed
 from .links.video import VideoControl
 from .mav.command import CommandClient
 from .mav.connection import MavConnection
@@ -61,6 +63,7 @@ class Companion:
     remote_id: Optional[RemoteId] = None
     tlog: Optional[TlogWriter] = None
     camera: Optional[CameraComponent] = None
+    uploader: Optional[Uploader] = None
 
 
 def build(config: Config) -> Companion:
@@ -121,6 +124,34 @@ def build(config: Config) -> Companion:
         conn.add_listener("COMMAND_LONG", camera.on_command)
     conn.add_listener("ADSB_VEHICLE", adsb.on_adsb)
     remote_id = RemoteId(conn, config.remote_id.send_operator_location)
+    uploader = None
+    if config.upload.enabled:
+        up = config.upload
+        offset = lambda: int(clock.now_ms() - Clock.local_ms())  # noqa: E731 - Pi clock → server clock
+        sources = []
+        if up.photos and camera is not None:
+            sources.append(lambda: photo_candidates(camera))
+        if up.dataflash and dataflash is not None:
+            sources.append(lambda: dataflash_candidates(dataflash, offset))
+        if up.tlogs != "off" and tlog is not None:
+            sources.append(lambda: tlog_candidates(tlog, offset, up.tlogs))
+
+        def armed() -> bool:
+            hb = conn.heartbeat()
+            return hb is not None and is_armed(hb)
+
+        uploader = Uploader(
+            config.api_base,
+            config.token,
+            state_file=up.state_file,
+            sources=sources,
+            online=lambda: cloud.connected,
+            armed=armed,
+            logs_while_armed=up.logs_while_armed,
+            max_kbps=up.max_kbps,
+        )
+        if camera is not None:
+            camera.on_captured.append(lambda _photo: uploader.poke())
     builder = StateBuilder(
         conn,
         status,
@@ -135,6 +166,7 @@ def build(config: Config) -> Companion:
         camera_state=camera.state_block if camera else None,
         terrain_state=terrain.state_block if terrain else None,
         rid_state=remote_id.state_block,
+        upload_state=uploader.state_block if uploader else None,
     )
     handlers = Handlers(
         conn,
@@ -205,7 +237,7 @@ def build(config: Config) -> Companion:
         holder["direct"] = direct
     return Companion(
         config, clock, conn, commands, missions, params, status, streams, sysinfo, builder, cloud, handlers, executor,
-        heartbeat, manual, direct, video, remote_id, tlog, camera,
+        heartbeat, manual, direct, video, remote_id, tlog, camera, uploader,
     )
 
 
@@ -225,6 +257,8 @@ async def run(config: Config) -> None:
         await c.direct.start()
     if c.video is not None:
         await c.video.start()
+    if c.uploader is not None:
+        await c.uploader.start()
 
     mqtt = None
     if config.transport == "iot" and config.mqtt.enabled:
@@ -255,6 +289,8 @@ async def run(config: Config) -> None:
         tasks.append(asyncio.create_task(c.remote_id.run(), name="remote-id"))
     if c.camera is not None:
         tasks.append(asyncio.create_task(c.camera.run(), name="camera"))
+    if c.uploader is not None:
+        tasks.append(asyncio.create_task(c.uploader.run(), name="uploader"))
     log.info("running (contract v%d, gcs heartbeat %s)", config.contract, config.gcs_heartbeat)
     try:
         await stop.wait()
@@ -268,6 +304,8 @@ async def run(config: Config) -> None:
             await c.direct.stop()
         if c.video is not None:
             await c.video.close()
+        if c.uploader is not None:
+            await c.uploader.close()
         await c.cloud.close()
         c.conn.stop()
         log.info("stopped")

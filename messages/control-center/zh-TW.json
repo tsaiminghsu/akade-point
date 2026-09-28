@@ -1469,7 +1469,8 @@
       "mode": "模式",
       "alt": "高度",
       "speed": "速度",
-      "bat": "電量"
+      "bat": "電量",
+      "photos": "{n} 張照片"
     },
     "leaseHeld": "{name} 正在控制這台載具（自 {since} 起）。你目前只能觀看；開啟「取得控制權」可接管。",
     "takenOver": "{name} 接管了控制權，你現在只能觀看。",
@@ -1519,6 +1520,33 @@
       "enabledToast": "已把簽章金鑰寫入飛控",
       "disabledToast": "已關閉飛控的簽章",
       "failed": "設定失敗：{reason}"
+    },
+    "cloud": {
+      "title": "雲端檔案",
+      "description": "companion 上傳的照片（含拍攝位置）與日誌；載具關機或離線時也看得到。",
+      "refresh": "重新整理",
+      "uploading": "正在上傳 {name}（{pct}%）",
+      "queued": "待上傳 {n} 個檔案（{size}）",
+      "more": "之後還有 {n} 個",
+      "upToDate": "都已上傳",
+      "errNoStorage": "伺服器未設定檔案儲存，暫停上傳",
+      "errRetrying": "上傳失敗（{code}），稍後重試",
+      "kind_photo": "照片",
+      "kind_dataflash": "DataFlash",
+      "kind_tlog": "遙測日誌",
+      "noStorage": "伺服器沒有設定檔案儲存（VEHICLE_FILES_BUCKET），無法上傳照片與日誌。",
+      "loadFailed": "無法載入雲端檔案",
+      "none_photo": "還沒有上傳的照片。在 companion 設定 [upload] enabled = true 並開啟相機。",
+      "none_dataflash": "還沒有上傳的 DataFlash 日誌。從飛控下載後會自動上傳。",
+      "none_tlog": "還沒有上傳的遙測日誌。每次飛行結束、上鎖後會自動上傳。",
+      "noGeo": "沒有定位",
+      "older": "載入較舊的",
+      "download": "下載 {name}",
+      "delete": "刪除 {name}",
+      "deleteTitle": "刪除雲端檔案？",
+      "deleteDescription": "「{name}」會從雲端刪除，無法復原。Pi 上的原始檔不受影響。",
+      "deleted": "已刪除",
+      "deleteFailed": "無法刪除"
     }
   },
   "Roles": {

@@ -78,7 +78,10 @@ async function waitRelAlt(id, target, timeoutMs = 30_000) {
   await sendAndWait(v.id, { type: "goto", lat: cur.lat + 0.0003, lon: cur.lon, alt: 10 }, "goto");
   await sendAndWait(v.id, { type: "change_speed", speed: 3 }, "change_speed 3");
   await sendAndWait(v.id, { type: "hold" }, "hold");
-  await sendAndWait(v.id, { type: "param_get", names: ["SYSID_MYGCS", "FS_GCS_ENABLE"] }, "param_get");
+  // ArduPilot 4.7 renamed SYSID_MYGCS to MAV_GCS_SYSID: try the new name, then the old one.
+  await sendAndWait(v.id, { type: "param_get", names: ["MAV_GCS_SYSID", "FS_GCS_ENABLE"] }, "param_get").catch(() =>
+    sendAndWait(v.id, { type: "param_get", names: ["SYSID_MYGCS", "FS_GCS_ENABLE"] }, "param_get (pre-4.7 name)")
+  );
   await sendAndWait(v.id, { type: "rtl" }, "rtl");
 
   console.log("\n✅ smoke test passed");

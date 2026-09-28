@@ -81,6 +81,24 @@ class TerrainConfig:
 
 
 @dataclass
+class UploadConfig:
+    """Photos and logs to the cloud (links/uploader.py)."""
+
+    enabled: bool = False
+    photos: bool = True
+    #: telemetry logs: "off", "flights" (armed periods only) or "all"
+    tlogs: str = "flights"
+    #: DataFlash logs downloaded from the autopilot
+    dataflash: bool = True
+    #: send logs while armed too (photos always go)
+    logs_while_armed: bool = False
+    #: uplink cap in kbit/s, 0 = none
+    max_kbps: float = 0.0
+    #: what has been uploaded, so a restart does not send it again
+    state_file: str = "upload-state.json"
+
+
+@dataclass
 class SigningConfig:
     """MAVLink2 signing. The key is SHA-256 of the passphrase, as Mission
     Planner and QGroundControl derive it, so the same passphrase works there."""
@@ -142,6 +160,7 @@ class Config:
     camera: CameraConfig = field(default_factory=CameraConfig)
     signing: SigningConfig = field(default_factory=SigningConfig)
     terrain: TerrainConfig = field(default_factory=TerrainConfig)
+    upload: UploadConfig = field(default_factory=UploadConfig)
 
     @staticmethod
     def from_dict(data: dict) -> "Config":
@@ -154,7 +173,7 @@ class Config:
         unknown = set(data) - known - {"forward_udp"}
         if unknown:
             raise ValueError(f"unknown config keys: {', '.join(sorted(unknown))}")
-        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id", "camera", "signing", "terrain")}
+        kwargs = {k: v for k, v in data.items() if k in known and k not in ("mqtt", "direct", "video", "remote_id", "camera", "signing", "terrain", "upload")}
         cfg = Config(**kwargs)
         cfg.api_base = cfg.api_base.rstrip("/")
         cfg.mqtt = MqttConfig(**data.get("mqtt", {}))
@@ -164,6 +183,9 @@ class Config:
         cfg.camera = CameraConfig(**data.get("camera", {}))
         cfg.signing = SigningConfig(**data.get("signing", {}))
         cfg.terrain = TerrainConfig(**data.get("terrain", {}))
+        cfg.upload = UploadConfig(**data.get("upload", {}))
+        if cfg.upload.tlogs not in ("off", "flights", "all"):
+            raise ValueError("upload.tlogs must be off, flights or all")
         if cfg.signing.passphrase and len(cfg.signing.passphrase) < 12:
             raise ValueError("signing.passphrase must be at least 12 characters")
         if cfg.camera.source not in ("rtsp", "rpicam", "test"):

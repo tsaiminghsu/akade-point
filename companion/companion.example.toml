@@ -107,6 +107,18 @@ download = false
 [signing]
 passphrase = ""
 
+# Photos and logs to the cloud (docs/vehicles-files.md). Photos go as soon as
+# they are taken; logs once disarmed. The server needs VEHICLE_FILES_BUCKET
+# (or a local directory) or it answers 503 and uploads pause.
+[upload]
+enabled = false
+photos = true
+tlogs = "flights"        # off | flights | all
+dataflash = true
+logs_while_armed = false
+max_kbps = 0             # uplink cap in kbit/s, 0 = none
+state_file = "/var/lib/vehicle-companion/drone/upload-state.json"
+
 # Only used when transport = "iot".
 [mqtt]
 endpoint = "xxxxxxxx-ats.iot.ap-northeast-1.amazonaws.com"

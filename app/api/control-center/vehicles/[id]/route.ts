@@ -4,6 +4,8 @@ import { requireVehicleAccess } from "@/lib/vehicle-access";
 import { deleteVehicle, getVehicle, getVehicleByCompanionId, updateVehicle } from "@/lib/dynamo/cc-vehicles";
 import { revokeAllForVehicle } from "@/lib/dynamo/cc-vehicle-tokens";
 import { deleteAllForVehicle } from "@/lib/dynamo/cc-vehicle-missions";
+import { deleteFile, listAllForVehicle } from "@/lib/dynamo/cc-vehicle-files";
+import { fileStorage } from "@/lib/vehicle-files/storage";
 import { vehiclePatchSchema } from "@/lib/control-center/vehicles/schemas";
 import { toVehicleView } from "@/lib/control-center/vehicles/view";
 
@@ -34,6 +36,12 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   // Best-effort cleanup of dependents; the vehicle row goes last.
   await revokeAllForVehicle(params.id);
   await deleteAllForVehicle(params.id);
+  // Its photos and logs: storage objects first, then their records.
+  const storage = fileStorage();
+  for (const f of await listAllForVehicle(params.id)) {
+    await storage?.delete(f.key).catch(() => {});
+    await deleteFile(params.id, f.fileId);
+  }
   await deleteVehicle(params.id);
   return NextResponse.json({ ok: true });
 }

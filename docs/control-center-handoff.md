@@ -426,10 +426,27 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - 權限測試時，別對「產生 token」這類不需要請求內容的 POST 送探測請求，會真的輪替 token（本機測試資料曾因此被輪替）。
 - SITL 的 TCP 序列埠一次只接受一個連線。
 
-**待辦**：
+**待辦**（第四批已完成後兩項，見下）：
 - 實機驗證：相機的 ffmpeg／rpicam 來源、簽章與 STorM32／ESP32 並存、地形自動下載。
-- 照片與日誌上雲；回放頁顯示照片點。
-- 門市層級的權限（目前只有全域角色）。
+
+**第四批（2026-09-28）**：
+- **門市範圍的角色**（`af6d152`，見 `docs/permissions.md`「門市範圍的角色」）：
+  - 每位使用者有全域角色，加上 `stores: { storeId: 角色 }`；在某門市取兩者中較高者。
+  - 所有與門市相關的 API 依紀錄所屬的門市檢查權限，清單只列出有權限的門市。
+  - 載具多了選填的 `storeId`；沒指派門市的載具只有全域角色能看。
+  - 使用者頁可編輯門市權限；本機可用「以使用者身分檢視」測試（cookie `cc_dev_as`）。
+  - 權限矩陣 50 項實測全數通過。
+- **照片與日誌上雲**（見 `docs/vehicles-files.md`）：
+  - companion 的 `links/uploader.py` 依序宣告、PUT（S3 預簽或本機路由）、確認。
+  - 新表 `akade-cc-vehicle-files`，並有 S3 的 IAM 範本與生命週期規則（`infra/s3/`）。
+  - 地面站日誌頁新增「雲端檔案」；回放頁顯示照片數量與拍攝點。
+  - tlog 改成上鎖時也換檔，所以一趟飛行一上鎖就能上傳。
+- **新表**：`akade-cc-vehicle-files`；`akade-cc-roles` 多了 `stores` 欄位（相容舊紀錄）。
+- **陷阱**：
+  - AWS SDK v3 的預簽 PUT 預設會加 CRC32 checksum，要設 `requestChecksumCalculation: "WHEN_REQUIRED"`。
+  - `x-amz-checksum-sha256` 要列進 `unhoistableHeaders`，否則會被移到 query，不會以標頭簽入。
+  - Radix Select 在瀏覽器窗格不繪製時，關閉動畫不會結束，下拉清單會一直蓋在按鈕上。這只影響自動化測試，不是產品錯誤。
+- **待辦**：S3 模式實際接 bucket（或 MinIO）驗證；讓門市管理員指派自己門市的角色（目前只有系統管理員能指派）。
 
 ## 11. 娃娃機設定模組（多台機台各自保存）
 

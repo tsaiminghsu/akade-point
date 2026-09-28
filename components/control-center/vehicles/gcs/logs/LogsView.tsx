@@ -8,6 +8,7 @@ import { Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Vehicle } from "@/lib/control-center/vehicles/types";
 import { useGcsStore } from "@/store/useGcsStore";
+import { CloudFilesPanel } from "./CloudFilesPanel";
 import { DataflashPanel } from "./DataflashPanel";
 
 interface TlogFile {
@@ -67,6 +68,7 @@ export function LogsView({ vehicle, canCommand }: { vehicle: Vehicle; canCommand
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-6">
+      <CloudFilesPanel vehicle={vehicle} />
       <section className="min-w-0 space-y-3">
         <div className="flex items-center justify-between">
           <div>

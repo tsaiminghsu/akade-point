@@ -1,0 +1,11 @@
+{
+  "Rules": [
+    {
+      "ID": "vehicle-files-retention",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "vehicles/" },
+      "Expiration": { "Days": 90 },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}

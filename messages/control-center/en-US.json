@@ -1469,7 +1469,8 @@
       "mode": "Mode",
       "alt": "Altitude",
       "speed": "Speed",
-      "bat": "Battery"
+      "bat": "Battery",
+      "photos": "{n, plural, one {# photo} other {# photos}}"
     },
     "leaseHeld": "{name} has control of this vehicle (since {since}). You are watching; switch on control to take over.",
     "takenOver": "{name} took control; you are watching now.",
@@ -1519,6 +1520,33 @@
       "enabledToast": "Signing key written to the autopilot",
       "disabledToast": "Signing disabled on the autopilot",
       "failed": "Could not change signing: {reason}"
+    },
+    "cloud": {
+      "title": "Cloud files",
+      "description": "Photos (with where they were taken) and logs the companion uploaded; available while the vehicle is off or out of range.",
+      "refresh": "Refresh",
+      "uploading": "Uploading {name} ({pct}%)",
+      "queued": "{n, plural, one {# file} other {# files}} waiting ({size})",
+      "more": "{n} more after it",
+      "upToDate": "Everything is uploaded",
+      "errNoStorage": "The server has no file storage; uploads paused",
+      "errRetrying": "Upload failed ({code}); retrying later",
+      "kind_photo": "Photos",
+      "kind_dataflash": "DataFlash",
+      "kind_tlog": "Telemetry logs",
+      "noStorage": "The server has no file storage configured (VEHICLE_FILES_BUCKET), so photos and logs cannot be uploaded.",
+      "loadFailed": "Could not load the cloud files",
+      "none_photo": "No photos uploaded yet. Set [upload] enabled = true in the companion config and turn the camera on.",
+      "none_dataflash": "No DataFlash logs uploaded yet. Logs downloaded from the autopilot are uploaded automatically.",
+      "none_tlog": "No telemetry logs uploaded yet. Each flight's log is uploaded after disarming.",
+      "noGeo": "No position",
+      "older": "Load older",
+      "download": "Download {name}",
+      "delete": "Delete {name}",
+      "deleteTitle": "Delete this cloud file?",
+      "deleteDescription": "\"{name}\" will be deleted from the cloud for good. The original on the Pi is not touched.",
+      "deleted": "Deleted",
+      "deleteFailed": "Could not delete it"
     }
   },
   "Roles": {
