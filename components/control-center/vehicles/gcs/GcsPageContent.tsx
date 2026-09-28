@@ -14,6 +14,7 @@ import { LinkStateBadge } from "../LinkStateBadge";
 import { FlightDataView } from "./flight/FlightDataView";
 import { FlightPlanView } from "./plan/FlightPlanView";
 import { LogsView } from "./logs/LogsView";
+import { ReplayView } from "./replay/ReplayView";
 import { ParamsView } from "./params/ParamsView";
 import { StatusBar } from "./flight/StatusBar";
 import { VehicleSetupPanel } from "./setup/VehicleSetupPanel";
@@ -130,6 +131,7 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
           {state?.caps.includes("mission") !== false && <TabsTrigger value="plan">{t("tabs.plan")}</TabsTrigger>}
           {state?.caps.includes("params") !== false && <TabsTrigger value="params">{t("tabs.params")}</TabsTrigger>}
           <TabsTrigger value="logs">{t("tabs.logs")}</TabsTrigger>
+          <TabsTrigger value="replay">{t("tabs.replay")}</TabsTrigger>
           <TabsTrigger value="setup">{t("tabs.setup")}</TabsTrigger>
         </TabsList>
         <TabsContent value="flight" className="mt-3 lg:min-h-0 lg:flex-1">
@@ -143,6 +145,9 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
         </TabsContent>
         <TabsContent value="logs" className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           {vehicle && <LogsView vehicle={vehicle} canCommand={canCommand} />}
+        </TabsContent>
+        <TabsContent value="replay" className="mt-3 lg:min-h-0 lg:flex-1">
+          {vehicle && <ReplayView vehicle={vehicle} />}
         </TabsContent>
         <TabsContent value="setup" className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           {vehicle && <VehicleSetupPanel vehicle={vehicle} />}

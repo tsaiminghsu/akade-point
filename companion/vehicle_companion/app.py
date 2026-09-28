@@ -83,6 +83,7 @@ def build(config: Config) -> Companion:
         contract=config.contract,
         telemetry_interval_s=config.telemetry_interval_s,
         history_every_s=config.history_every_s,
+        history_armed_s=config.history_armed_s,
     )
     holder: dict = {}
 

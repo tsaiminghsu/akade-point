@@ -762,7 +762,8 @@
       "params": "パラメーター",
       "logs": "ログ",
       "gimbal": "ジンバル",
-      "payload": "ペイロード"
+      "payload": "ペイロード",
+      "replay": "再生"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -1416,6 +1417,26 @@
       "stoppedControl": "操作権を解除したため追従を停止しました。",
       "confirmTitle": "追従を開始しますか？",
       "confirmDescription": "機体は GUIDED に切り替わり、あなたから {bearing}° 方向 {distance} m の位置へ移動して追従を続けます。このタブを離れる、位置や接続が途絶えると停止します（機体は最後の目標で待機）。周囲の障害物に注意してください。"
+    },
+    "replay": {
+      "title": "飛行の再生",
+      "description": "クラウドに 7 日間保存される航跡（アーム中は 2 秒ごと）。詳細は tlog や DataFlash を使ってください。",
+      "reload": "再読み込み",
+      "loadFailed": "航跡を読み込めません。",
+      "none": "この期間の飛行はありません（20 秒以上アームで 1 回の飛行）。",
+      "older": "さらに古い記録",
+      "maxAlt": "最高 {m} m",
+      "battery": "消費 {used}%",
+      "pick": "左から飛行を選んでください。",
+      "play": "再生",
+      "pause": "一時停止",
+      "position": "再生位置",
+      "elapsed": "経過",
+      "clock": "時刻",
+      "mode": "モード",
+      "alt": "高度",
+      "speed": "速度",
+      "bat": "電池"
     }
   }
 }

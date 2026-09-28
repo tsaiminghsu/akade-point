@@ -242,6 +242,8 @@ export const paramSnapshotSchema = z.object({
 
 export const historyQuerySchema = z.object({
   since: z.coerce.number().int().positive().optional(),
+  /** newest point to include (paging back through older flights) */
+  until: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(2000).default(500),
 });
 

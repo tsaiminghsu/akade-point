@@ -762,7 +762,8 @@
       "params": "Parameters",
       "logs": "Logs",
       "gimbal": "Gimbal",
-      "payload": "Payload"
+      "payload": "Payload",
+      "replay": "Replay"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -1416,6 +1417,26 @@
       "stoppedControl": "Control released: stopped following.",
       "confirmTitle": "Start following?",
       "confirmDescription": "The vehicle switches to GUIDED, moves to {distance} m at {bearing}° from you and keeps following. Leaving this tab, losing your location or the link stops it (the vehicle holds its last target). Mind obstacles."
+    },
+    "replay": {
+      "title": "Flight replay",
+      "description": "Tracks kept in the cloud for 7 days (a point every 2 s while armed). For detail use the tlog or DataFlash log.",
+      "reload": "Reload",
+      "loadFailed": "Could not load the track history.",
+      "none": "No flights in this period (armed for over 20 s counts as a flight).",
+      "older": "Load older",
+      "maxAlt": "max {m} m",
+      "battery": "{used}% used",
+      "pick": "Pick a flight on the left.",
+      "play": "Play",
+      "pause": "Pause",
+      "position": "Replay position",
+      "elapsed": "Elapsed",
+      "clock": "Time",
+      "mode": "Mode",
+      "alt": "Altitude",
+      "speed": "Speed",
+      "bat": "Battery"
     }
   }
 }

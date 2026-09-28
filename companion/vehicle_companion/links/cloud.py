@@ -40,6 +40,7 @@ class CloudLink:
         contract: int = 1,
         telemetry_interval_s: float = 1.0,
         history_every_s: float = 5.0,
+        history_armed_s: float = 2.0,
         timeout_s: float = 8.0,
     ):
         self.base = api_base.rstrip("/")
@@ -48,6 +49,8 @@ class CloudLink:
         self.contract = contract
         self.telemetry_interval_s = telemetry_interval_s
         self.history_every_s = history_every_s
+        # Denser while armed, so the ground station's replay of a flight is useful.
+        self.history_armed_s = min(history_armed_s, history_every_s)
         self.timeout = aiohttp.ClientTimeout(total=timeout_s)
         self.on_command: Callable[[dict], None] = lambda cmd: None
         self.session: Optional[aiohttp.ClientSession] = None
@@ -88,7 +91,8 @@ class CloudLink:
 
     def _maybe_history(self, state: dict) -> None:
         now = time.monotonic()
-        if now - self._last_history < self.history_every_s:
+        every = self.history_armed_s if state.get("armed") else self.history_every_s
+        if now - self._last_history < every:
             return
         self._last_history = now
         if state.get("pos") is None:

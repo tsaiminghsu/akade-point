@@ -141,3 +141,17 @@ async def test_acks_are_retried_until_accepted():
         task.cancel()
         await link.close()
         await runner.cleanup()
+
+
+def test_history_is_denser_while_armed():
+    from vehicle_companion.clock import Clock
+    from vehicle_companion.links.cloud import CloudLink
+    import time as _t
+
+    link = CloudLink("http://x", "vt_test", Clock(), contract=2, history_every_s=5.0, history_armed_s=2.0)
+    base = {"v": 2, "pos": {"lat": 1, "lon": 2, "alt": 3, "rel": 0}}
+    link._last_history = _t.monotonic() - 2.5
+    link._maybe_history({**base, "armed": False})
+    assert link._history == []  # disarmed: 5 s spacing
+    link._maybe_history({**base, "armed": True})
+    assert len(link._history) == 1  # armed: 2 s spacing

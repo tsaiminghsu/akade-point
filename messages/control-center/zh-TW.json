@@ -762,7 +762,8 @@
       "params": "參數",
       "logs": "日誌",
       "gimbal": "雲台",
-      "payload": "酬載"
+      "payload": "酬載",
+      "replay": "回放"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -1416,6 +1417,26 @@
       "stoppedControl": "已釋放控制權，停止跟隨。",
       "confirmTitle": "開始跟隨？",
       "confirmDescription": "載具會切到 GUIDED，移動到你的位置 {bearing}° 方向 {distance} 公尺處，並持續跟著你。離開此頁籤、定位中斷或斷線都會停止跟隨（載具停在最後的目標點）。注意周圍障礙物。"
+    },
+    "replay": {
+      "title": "飛行回放",
+      "description": "雲端保存 7 天的軌跡（解鎖時每 2 秒一點）。細節請看 tlog 或 DataFlash。",
+      "reload": "重新載入",
+      "loadFailed": "無法載入軌跡紀錄。",
+      "none": "這段期間沒有飛行紀錄（解鎖超過 20 秒才算一次飛行）。",
+      "older": "載入更早的紀錄",
+      "maxAlt": "最高 {m} m",
+      "battery": "耗電 {used}%",
+      "pick": "從左邊選一次飛行。",
+      "play": "播放",
+      "pause": "暫停",
+      "position": "回放位置",
+      "elapsed": "經過",
+      "clock": "時間",
+      "mode": "模式",
+      "alt": "高度",
+      "speed": "速度",
+      "bat": "電量"
     }
   }
 }
