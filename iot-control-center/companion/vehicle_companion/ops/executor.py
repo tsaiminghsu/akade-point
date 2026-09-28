@@ -6,7 +6,7 @@
 * fast — everything else that talks to the autopilot briefly, one at a time.
 * slow — mission/fence/rally transfers and parameter batches, one at a time,
   independent of the other lanes.
-* gimbal — gimbal and payload-node commands.
+* gimbal — gimbal, payload-node and camera commands.
 * logs — DataFlash listing and downloads, which can take an hour.
 
 Commands are deduplicated by id (the server resends a command every second
@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 PRIORITY = frozenset({"disarm", "rtl", "land", "hold", "mission_pause"})
 # Gimbal and payload-node commands are quick and independent of flight
 # commands; they never wait behind a slow goto or preempt one.
-GIMBAL = frozenset({"gimbal_pitchyaw", "gimbal_mode", "roi_location", "roi_none", "payload_relay", "payload_pulse", "payload_servo"})
+GIMBAL = frozenset({"gimbal_pitchyaw", "gimbal_mode", "roi_location", "roi_none", "payload_relay", "payload_pulse", "payload_servo", "camera_capture", "camera_stop"})
 SLOW = frozenset({"mission_upload", "mission_download", "mission_clear", "param_get", "param_set", "param_fetch"})
 # DataFlash transfers can run for an hour over a radio; they get a lane of
 # their own so mission and parameter work is not stuck behind them (ArduPilot

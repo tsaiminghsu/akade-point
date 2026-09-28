@@ -49,6 +49,9 @@ export const TABLES = {
   CC_CLAW_CONFIGS: "akade-cc-claw-configs",
   CC_CLAW_SYNC: "akade-cc-claw-sync",
   CC_MACHINE_TOKENS: "akade-cc-machine-tokens",
+  // Control Center roles (lib/control-center/access.ts); kept out of the
+  // akade-users table this app shares with akade-point.
+  CC_ROLES: "akade-cc-roles",
 } as const;
 
 /**

@@ -19,7 +19,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusDot } from "@/components/control-center/shared/StatusDot";
 import { SearchCommand } from "@/components/control-center/shared/SearchCommand";
 import { useMachinesStore } from "@/store/useMachinesStore";
+import { useAccessStore } from "@/store/useAccessStore";
 import { useAlertStore } from "@/store/useAlertStore";
+import { ROLES } from "@/lib/control-center/access";
 import { useUIStore } from "@/store/useUIStore";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,8 @@ export function ControlCenterTopNav() {
   const setCommandOpen = useUIStore((s) => s.setCommandOpen);
   const openMachineDrawer = useUIStore((s) => s.openMachineDrawer);
   const toggleMobileSidebar = useUIStore((s) => s.toggleMobileSidebar);
+  const me = useAccessStore();
+  const tRole = useTranslations("Roles");
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -158,7 +162,22 @@ export function ControlCenterTopNav() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>{t("userMenu.opsAdmin")}</DropdownMenuLabel>
+            <DropdownMenuLabel className="space-y-0.5">
+              <span className="block truncate">{me.name ?? t("userMenu.opsAdmin")}</span>
+              {me.role && <span className="block text-xs font-normal text-muted-foreground">{tRole(me.role)}</span>}
+            </DropdownMenuLabel>
+            {me.devRoleSwitch && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">{tRole("devSwitch")}</DropdownMenuLabel>
+                {ROLES.map((r) => (
+                  <DropdownMenuItem key={r} onSelect={() => me.setDevRole(r)} className="text-xs">
+                    {me.role === r ? <Check className="h-3.5 w-3.5" /> : <span className="w-3.5" />}
+                    {tRole(r)}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem>{t("userMenu.profile")}</DropdownMenuItem>
             <DropdownMenuItem>{t("userMenu.team")}</DropdownMenuItem>

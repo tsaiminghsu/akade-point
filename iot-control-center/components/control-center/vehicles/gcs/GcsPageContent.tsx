@@ -21,6 +21,7 @@ import { ParamsView } from "./params/ParamsView";
 import { StatusBar } from "./flight/StatusBar";
 import { VehicleSetupPanel } from "./setup/VehicleSetupPanel";
 import { useVoiceAlerts } from "./useVoiceAlerts";
+import { useCan } from "@/store/useAccessStore";
 
 const VOICE_KEY = "gcs.voice";
 
@@ -38,6 +39,7 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
   const lease = useGcsStore((s) => s.lease);
   const leaseMine = useGcsStore((s) => s.leaseMine);
   const [takeover, setTakeover] = useState<LeaseInfo | null>(null);
+  const mayCommand = useCan("vehicle.command");
   const [wasInControl, setWasInControl] = useState(false);
 
   // Control dropped because someone else holds the lease now: say so.
@@ -133,7 +135,7 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
             <label className="flex items-center gap-2 text-xs font-medium">
               <Hand className={`h-3.5 w-3.5 ${control ? "text-status-warning" : "text-muted-foreground"}`} />
               {t("control")}
-              <Switch checked={control} onCheckedChange={(on) => void toggleControl(on)} aria-label={t("control")} />
+              <Switch checked={control} disabled={!mayCommand && !control} onCheckedChange={(on) => void toggleControl(on)} aria-label={t("control")} />
             </label>
             <Button size="sm" variant={voice ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={toggleVoice} aria-pressed={voice}>
               {voice ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />} {voice ? t("voiceOn") : t("voiceOff")}

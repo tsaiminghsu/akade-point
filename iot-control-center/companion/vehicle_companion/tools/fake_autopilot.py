@@ -153,6 +153,7 @@ class FakeAutopilot:
         prearm_every_s: float = 30.0,
         payload: bool = False,
         adsb: bool = False,
+        signing_key: Optional[bytes] = None,
     ):
         self.vehicle = vehicle
         self.sysid = sysid
@@ -172,10 +173,17 @@ class FakeAutopilot:
         self.payload_mav = mavlink.MAVLink(out, srcSystem=sysid, srcComponent=25)
         self.with_payload = payload
         self.with_adsb = adsb
+        # MAVLink2 signing: with a key, unsigned input is dropped, as ArduPilot
+        # does on a non-USB port. SETUP_SIGNING received is kept here.
+        self.signing_key = signing_key
+        self.setup_signing_key: Optional[bytes] = None
         self.relays = [False] * 4
         self.servos = [1500.0] * 2
         self.parser = mavlink.MAVLink(None)
         self.parser.robust_parsing = True
+        if signing_key:
+            self.parser.signing.secret_key = signing_key
+            self.parser.signing.allow_unsigned_callback = lambda _mav, _msg_id: False
 
         self.mav_type = mavlink.MAV_TYPE_QUADROTOR if vehicle == "copter" else mavlink.MAV_TYPE_GROUND_ROVER
         self.modes = dict(mavutil.mode_mapping_byname(self.mav_type))
@@ -225,6 +233,8 @@ class FakeAutopilot:
         }
         self.drop_log_offsets: set[int] = set()
         self.log_silent = False  # stop answering LOG_REQUEST_DATA
+        # Messages from a camera component (100), as ArduPilot's AP_Camera sees them.
+        self.from_camera: list = []
         self.log_requests: list[tuple[int, int, int]] = []
         self.drop_mission_requests = 0
         self.upload_reject: Optional[int] = None
@@ -292,6 +302,8 @@ class FakeAutopilot:
 
     def _handle(self, msg) -> None:
         t = msg.get_type()
+        if msg.get_srcComponent() == 100:
+            self.from_camera.append(msg)
         handler = getattr(self, f"_on_{t.lower()}", None)
         if handler is not None:
             handler(msg)
@@ -641,6 +653,16 @@ class FakeAutopilot:
                 chunk = data[ofs:ofs + n]
                 self.mav.send(self.mav.log_data_encode(msg.id, ofs, n, chunk + bytes(90 - n)))
             ofs += n
+
+    def _on_terrain_data(self, msg) -> None:
+        cb = getattr(self, "on_terrain_data", None)
+        if cb is not None:
+            cb(msg)
+
+    def _on_setup_signing(self, msg) -> None:
+        if not self._for_me(msg, (0, 1)):
+            return
+        self.setup_signing_key = bytes(msg.secret_key)
 
     def _on_param_request_read(self, msg) -> None:
         if not self._for_me(msg):

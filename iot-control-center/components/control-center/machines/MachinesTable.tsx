@@ -14,8 +14,10 @@ import { MachineFormDialog } from "./MachineFormDialog";
 import { useMachinesStore } from "@/store/useMachinesStore";
 import { useUIStore } from "@/store/useUIStore";
 import type { Machine } from "@/lib/control-center/types";
+import { useCan } from "@/store/useAccessStore";
 
 export function MachinesTable({ machines }: { machines: Machine[] }) {
+  const mayManage = useCan("store.manage");
   const t = useTranslations("MachinesTable");
   const tCommon = useTranslations("Common");
   const stores = useMachinesStore((s) => s.stores);
@@ -77,6 +79,7 @@ export function MachinesTable({ machines }: { machines: Machine[] }) {
                       variant="ghost"
                       size="icon-sm"
                       aria-label={t("editMachine", { name: m.name })}
+                      disabled={!mayManage}
                       onClick={() => setEditingMachine(m)}
                     >
                       <Pencil aria-hidden className="h-3.5 w-3.5" />
@@ -86,6 +89,7 @@ export function MachinesTable({ machines }: { machines: Machine[] }) {
                       size="icon-sm"
                       className="text-status-alarm"
                       aria-label={t("deleteMachine", { name: m.name })}
+                      disabled={!mayManage}
                       onClick={() => setDeletingMachine(m)}
                     >
                       <Trash2 aria-hidden className="h-3.5 w-3.5" />

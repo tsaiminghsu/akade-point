@@ -1,0 +1,50 @@
+{
+  "zh-TW": {
+    "Roles": {
+      "viewer": "檢視者", "operator": "操作員", "store-admin": "門市管理員", "system-admin": "系統管理員",
+      "label": "控制中心角色", "none": "無（不能進入控制中心）", "fromIsAdmin": "系統管理員（來自 isAdmin）",
+      "saved": "角色已更新", "saveFailed": "無法更新角色", "cannotChangeSelf": "不能修改自己的角色",
+      "devSwitch": "開發環境：切換角色測試",
+      "readOnlyBanner": "你的角色是「{role}」，這頁只能查看；修改需要{need}。",
+      "need_alert_handle": "操作員以上", "need_store_manage": "門市管理員以上", "need_vehicle_command": "操作員以上"
+    },
+    "UsersPage": {
+      "administrators": "可進入控制中心",
+      "administratorsSub": "擁有任一控制中心角色的使用者",
+      "forbiddenTitle": "權限不足",
+      "forbiddenDescription": "只有系統管理員可以查看使用者與設定角色。"
+    }
+  },
+  "en-US": {
+    "Roles": {
+      "viewer": "Viewer", "operator": "Operator", "store-admin": "Store admin", "system-admin": "System admin",
+      "label": "Control Center role", "none": "None (no Control Center access)", "fromIsAdmin": "System admin (from isAdmin)",
+      "saved": "Role updated", "saveFailed": "Could not update the role", "cannotChangeSelf": "You cannot change your own role",
+      "devSwitch": "Dev only: try another role",
+      "readOnlyBanner": "Your role is {role}: you can only view this page; changes need {need}.",
+      "need_alert_handle": "operator or above", "need_store_manage": "store admin or above", "need_vehicle_command": "operator or above"
+    },
+    "UsersPage": {
+      "administrators": "Control Center access",
+      "administratorsSub": "Users with any Control Center role",
+      "forbiddenTitle": "Not allowed",
+      "forbiddenDescription": "Only system admins can see users and assign roles."
+    }
+  },
+  "ja-JP": {
+    "Roles": {
+      "viewer": "閲覧者", "operator": "オペレーター", "store-admin": "店舗管理者", "system-admin": "システム管理者",
+      "label": "コントロールセンターの役割", "none": "なし（コントロールセンターに入れません）", "fromIsAdmin": "システム管理者（isAdmin 由来）",
+      "saved": "役割を更新しました", "saveFailed": "役割を更新できません", "cannotChangeSelf": "自分の役割は変更できません",
+      "devSwitch": "開発環境のみ：役割を切り替えて試す",
+      "readOnlyBanner": "あなたの役割は「{role}」です。このページは閲覧のみで、変更には{need}が必要です。",
+      "need_alert_handle": "オペレーター以上", "need_store_manage": "店舗管理者以上", "need_vehicle_command": "オペレーター以上"
+    },
+    "UsersPage": {
+      "administrators": "コントロールセンター利用可",
+      "administratorsSub": "いずれかの役割を持つユーザー",
+      "forbiddenTitle": "権限がありません",
+      "forbiddenDescription": "ユーザーの閲覧と役割の設定はシステム管理者のみ可能です。"
+    }
+  }
+}

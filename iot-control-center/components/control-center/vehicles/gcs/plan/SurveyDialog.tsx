@@ -17,9 +17,9 @@ import { usePlanStore } from "@/store/usePlanStore";
 
 /**
  * Turns the polygon drawn on the map into lawnmower lanes. Camera trigger by
- * distance is optional: it only takes photos if the autopilot has a camera
- * configured (a Pi camera needs the companion to act as a MAVLink camera,
- * which is not built yet), so it is off by default.
+ * distance is optional: it takes photos when the autopilot has a camera
+ * configured (for the Pi camera: CAM1_TYPE = 6 and the companion's MAVLink
+ * camera, [camera]), so it stays off unless asked for.
  */
 export function SurveyDialog({ open, onOpenChange, vehicle }: { open: boolean; onOpenChange: (o: boolean) => void; vehicle: VehicleFamily }) {
   const t = useTranslations("Gcs.plan.survey");

@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 
-import { authOptions } from "@/lib/auth";
-import { getUser } from "@/lib/dynamo/users";
+import { currentActor } from "@/lib/access-server";
+import { requireSession } from "@/lib/session";
 import { ControlCenterShell } from "@/components/control-center/shell/ControlCenterShell";
 
 export const metadata: Metadata = {
@@ -30,11 +29,10 @@ export default async function ControlCenterLayout({ children }: { children: Reac
     return renderShell(children);
   }
 
-  const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
-  const userId = (session.user as { id: string }).id;
-  const user = await getUser(userId);
-  if (!user?.isAdmin) redirect("/");
+  if (!(await requireSession())) redirect("/login");
+  // Any Control Center role gets in (akade-users.isAdmin counts as system-admin);
+  // what each role may do is enforced per API route.
+  if (!(await currentActor())) redirect("/");
 
   return renderShell(children);
 }

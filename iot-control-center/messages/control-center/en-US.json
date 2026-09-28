@@ -550,8 +550,8 @@
     "accountsSuffix": "accounts",
     "totalUsers": "Total Users",
     "totalUsersSub": "All registered accounts",
-    "administrators": "Administrators",
-    "administratorsSub": "Users with elevated access",
+    "administrators": "Control Center access",
+    "administratorsSub": "Users with any Control Center role",
     "totalPoints": "Total Points",
     "totalPointsSub": "Combined reward balance",
     "totalTickets": "Total Tickets",
@@ -571,7 +571,9 @@
     "updated": "Updated",
     "admin": "Admin",
     "regularUser": "User",
-    "anonymousUser": "Anonymous User"
+    "anonymousUser": "Anonymous User",
+    "forbiddenTitle": "Not allowed",
+    "forbiddenDescription": "Only system admins can see users and assign roles."
   },
   "Vehicles": {
     "title": "Vehicles",
@@ -763,7 +765,8 @@
       "logs": "Logs",
       "gimbal": "Gimbal",
       "payload": "Payload",
-      "replay": "Replay"
+      "replay": "Replay",
+      "camera": "Camera"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -805,7 +808,10 @@
       "ridTitle": "Remote ID module arming status (OPEN_DRONE_ID_ARM_STATUS)",
       "traffic": "ADS-B {count}",
       "trafficTitle": "No traffic needing attention (danger within 1 km / 150 m, caution within 3 km / 300 m)",
-      "trafficNearest": "Nearest: {name}, {dist} m, {dz} m relative"
+      "trafficNearest": "Nearest: {name}, {dist} m, {dz} m relative",
+      "terrainOk": "Terrain",
+      "terrainPending": "Terrain loading {n}",
+      "terrainTitle": "The companion serves SRTM terrain to the autopilot. Ground {ground} m AMSL, {above} m above it; missing tiles: {missing}"
     },
     "quick": {
       "alt": "Altitude",
@@ -839,7 +845,8 @@
       "moveUp": "Move {name} up",
       "moveDown": "Move {name} down",
       "reset": "Reset to default",
-      "save": "Save"
+      "save": "Save",
+      "aboveTerrain": "Above terrain"
     },
     "actions": {
       "sent": "Sent: {command}",
@@ -911,7 +918,10 @@
       "cmd_payload_servo": "Payload servo",
       "cmd_log_list": "List logs",
       "cmd_log_download": "Copy log to Pi",
-      "cmd_log_cancel": "Cancel log download"
+      "cmd_log_cancel": "Cancel log download",
+      "cmd_camera_capture": "Take photo",
+      "cmd_camera_stop": "Stop interval shooting",
+      "cmd_signing_apply": "Set MAVLink signing"
     },
     "messages": {
       "prearmTitle": "Pre-arm checks failing ({count})",
@@ -1185,7 +1195,7 @@
         "front": "Front overlap %",
         "side": "Side overlap %",
         "trigger": "Trigger camera by distance",
-        "triggerHint": "Needs a camera configured on the autopilot; a Pi camera does not respond to it yet.",
+        "triggerHint": "Needs CAM1_TYPE = 6 (MAVLinkCamV2) on the autopilot and the companion's [camera] enabled; geotagged photos are stored on the Pi and shown in the flight data Camera tab.",
         "lanes": "{n} lanes",
         "spacing": "{m} m apart",
         "length": "{d} long",
@@ -1460,6 +1470,67 @@
     "takenOver": "{name} took control; you are watching now.",
     "controlFailed": "Could not take control, try again.",
     "takeoverTitle": "Take over control?",
-    "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once."
+    "takeoverDescription": "{name} has had control since {since}. After you take over, their commands are refused and the takeover is written to the message log. Check with them first so two people are never flying at once.",
+    "camera": {
+      "photos": "Photos",
+      "status": "Status",
+      "last": "Last",
+      "busy": "Capturing",
+      "idle": "Idle",
+      "intervalOn": "Every {s} s",
+      "shoot": "Take photo",
+      "interval": "Interval (s)",
+      "count": "Shots (0 = until stopped)",
+      "start": "Start interval",
+      "stop": "Stop",
+      "countHint": "Photos are stored on the Pi with EXIF GPS of where the vehicle was when each was taken; purple dots on the map mark them.",
+      "recent": "Recent photos",
+      "reload": "Reload",
+      "needDirect": "Viewing photos needs the direct link.",
+      "listFailed": "Could not list photos.",
+      "none": "No photos yet.",
+      "failed": "Photo failed: {reason}",
+      "sourceError": "Camera source error: {error}",
+      "hint": "✈ = triggered by the autopilot (e.g. a survey's DO_SET_CAM_TRIGG_DIST with CAM1_TYPE = 6)."
+    },
+    "signing": {
+      "title": "MAVLink2 signing",
+      "description": "With signing on, the autopilot only accepts MAVLink carrying the right signature, so nobody can pose as your ground station over the radio or network.",
+      "companion": "Companion signing",
+      "companionOn": "On (everything it sends is signed)",
+      "companionOff": "Not set up",
+      "configHint": "Add [signing] passphrase = \"a passphrase of 12+ characters\" to the companion config and restart it.",
+      "enable": "Enable on autopilot",
+      "disable": "Disable on autopilot",
+      "needControl": "Take control first.",
+      "armed": "Change this while disarmed.",
+      "noteMp": "Mission Planner needs the same passphrase to connect (it uses the passphrase's SHA-256 as the key, like the companion).",
+      "notePorts": "A STorM32 or ESP32 on another autopilot port is refused unless that port's MAVn_OPTIONS bit 0 (accept unsigned) is set and the autopilot rebooted.",
+      "noteUsb": "USB always accepts unsigned messages, so a mistake can be undone from Mission Planner over USB. The key survives reboots.",
+      "confirmEnableTitle": "Enable signing on the autopilot?",
+      "confirmEnable": "The companion writes its key into the autopilot. Ground stations without the key (including Mission Planner until you set the passphrase there) and peripherals on other autopilot ports are refused until configured. Continue?",
+      "confirmDisableTitle": "Disable signing on the autopilot?",
+      "confirmDisable": "Sends a zero key; the autopilot accepts unsigned MAVLink again.",
+      "enabledToast": "Signing key written to the autopilot",
+      "disabledToast": "Signing disabled on the autopilot",
+      "failed": "Could not change signing: {reason}"
+    }
+  },
+  "Roles": {
+    "viewer": "Viewer",
+    "operator": "Operator",
+    "store-admin": "Store admin",
+    "system-admin": "System admin",
+    "label": "Control Center role",
+    "none": "None (no Control Center access)",
+    "fromIsAdmin": "System admin (from isAdmin)",
+    "saved": "Role updated",
+    "saveFailed": "Could not update the role",
+    "cannotChangeSelf": "You cannot change your own role",
+    "devSwitch": "Dev only: try another role",
+    "readOnlyBanner": "Your role is {role}: you can only view this page; changes need {need}.",
+    "need_alert_handle": "operator or above",
+    "need_store_manage": "store admin or above",
+    "need_vehicle_command": "operator or above"
   }
 }

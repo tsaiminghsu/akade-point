@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdminOrDevBypass } from "@/lib/session";
+import { requireAccess } from "@/lib/access-server";
 import { getMachine } from "@/lib/dynamo/cc-machines";
 import { deleteClawConfig, getClawConfig, saveClawConfig } from "@/lib/dynamo/cc-claw-configs";
 import { createEvent } from "@/lib/dynamo/cc-machine-events";
@@ -13,7 +13,7 @@ type Ctx = { params: { machineId: string } };
 
 /** The machine's saved config, or the factory one (revision 0) if it has none. */
 export async function GET(_req: Request, { params }: Ctx) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const [machine, config] = await Promise.all([getMachine(params.machineId), getClawConfig(params.machineId)]);
   if (!machine) return NextResponse.json({ error: "Machine not found" }, { status: 404 });
   return NextResponse.json({ config: config ?? factoryConfig(params.machineId) });
@@ -24,7 +24,7 @@ export async function GET(_req: Request, { params }: Ctx) {
  * in between, nothing is written and the 409 carries their config.
  */
 export async function PUT(req: Request, { params }: Ctx) {
-  const actor = await requireAdminOrDevBypass();
+  const actor = await requireAccess("store.manage");
   if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = clawConfigPutSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -71,7 +71,7 @@ export async function PUT(req: Request, { params }: Ctx) {
 
 /** Back to factory defaults: the row is removed. */
 export async function DELETE(_req: Request, { params }: Ctx) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const machineId = params.machineId;
   const [machine, saved] = await Promise.all([getMachine(machineId), getClawConfig(machineId)]);
   if (!machine) return NextResponse.json({ error: "Machine not found" }, { status: 404 });

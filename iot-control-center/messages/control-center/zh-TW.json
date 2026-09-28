@@ -550,8 +550,8 @@
     "accountsSuffix": "個帳號",
     "totalUsers": "使用者總數",
     "totalUsersSub": "所有已註冊帳號",
-    "administrators": "管理員",
-    "administratorsSub": "擁有進階權限的使用者",
+    "administrators": "可進入控制中心",
+    "administratorsSub": "擁有任一控制中心角色的使用者",
     "totalPoints": "點數總計",
     "totalPointsSub": "所有累計獎勵點數",
     "totalTickets": "票券總計",
@@ -571,7 +571,9 @@
     "updated": "更新時間",
     "admin": "管理員",
     "regularUser": "一般使用者",
-    "anonymousUser": "匿名使用者"
+    "anonymousUser": "匿名使用者",
+    "forbiddenTitle": "權限不足",
+    "forbiddenDescription": "只有系統管理員可以查看使用者與設定角色。"
   },
   "Vehicles": {
     "title": "載具",
@@ -763,7 +765,8 @@
       "logs": "日誌",
       "gimbal": "雲台",
       "payload": "酬載",
-      "replay": "回放"
+      "replay": "回放",
+      "camera": "相機"
     },
     "hud": {
       "linkLost": "LINK LOST",
@@ -805,7 +808,10 @@
       "ridTitle": "Remote ID 模組的解鎖狀態（OPEN_DRONE_ID_ARM_STATUS）",
       "traffic": "ADS-B {count}",
       "trafficTitle": "附近沒有需要注意的航空器（1 公里 / 150 公尺內為危險，3 公里 / 300 公尺內為注意）",
-      "trafficNearest": "最近：{name}，{dist} 公尺，高度差 {dz} 公尺"
+      "trafficNearest": "最近：{name}，{dist} 公尺，高度差 {dz} 公尺",
+      "terrainOk": "地形",
+      "terrainPending": "地形載入中 {n}",
+      "terrainTitle": "companion 以 SRTM 供應地形給飛控。地面海拔 {ground} m，距地 {above} m；缺少的圖磚：{missing}"
     },
     "quick": {
       "alt": "高度",
@@ -839,7 +845,8 @@
       "moveUp": "{name} 上移",
       "moveDown": "{name} 下移",
       "reset": "恢復預設",
-      "save": "儲存"
+      "save": "儲存",
+      "aboveTerrain": "距地高度"
     },
     "actions": {
       "sent": "已送出：{command}",
@@ -911,7 +918,10 @@
       "cmd_payload_servo": "酬載伺服",
       "cmd_log_list": "讀取日誌清單",
       "cmd_log_download": "複製日誌到 Pi",
-      "cmd_log_cancel": "取消日誌下載"
+      "cmd_log_cancel": "取消日誌下載",
+      "cmd_camera_capture": "拍照",
+      "cmd_camera_stop": "停止連拍",
+      "cmd_signing_apply": "設定 MAVLink 簽章"
     },
     "messages": {
       "prearmTitle": "解鎖前檢查未通過（{count} 項）",
@@ -1185,7 +1195,7 @@
         "front": "前後重疊 %",
         "side": "左右重疊 %",
         "trigger": "依距離自動拍照",
-        "triggerHint": "需要飛控已設定相機；Pi 相機目前不會回應此指令。",
+        "triggerHint": "需要飛控設 CAM1_TYPE = 6（MAVLinkCamV2）並啟用 companion 的 [camera]；照片存在 Pi 上並帶 GPS 地理標記，在飛行資料的「相機」頁籤查看。",
         "lanes": "{n} 條航線",
         "spacing": "間距 {m} m",
         "length": "長度 {d}",
@@ -1460,6 +1470,67 @@
     "takenOver": "{name} 接管了控制權，你現在只能觀看。",
     "controlFailed": "無法取得控制權，請稍後再試。",
     "takeoverTitle": "接管控制權？",
-    "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。"
+    "takeoverDescription": "{name} 從 {since} 起在控制這台載具。接管後對方的指令會被拒絕，接管也會寫進訊息紀錄。請先和對方確認，避免兩人同時操作。",
+    "camera": {
+      "photos": "照片",
+      "status": "狀態",
+      "last": "最後一張",
+      "busy": "拍攝中",
+      "idle": "待機",
+      "intervalOn": "每 {s} 秒",
+      "shoot": "拍照",
+      "interval": "連拍間隔（秒）",
+      "count": "張數（0＝直到停止）",
+      "start": "開始連拍",
+      "stop": "停止",
+      "countHint": "照片存在 Pi 上，並寫入拍攝當下載具位置的 EXIF GPS；紫點是拍攝位置。",
+      "recent": "最近的照片",
+      "reload": "重新整理",
+      "needDirect": "看照片需要直連。",
+      "listFailed": "無法取得照片清單。",
+      "none": "還沒有照片。",
+      "failed": "拍照失敗：{reason}",
+      "sourceError": "相機來源錯誤：{error}",
+      "hint": "✈ 表示由飛控觸發（例如測繪任務的 DO_SET_CAM_TRIGG_DIST，需設 CAM1_TYPE = 6）。"
+    },
+    "signing": {
+      "title": "MAVLink2 簽章",
+      "description": "開啟後，飛控只接受帶正確簽章的 MAVLink，防止別人用數傳或網路冒充地面站。",
+      "companion": "companion 簽章",
+      "companionOn": "已啟用（送出的訊息都有簽章）",
+      "companionOff": "未設定",
+      "configHint": "在 companion 設定加上 [signing] passphrase = \"至少 12 字元的密語\" 後重啟 companion。",
+      "enable": "在飛控啟用",
+      "disable": "在飛控關閉",
+      "needControl": "需要先取得控制權。",
+      "armed": "請在上鎖時變更。",
+      "noteMp": "Mission Planner 要設定同一個密語才能連線（MP 以密語的 SHA-256 當金鑰，與 companion 相同）。",
+      "notePorts": "接在飛控其他埠上的 STorM32、ESP32 會被拒絕，除非把那個埠的 MAVn_OPTIONS 第 0 位（接受未簽章）設為 1 並重開飛控。",
+      "noteUsb": "USB 永遠接受未簽章訊息，萬一設錯可用 USB 接 MP 關閉。金鑰重開機後仍保留。",
+      "confirmEnableTitle": "在飛控啟用簽章？",
+      "confirmEnable": "companion 會把金鑰寫進飛控。之後沒有同一把金鑰的地面站（包括沒設定的 Mission Planner）與飛控其他埠上的周邊都會被拒絕，直到在 MP 設好密語、周邊埠設好 MAVn_OPTIONS。確定？",
+      "confirmDisableTitle": "關閉飛控的簽章？",
+      "confirmDisable": "會送出零金鑰，飛控恢復接受未簽章的 MAVLink。",
+      "enabledToast": "已把簽章金鑰寫入飛控",
+      "disabledToast": "已關閉飛控的簽章",
+      "failed": "設定失敗：{reason}"
+    }
+  },
+  "Roles": {
+    "viewer": "檢視者",
+    "operator": "操作員",
+    "store-admin": "門市管理員",
+    "system-admin": "系統管理員",
+    "label": "控制中心角色",
+    "none": "無（不能進入控制中心）",
+    "fromIsAdmin": "系統管理員（來自 isAdmin）",
+    "saved": "角色已更新",
+    "saveFailed": "無法更新角色",
+    "cannotChangeSelf": "不能修改自己的角色",
+    "devSwitch": "開發環境：切換角色測試",
+    "readOnlyBanner": "你的角色是「{role}」，這頁只能查看；修改需要{need}。",
+    "need_alert_handle": "操作員以上",
+    "need_store_manage": "門市管理員以上",
+    "need_vehicle_command": "操作員以上"
   }
 }

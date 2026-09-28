@@ -1,0 +1,38 @@
+{
+  "zh-TW": { "Gcs": {
+    "tabs": { "camera": "相機" },
+    "actions": { "cmd_camera_capture": "拍照", "cmd_camera_stop": "停止連拍" },
+    "camera": {
+      "photos": "照片", "status": "狀態", "last": "最後一張", "busy": "拍攝中", "idle": "待機", "intervalOn": "每 {s} 秒",
+      "shoot": "拍照", "interval": "連拍間隔（秒）", "count": "張數（0＝直到停止）", "start": "開始連拍", "stop": "停止",
+      "countHint": "照片存在 Pi 上，並寫入拍攝當下載具位置的 EXIF GPS；紫點是拍攝位置。",
+      "recent": "最近的照片", "reload": "重新整理", "needDirect": "看照片需要直連。", "listFailed": "無法取得照片清單。", "none": "還沒有照片。",
+      "failed": "拍照失敗：{reason}", "sourceError": "相機來源錯誤：{error}",
+      "hint": "✈ 表示由飛控觸發（例如測繪任務的 DO_SET_CAM_TRIGG_DIST，需設 CAM1_TYPE = 6）。"
+    }
+  } },
+  "en-US": { "Gcs": {
+    "tabs": { "camera": "Camera" },
+    "actions": { "cmd_camera_capture": "Take photo", "cmd_camera_stop": "Stop interval shooting" },
+    "camera": {
+      "photos": "Photos", "status": "Status", "last": "Last", "busy": "Capturing", "idle": "Idle", "intervalOn": "Every {s} s",
+      "shoot": "Take photo", "interval": "Interval (s)", "count": "Shots (0 = until stopped)", "start": "Start interval", "stop": "Stop",
+      "countHint": "Photos are stored on the Pi with EXIF GPS of where the vehicle was when each was taken; purple dots on the map mark them.",
+      "recent": "Recent photos", "reload": "Reload", "needDirect": "Viewing photos needs the direct link.", "listFailed": "Could not list photos.", "none": "No photos yet.",
+      "failed": "Photo failed: {reason}", "sourceError": "Camera source error: {error}",
+      "hint": "✈ = triggered by the autopilot (e.g. a survey's DO_SET_CAM_TRIGG_DIST with CAM1_TYPE = 6)."
+    }
+  } },
+  "ja-JP": { "Gcs": {
+    "tabs": { "camera": "カメラ" },
+    "actions": { "cmd_camera_capture": "撮影", "cmd_camera_stop": "連写停止" },
+    "camera": {
+      "photos": "写真", "status": "状態", "last": "最新", "busy": "撮影中", "idle": "待機", "intervalOn": "{s} 秒ごと",
+      "shoot": "撮影", "interval": "連写間隔（秒）", "count": "枚数（0＝停止まで）", "start": "連写開始", "stop": "停止",
+      "countHint": "写真は Pi に保存され、撮影時の機体位置が EXIF GPS に記録されます。地図の紫の点が撮影位置です。",
+      "recent": "最近の写真", "reload": "再読み込み", "needDirect": "写真の表示には直接接続が必要です。", "listFailed": "写真一覧を取得できません。", "none": "まだ写真がありません。",
+      "failed": "撮影失敗：{reason}", "sourceError": "カメラソースのエラー：{error}",
+      "hint": "✈ はフライトコントローラーによる撮影（CAM1_TYPE = 6 での測量ミッションの DO_SET_CAM_TRIGG_DIST など）。"
+    }
+  } }
+}

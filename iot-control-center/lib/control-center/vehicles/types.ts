@@ -44,7 +44,7 @@ export interface VehicleStateV1 {
 
 export type VehicleClass = "copter" | "rover" | "plane" | "other";
 export type AutopilotFamily = "ardupilot" | "px4" | "generic" | "other";
-export type VehicleCap = "mission" | "fence" | "rally" | "params" | "command_int" | "manual" | "gimbal" | "logs" | "payload";
+export type VehicleCap = "mission" | "fence" | "rally" | "params" | "command_int" | "manual" | "gimbal" | "logs" | "payload" | "camera";
 
 /**
  * Telemetry snapshot, contract v2 (the web ground station). Anything the
@@ -123,6 +123,27 @@ export interface VehicleStateV2 {
   adsb?: AdsbTarget[] | null;
   /** DataFlash log being copied to the companion (log_download), or the last one */
   logdl?: { id: number; size: number; got: number; pct: number; bps: number; done: boolean; error: string | null } | null;
+  /**
+   * Terrain served to the autopilot from SRTM (terrain/server.py): blocks sent,
+   * tiles it lacks, and the autopilot's own TERRAIN_REPORT (blocks pending /
+   * loaded, ground height AMSL and height above it).
+   */
+  terrain?: {
+    served: number;
+    missing: string[] | null;
+    active: boolean;
+    fc: { pending: number; loaded: number; ground: number | null; above: number | null } | null;
+  } | null;
+  /** MAVLink2 signing: whether the companion signs what it sends ([signing] passphrase set) */
+  signing?: { on: boolean } | null;
+  /** the companion as a MAVLink camera (ops/camera.py): photos taken, interval shooting, last photo */
+  camera?: {
+    n: number;
+    busy: boolean;
+    interval: number | null;
+    error: string | null;
+    last: { idx: number; name: string; t: number; lat: number | null; lon: number | null } | null;
+  } | null;
   fw: string | null;
 }
 
@@ -232,7 +253,10 @@ export type VehicleCommandType =
   | "payload_servo"
   | "log_list"
   | "log_download"
-  | "log_cancel";
+  | "log_cancel"
+  | "camera_capture"
+  | "camera_stop"
+  | "signing_apply";
 
 /** Where a command was issued: through this server, or straight to the
  *  companion over the direct link (then reported back for the log). */

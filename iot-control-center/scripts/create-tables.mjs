@@ -460,6 +460,15 @@ await createTable({
   ],
 });
 
+// 22. akade-cc-roles — Control Center role per user (docs/permissions.md). Users
+//     without a row fall back to akade-users.isAdmin (system-admin).
+await createTable({
+  TableName: "akade-cc-roles",
+  BillingMode: "PAY_PER_REQUEST",
+  AttributeDefinitions: [{ AttributeName: "userId", AttributeType: "S" }],
+  KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+});
+
 await enableTtl("akade-cc-machine-events", "expiresAt");
 await enableTtl("akade-cc-alerts", "expiresAt");
 await enableTtl("akade-cc-vehicle-telemetry", "expiresAt");

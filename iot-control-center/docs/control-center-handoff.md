@@ -392,9 +392,44 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - 不在前景的分頁不會輪詢 `/live`（刻意省流量）；測試多分頁時要注意。
 - 刪 worktree 前一定要先移除 node_modules junction（見記憶檔）。
 
+**第三批（2026-09-28）**：
+
+| Commit | 功能 |
+|:---|:---|
+| `351674d` | **四級角色**（檢視者／操作員／門市管理員／系統管理員），見 `docs/permissions.md` |
+| `911acc4` | **Pi 相機當 MAVLink 相機**，見 `docs/vehicles-camera.md` |
+| `8a3ad8c` | **MAVLink2 簽章**，見 `docs/vehicles-security.md` |
+| `0d37689` | **SRTM 地形供應**，見 `docs/vehicles-gcs.md` 的「地形」 |
+
+各項重點：
+- **四級角色**：
+  - 22 個路由改用 `requireAccess(action)`。
+  - 角色存在新表 `akade-cc-roles`；沒有角色紀錄時，`isAdmin` 視為系統管理員。
+  - 使用者頁可指派角色；本機可從使用者選單切換角色測試。
+- **Pi 相機**：
+  - 元件 100，EXIF GPS 自寫，不依賴影像函式庫。
+  - `CAM1_TYPE=6` 時測繪任務會觸發拍照（SITL：20 公尺間距拍 10 張）。
+- **MAVLink2 簽章**：
+  - companion 以密語的 SHA-256 簽章，設定頁可把金鑰寫入或清除飛控。
+  - 只限系統管理員、只走雲端。
+- **SRTM 地形**：
+  - companion 會自動設 `TERRAIN_REQUEST` 的訊息頻率。
+  - SITL 大坑山區實測，與 SRTM 相差在 ±5 公尺內。
+
+**新表**：`akade-cc-roles`。
+
+**SITL 實測的 ArduPilot 行為**：
+- 簽章：USB（channel 0）永遠接受未簽章訊息；金鑰重開機後保留；`MAVn_OPTIONS` 第 0 位加重開可豁免該埠；零金鑰關閉簽章。
+- 地形：只在 `TERRAIN_REQUEST` 有頻率的連線上發出請求。
+
+**陷阱**：
+- 權限測試時，別對「產生 token」這類不需要請求內容的 POST 送探測請求，會真的輪替 token（本機測試資料曾因此被輪替）。
+- SITL 的 TCP 序列埠一次只接受一個連線。
+
 **待辦**：
-- 實機驗證。
-- 第二批：MAVLink2 簽章（啟用後 MP 也要同一把金鑰）、地形資料供應、companion 當 MAVLink 相機、角色權限。
+- 實機驗證：相機的 ffmpeg／rpicam 來源、簽章與 STorM32／ESP32 並存、地形自動下載。
+- 照片與日誌上雲；回放頁顯示照片點。
+- 門市層級的權限（目前只有全域角色）。
 
 ## 11. 娃娃機設定模組（多台機台各自保存）
 

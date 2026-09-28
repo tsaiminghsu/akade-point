@@ -9,6 +9,7 @@ import { resolveTimeouts, toCommandMsg } from "@/lib/control-center/vehicles/com
 import { COMMANDS_BY_TYPE, COMMAND_TIMEOUT_MS, MODES_BY_TYPE, PX4_MODES } from "@/lib/control-center/vehicles/constants";
 import { publishVehicleCommand } from "@/lib/iot/publish";
 import { blockingLease, CLIENT_HEADER } from "@/lib/control-center/vehicles/lease";
+import { requireAccess } from "@/lib/access-server";
 import type { VehicleCommandType } from "@/lib/control-center/vehicles/types";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -39,6 +40,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const parsed = commandRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   const request = parsed.data;
+
+  // MAVLink signing changes who can talk to the vehicle at all: system-admin only.
+  if (request.type === "signing_apply" && !(await requireAccess("vehicle.manage"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // The command must be valid for this vehicle type (e.g. takeoff is copter-only).
   if (!COMMANDS_BY_TYPE[vehicle.type].includes(request.type)) {
@@ -107,6 +113,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       break;
     case "payload_pulse":
       args = { index: request.index, ms: request.ms, ...(request.comp ? { comp: request.comp } : {}) };
+      break;
+    case "signing_apply":
+      args = { enable: request.enable };
+      break;
+    case "camera_capture":
+      args = { interval: request.interval ?? 0, count: request.count ?? 1 };
       break;
     case "log_download":
       args = { id: request.id, size: request.size, utc: request.utc ?? 0 };

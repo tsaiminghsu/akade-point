@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdminOrDevBypass } from "@/lib/session";
+import { requireAccess } from "@/lib/access-server";
 import { createMachine, listMachines, listMachinesByGroup, listMachinesByStore } from "@/lib/dynamo/cc-machines";
 
 const createSchema = z.object({
@@ -12,7 +12,7 @@ const createSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const storeId = searchParams.get("storeId");
   const groupId = searchParams.get("groupId");
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = createSchema.safeParse(await req.json());
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 

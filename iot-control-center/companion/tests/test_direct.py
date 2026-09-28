@@ -247,3 +247,23 @@ def test_cloud_lease_expires_on_the_server_clock():
     assert link.lease_holder() == "page-A"
     link._lease["until"] = clock.now_ms() - 1
     assert link.lease_holder() is None
+
+
+async def test_security_settings_are_refused_over_the_direct_link():
+    rig = await make_rig("copter")
+    server, runner, acks, _, _ = await start_direct(rig)
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with http.ws_connect(f"http://127.0.0.1:{server.port}/ws") as ws:
+                await ws.send_json({"k": "auth", "ticket": ticket_for()})
+                await recv_kind(ws, "hello")
+                await ws.send_json({"k": "cmd", "cmd": {"id": "d_sig", "type": "signing_apply", "args": {"enable": True}}})
+                ack = await recv_kind(ws, "ack")
+                while ack["a"]["id"] != "d_sig":
+                    ack = await recv_kind(ws, "ack")
+                assert ack["a"]["st"] == "failed" and ack["a"]["code"] == "CLOUD_ONLY"
+    finally:
+        runner.cancel()
+        await server.stop()
+        rig.fake.stop()
+        rig.conn.stop()

@@ -68,6 +68,32 @@
 
 **稽核**：直連下發的指令由 companion 記錄，連上雲端後以 `via: "direct"` 補寫進指令表。
 
+## MAVLink2 簽章（飛控端）
+
+防止有人經數傳電台或網路冒充地面站對飛控下指令。
+
+以下行為都已在 ArduCopter 4.7.1 SITL 實測：
+
+| 情況 | 飛控的行為 |
+|:---|:---|
+| 設了金鑰後，未簽章的 MAVLink | 除了 USB 外，一律拒絕 |
+| 有正確簽章的 | 接受 |
+| 飛控重開機 | 金鑰保留 |
+| 某個 MAVLink 埠的 `MAVn_OPTIONS` 第 0 位設 1 並重開 | 那個埠接受未簽章訊息 |
+| 送出零金鑰 | 關閉簽章 |
+
+**操作步驟**：
+1. 在 companion 設定 `[signing] passphrase`（至少 12 字元）並重啟。companion 之後送出的訊息都有簽章，包含相機元件。
+   - 金鑰 = SHA-256(密語)，與 Mission Planner／QGC 的做法相同。
+2. 系統管理員取得控制權，在「設定」頁籤的「MAVLink2 簽章」按「在飛控啟用」。
+   - 需在上鎖時；這個指令只走雲端（直連會拒絕，回 `CLOUD_ONLY`，因為直連無法檢查角色）。
+3. 在 Mission Planner 輸入同一個密語，否則 MP 會連不上。
+4. STorM32、ESP32 等接在飛控其他埠的周邊：把該埠的 `MAVn_OPTIONS` 設為 1（接受未簽章），再重開飛控。
+
+**救援**：USB 不受簽章限制，可以用 USB 接 MP 關閉簽章。
+
+**注意**：SITL 的 mavlink-router 接在 serial0（等同 USB，不受限制），所以 companion 那條路在 SITL 看不出簽章的效果。實機上 Pi 通常接 TELEM2，會受到限制，companion 已經會簽章。
+
 ## 已知限制（見 handoff 待辦）
 
 - `requireAdminOrDevBypass` 在非 production 完全放行——預覽／staging 若未設 `NODE_ENV=production`，所有管理端載具 API 對未登入者開放。裝置端不受此影響。

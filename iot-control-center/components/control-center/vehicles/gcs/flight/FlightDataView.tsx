@@ -20,6 +20,7 @@ import { Hud } from "./Hud";
 import { CommandLog, MessagesPanel } from "./MessagesPanel";
 import { QuickPanel } from "./QuickPanel";
 import { RoverDrivePad } from "./RoverDrivePad";
+import { CameraPanel } from "./CameraPanel";
 import { FollowMePanel } from "./FollowMePanel";
 import { GimbalPanel } from "./GimbalPanel";
 import { PayloadPanel } from "./PayloadPanel";
@@ -42,6 +43,7 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
   const trail = useGcsStore((s) => s.trail);
   const now = useGcsStore((s) => s.now);
   const me = useGcsStore((s) => s.me);
+  const photoPoints = useGcsStore((s) => s.photoPoints);
   const send = useGcsStore((s) => s.send);
 
   const [flyTo, setFlyTo] = useState<{ lat: number; lon: number } | null>(null);
@@ -53,6 +55,7 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
   const hasVideo = Boolean(vehicle?.videoUrl);
   const hasGimbal = Boolean(state?.caps.includes("gimbal") || state?.mount);
   const hasPayload = Boolean(state?.caps.includes("payload") || state?.payload);
+  const hasCamera = Boolean(state?.caps.includes("camera") || state?.camera);
   const directControl = link.direct.status === "open" && link.direct.scope === "control";
 
   const rover = vehicle?.type === "rover";
@@ -109,6 +112,11 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
                 {t("tabs.gimbal")}
               </TabsTrigger>
             )}
+            {hasCamera && (
+              <TabsTrigger value="camera" className="flex-1 text-xs">
+                {t("tabs.camera")}
+              </TabsTrigger>
+            )}
             {hasPayload && (
               <TabsTrigger value="payload" className="flex-1 text-xs">
                 {t("tabs.payload")}
@@ -143,6 +151,11 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
                 <GimbalPanel state={state} canCommand={canCommand} directOpen={directControl} />
               </TabsContent>
             )}
+            {hasCamera && (
+              <TabsContent value="camera" className="mt-0">
+                <CameraPanel state={state} canCommand={canCommand} />
+              </TabsContent>
+            )}
             {hasPayload && (
               <TabsContent value="payload" className="mt-0">
                 <PayloadPanel state={state} canCommand={canCommand} />
@@ -175,6 +188,9 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
           />
         ) : (
           <GcsMap state={state} trail={trail} target={target} canCommand={canCommand} onAction={onMapAction} vehicleLabel={vehicle?.name}>
+      {photoPoints.map((p) => (
+        <CircleMarker key={p.idx} center={[p.lat, p.lon]} radius={4} pathOptions={{ color: "#fff", weight: 1, fillColor: "#a855f7", fillOpacity: 0.9 }} />
+      ))}
       {me && (
         <>
           <Circle center={[me.lat, me.lon]} radius={me.accuracy} pathOptions={{ color: "#3b82f6", weight: 1, fillOpacity: 0.1 }} />

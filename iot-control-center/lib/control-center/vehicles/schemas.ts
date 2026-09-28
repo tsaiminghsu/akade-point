@@ -170,6 +170,16 @@ export const commandRequestSchema = z.discriminatedUnion("type", [
     utc: z.number().int().min(0).optional(),
   }),
   z.object({ type: z.literal("log_cancel") }),
+  z.object({
+    type: z.literal("camera_capture"),
+    /** seconds between shots; 0 or absent = one photo */
+    interval: z.number().min(0).max(3600).optional(),
+    /** shots for interval shooting; 0 or absent = until camera_stop */
+    count: z.number().int().min(0).max(10_000).optional(),
+  }),
+  z.object({ type: z.literal("camera_stop") }),
+  /** Give the autopilot the companion's signing key (or a zero key to turn signing off). System-admin, cloud only. */
+  z.object({ type: z.literal("signing_apply"), enable: z.boolean() }),
   z.object({ type: z.literal("reboot") }),
   z.object({ type: z.literal("param_get"), names: z.array(paramName).min(1).max(50) }),
   z.object({

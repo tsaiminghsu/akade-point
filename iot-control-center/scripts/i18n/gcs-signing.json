@@ -1,0 +1,77 @@
+{
+  "zh-TW": { "Gcs": {
+    "actions": { "cmd_signing_apply": "設定 MAVLink 簽章" },
+    "signing": {
+      "title": "MAVLink2 簽章",
+      "description": "開啟後，飛控只接受帶正確簽章的 MAVLink，防止別人用數傳或網路冒充地面站。",
+      "companion": "companion 簽章",
+      "companionOn": "已啟用（送出的訊息都有簽章）",
+      "companionOff": "未設定",
+      "configHint": "在 companion 設定加上 [signing] passphrase = \"至少 12 字元的密語\" 後重啟 companion。",
+      "enable": "在飛控啟用",
+      "disable": "在飛控關閉",
+      "needControl": "需要先取得控制權。",
+      "armed": "請在上鎖時變更。",
+      "noteMp": "Mission Planner 要設定同一個密語才能連線（MP 以密語的 SHA-256 當金鑰，與 companion 相同）。",
+      "notePorts": "接在飛控其他埠上的 STorM32、ESP32 會被拒絕，除非把那個埠的 MAVn_OPTIONS 第 0 位（接受未簽章）設為 1 並重開飛控。",
+      "noteUsb": "USB 永遠接受未簽章訊息，萬一設錯可用 USB 接 MP 關閉。金鑰重開機後仍保留。",
+      "confirmEnableTitle": "在飛控啟用簽章？",
+      "confirmEnable": "companion 會把金鑰寫進飛控。之後沒有同一把金鑰的地面站（包括沒設定的 Mission Planner）與飛控其他埠上的周邊都會被拒絕，直到在 MP 設好密語、周邊埠設好 MAVn_OPTIONS。確定？",
+      "confirmDisableTitle": "關閉飛控的簽章？",
+      "confirmDisable": "會送出零金鑰，飛控恢復接受未簽章的 MAVLink。",
+      "enabledToast": "已把簽章金鑰寫入飛控",
+      "disabledToast": "已關閉飛控的簽章",
+      "failed": "設定失敗：{reason}"
+    }
+  } },
+  "en-US": { "Gcs": {
+    "actions": { "cmd_signing_apply": "Set MAVLink signing" },
+    "signing": {
+      "title": "MAVLink2 signing",
+      "description": "With signing on, the autopilot only accepts MAVLink carrying the right signature, so nobody can pose as your ground station over the radio or network.",
+      "companion": "Companion signing",
+      "companionOn": "On (everything it sends is signed)",
+      "companionOff": "Not set up",
+      "configHint": "Add [signing] passphrase = \"a passphrase of 12+ characters\" to the companion config and restart it.",
+      "enable": "Enable on autopilot",
+      "disable": "Disable on autopilot",
+      "needControl": "Take control first.",
+      "armed": "Change this while disarmed.",
+      "noteMp": "Mission Planner needs the same passphrase to connect (it uses the passphrase's SHA-256 as the key, like the companion).",
+      "notePorts": "A STorM32 or ESP32 on another autopilot port is refused unless that port's MAVn_OPTIONS bit 0 (accept unsigned) is set and the autopilot rebooted.",
+      "noteUsb": "USB always accepts unsigned messages, so a mistake can be undone from Mission Planner over USB. The key survives reboots.",
+      "confirmEnableTitle": "Enable signing on the autopilot?",
+      "confirmEnable": "The companion writes its key into the autopilot. Ground stations without the key (including Mission Planner until you set the passphrase there) and peripherals on other autopilot ports are refused until configured. Continue?",
+      "confirmDisableTitle": "Disable signing on the autopilot?",
+      "confirmDisable": "Sends a zero key; the autopilot accepts unsigned MAVLink again.",
+      "enabledToast": "Signing key written to the autopilot",
+      "disabledToast": "Signing disabled on the autopilot",
+      "failed": "Could not change signing: {reason}"
+    }
+  } },
+  "ja-JP": { "Gcs": {
+    "actions": { "cmd_signing_apply": "MAVLink 署名を設定" },
+    "signing": {
+      "title": "MAVLink2 署名",
+      "description": "有効にすると、FC は正しい署名付きの MAVLink だけを受け付け、無線やネットワーク経由でのなりすましを防ぎます。",
+      "companion": "コンパニオンの署名",
+      "companionOn": "有効（送信はすべて署名付き）",
+      "companionOff": "未設定",
+      "configHint": "コンパニオン設定に [signing] passphrase = \"12 文字以上のパスフレーズ\" を追加して再起動してください。",
+      "enable": "FC で有効化",
+      "disable": "FC で無効化",
+      "needControl": "先に操作権を取得してください。",
+      "armed": "ディスアーム中に変更してください。",
+      "noteMp": "Mission Planner も同じパスフレーズの設定が必要です（MP はパスフレーズの SHA-256 を鍵にします。コンパニオンと同じ）。",
+      "notePorts": "FC の他のポートの STorM32 や ESP32 は、そのポートの MAVn_OPTIONS ビット 0（未署名を許可）を 1 にして FC を再起動しない限り拒否されます。",
+      "noteUsb": "USB は常に未署名を受け付けるので、設定を誤っても USB 接続の MP で解除できます。鍵は再起動後も残ります。",
+      "confirmEnableTitle": "FC で署名を有効にしますか？",
+      "confirmEnable": "コンパニオンが FC に鍵を書き込みます。鍵を持たない地上局（MP でパスフレーズを設定するまでの MP を含む）や FC の他ポートの周辺機器は、設定するまで拒否されます。続けますか？",
+      "confirmDisableTitle": "FC の署名を無効にしますか？",
+      "confirmDisable": "ゼロ鍵を送り、FC は未署名の MAVLink を再び受け付けます。",
+      "enabledToast": "署名鍵を FC に書き込みました",
+      "disabledToast": "FC の署名を無効にしました",
+      "failed": "署名を変更できません：{reason}"
+    }
+  } }
+}

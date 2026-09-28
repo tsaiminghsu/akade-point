@@ -70,6 +70,9 @@ MQTT 與 HTTPS 共用**同一份 JSON**。欄位定義的真實來源是 `lib/co
 | `mount` | 雲台姿態（度）`p/y/r`，`src` 為 device 或 mount | GIMBAL_DEVICE_ATTITUDE_STATUS、MOUNT_STATUS |
 | `video` | MediaMTX：串流就緒、觀看數、是否錄影；未設定或連不上為 `null` | MediaMTX API |
 | `payload` | 酬載元件的數值 `[{ comp, values: {名稱: 值} }]`，只含 5 秒內收到的 | NAMED_VALUE_FLOAT |
+| `terrain` | `{ served, missing, active, fc: { pending, loaded, ground, above } }`：companion 送出的地形區塊數、缺的 SRTM 圖磚，以及飛控的 TERRAIN_REPORT | TERRAIN_REQUEST/REPORT |
+| `signing` | `{ on }`：companion 是否對送出的訊息簽章 | config |
+| `camera` | companion 相機：`n` 照片數、`busy`、`interval`（連拍秒數或 null）、`error`、`last`（最後一張的 idx/name/t/lat/lon）；未啟用為 `null` | ops/camera.py |
 | `rid` | Remote ID 模組解鎖狀態 `{ ok, error }`；沒有模組為 `null` | OPEN_DRONE_ID_ARM_STATUS |
 | `adsb` | ADS-B 航空器，由近到遠最多 20 架：`icao`、`cs`（呼號）、位置、`alt`（海拔）、`hdg`、`spd`、`vs`、`age`；`d` 水平距離、`dz` 高度差（對方減我方，公尺）。20 秒沒收到就移除；沒有接收機時為 `null` | ADSB_VEHICLE |
 
@@ -138,6 +141,9 @@ v1 快照的格式見 git 歷史（`VehicleStateV1`）。伺服器端用 `summar
 | `gimbal_pitchyaw` | `{ pitch, yaw, lock }` | `DO_GIMBAL_MANAGER_PITCHYAW`（1000）；不支援時 `DO_MOUNT_CONTROL`（205） | 雲台 |
 | `gimbal_mode` | `{ mode }`（retract/neutral/mavlink/rc/gps） | `DO_MOUNT_CONTROL` p7 | 雲台 |
 | `roi_location` / `roi_none` | `{ lat, lon, alt }` / `{}` | `DO_SET_ROI_LOCATION`（195，COMMAND_INT）/ `DO_SET_ROI_NONE`（197） | 雲台 |
+| `signing_apply` | `{ enable }` | 把 companion 的簽章金鑰寫入飛控（`SETUP_SIGNING`），`enable: false` 送零金鑰。只限系統管理員、只走雲端、需上鎖 | 一般 |
+| `camera_capture` | `{ interval?, count? }` | companion 相機拍一張；`interval` > 0 則定時連拍 `count` 張（0＝直到 `camera_stop`）| 雲台 |
+| `camera_stop` | `{}` | 停止連拍 | 雲台 |
 | `payload_relay` | `{ index, on, comp? }` | `DO_SET_RELAY`（181）送到酬載元件（預設 25） | 雲台 |
 | `payload_pulse` | `{ index, ms, comp? }` | `MAV_CMD_USER_1`（31010）：繼電器開啟 ms 毫秒後關閉 | 雲台 |
 | `payload_servo` | `{ index, pwm, comp? }` | `DO_SET_SERVO`（183）送到酬載元件 | 雲台 |

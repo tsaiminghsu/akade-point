@@ -41,6 +41,9 @@ log = logging.getLogger(__name__)
 AUTH_TIMEOUT_S = 5.0
 STATE_HZ = 10.0
 PIN_MAX_FAILURES = 5
+# Commands the direct link refuses: they need the Control Center's role check
+# (a direct control ticket only proves operator access).
+CLOUD_ONLY = frozenset({"signing_apply"})
 PIN_WINDOW_S = 60.0
 DIRECT_CMD_TTL_MS = 10_000
 BOOSTED_RATES = {"ATTITUDE": 10.0, "VFR_HUD": 5.0, "GLOBAL_POSITION_INT": 5.0}
@@ -63,7 +66,7 @@ class Client:
 
 
 class DirectServer:
-    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None, dataflash=None, lease_holder: Callable[[], Optional[str]] = lambda: None):
+    def __init__(self, cfg, vehicle_id: str, *, build_state: Callable[[], dict], executor, status, manual, streams, clock, tlog=None, gimbal=None, dataflash=None, camera=None, lease_holder: Callable[[], Optional[str]] = lambda: None):
         self.cfg = cfg
         self.vehicle_id = vehicle_id
         self.build_state = build_state
@@ -75,6 +78,7 @@ class DirectServer:
         self.tlog = tlog
         self.gimbal = gimbal
         self.dataflash = dataflash
+        self.camera = camera
         self.lease_holder = lease_holder
         self.clients: set[Client] = set()
         self._pin_failures: dict[str, deque] = defaultdict(deque)
@@ -94,6 +98,8 @@ class DirectServer:
         app.router.add_get("/files/tlogs/{name}", self._tlog_get)
         app.router.add_get("/files/logs", self._log_list)
         app.router.add_get("/files/logs/{name}", self._log_get)
+        app.router.add_get("/files/photos", self._photo_list)
+        app.router.add_get("/files/photos/{name}", self._photo_get)
         return app
 
     async def start(self) -> None:
@@ -229,6 +235,24 @@ class DirectServer:
         headers["Content-Disposition"] = f'attachment; filename="{path.name}"'
         return web.FileResponse(path, headers=headers)
 
+    async def _photo_list(self, request: web.Request) -> web.Response:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        photos = self.camera.list_photos() if self.camera is not None else []
+        return web.json_response({"photos": photos, "enabled": self.camera is not None}, headers=headers)
+
+    async def _photo_get(self, request: web.Request) -> web.StreamResponse:
+        headers = self._cors(request)
+        if not self._file_auth(request):
+            return web.json_response({"error": "unauthorized"}, status=401, headers=headers)
+        path = self.camera.resolve(request.match_info["name"]) if self.camera is not None else None
+        if path is None:
+            return web.json_response({"error": "not found"}, status=404, headers=headers)
+        headers["Content-Disposition"] = f'inline; filename="{path.name}"'
+        headers["Cache-Control"] = "private, max-age=86400"
+        return web.FileResponse(path, headers=headers)
+
     def _origin_ok(self, request: web.Request) -> bool:
         allowed = self.cfg.allowed_origins
         if not allowed:
@@ -341,6 +365,12 @@ class DirectServer:
             cid = str(cmd.get("id", ""))
             if not cid.startswith("d_") or not cmd.get("type"):
                 await client.ws.send_json({"k": "error", "code": "BAD_COMMAND"})
+                return
+            if cmd.get("type") in CLOUD_ONLY:
+                # Security settings need the Control Center's role check.
+                await client.ws.send_json(
+                    {"k": "ack", "a": {"v": 1, "id": cid, "st": "failed", "code": "CLOUD_ONLY", "msg": "use the Control Center for this", "t": self.clock.now_ms()}}
+                )
                 return
             now = self.clock.now_ms()
             self.executor.submit(

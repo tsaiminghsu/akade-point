@@ -42,6 +42,7 @@ import { ItemTable } from "./ItemTable";
 import { PlanOverlay } from "./PlanOverlay";
 import { OrbitDialog } from "./OrbitDialog";
 import { SurveyDialog } from "./SurveyDialog";
+import { useCan } from "@/store/useAccessStore";
 
 const TRANSFER_TIMEOUT_MS = 150_000;
 
@@ -80,6 +81,8 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
   const [resumeOpen, setResumeOpen] = useState(false);
   const [resumeAt, setResumeAt] = useState("");
   const [circleRadius, setCircleRadius] = useState(100);
+  // Stored plans need the mission role; editing locally is open to anyone.
+  const mayPlan = useCan("vehicle.mission");
   const [orbitAt, setOrbitAt] = useState<{ lat: number; lon: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -372,16 +375,16 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
                 ))}
               </SelectContent>
             </Select>
-            <Button size="icon-sm" variant="ghost" className="h-8 w-8" aria-label={t("delete")} disabled={!recordId} onClick={() => setConfirmDelete(true)}>
+            <Button size="icon-sm" variant="ghost" className="h-8 w-8" aria-label={t("delete")} disabled={!recordId || !mayPlan} onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
           <Input className="h-8 text-xs" placeholder={t("namePlaceholder")} value={name} onChange={(e) => plan.setName(kind, e.target.value)} />
           <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" className="h-7 gap-1 text-xs" disabled={busy !== null || !dirty} onClick={() => void save()}>
+            <Button size="sm" className="h-7 gap-1 text-xs" disabled={busy !== null || !dirty || !mayPlan} onClick={() => void save()}>
               <Save className="h-3.5 w-3.5" /> {t("save")}
             </Button>
-            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busy !== null || itemCount === 0} onClick={() => void save(true)}>
+            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busy !== null || itemCount === 0 || !mayPlan} onClick={() => void save(true)}>
               {t("saveAs")}
             </Button>
             <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => fileRef.current?.click()}>

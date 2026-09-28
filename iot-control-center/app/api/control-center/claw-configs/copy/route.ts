@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdminOrDevBypass } from "@/lib/session";
+import { requireAccess } from "@/lib/access-server";
 import { chunk } from "@/lib/control-center/batch";
 import { getMachine, type CCMachine } from "@/lib/dynamo/cc-machines";
 import { applyClawConfigParts, type CCClawConfig } from "@/lib/dynamo/cc-claw-configs";
@@ -20,7 +20,7 @@ const PART_LABEL: Record<ClawConfigPart, string> = { settings: "主機板設定"
  * each target keeps its own value. Unknown machine ids are skipped and returned.
  */
 export async function POST(req: Request) {
-  const actor = await requireAdminOrDevBypass();
+  const actor = await requireAccess("store.manage");
   if (!actor) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = clawConfigCopySchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });

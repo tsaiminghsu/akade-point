@@ -26,6 +26,8 @@ from .ops.gimbal import GimbalControl, GimbalStreamer
 from .ops.manual import ManualDrive
 from .mav.logs import DataflashClient
 from .ops.adsb import AdsbTracker
+from .terrain.server import TerrainServer
+from .ops.camera import CameraComponent, RpicamCapture, RtspCapture, TestCapture
 from .ops.payload import PayloadControl, PayloadMonitor, RemoteId
 from .state import StateBuilder
 from .sysinfo import SysInfo
@@ -58,6 +60,7 @@ class Companion:
     video: Optional[VideoControl] = None
     remote_id: Optional[RemoteId] = None
     tlog: Optional[TlogWriter] = None
+    camera: Optional[CameraComponent] = None
 
 
 def build(config: Config) -> Companion:
@@ -75,6 +78,10 @@ def build(config: Config) -> Companion:
     params = ParamClient(conn)
     status = StatusLog(clock.now_ms)
     streams = StreamManager(conn, commands)
+    if config.terrain.enabled:
+        # ArduPilot only asks for terrain on links where TERRAIN_REQUEST has a
+        # rate (SRx_EXTRA3 or a message interval); nobody else sets it here.
+        streams.rates["TERRAIN_REQUEST"] = 1.0
     sysinfo = SysInfo()
     cloud = CloudLink(
         config.api_base,
@@ -96,7 +103,22 @@ def build(config: Config) -> Companion:
     payload_monitor = PayloadMonitor(conn)
     conn.add_listener("NAMED_VALUE_FLOAT", payload_monitor.on_named_value)
     adsb = AdsbTracker(conn)
+    if config.signing.key is not None:
+        conn.enable_signing(config.signing.key)
+    terrain = None
+    if config.terrain.enabled:
+        terrain = TerrainServer(conn, config.terrain.dir, download=config.terrain.download, server=config.terrain.server)
+        conn.add_listener("TERRAIN_REQUEST", terrain.on_request)
     dataflash = DataflashClient(conn, config.dataflash_dir) if config.dataflash_dir else None
+    camera = None
+    if config.camera.enabled:
+        cc = config.camera
+        source = {"rtsp": lambda: RtspCapture(cc.rtsp_url), "rpicam": lambda: RpicamCapture(cc.width, cc.height), "test": TestCapture}[cc.source]()
+        camera = CameraComponent(
+            conn, source, cc.photos_dir, model=cc.model, focal_mm=cc.focal_mm,
+            sensor_mm=(cc.sensor_w_mm, cc.sensor_h_mm), resolution=(cc.width, cc.height), utc_ms=clock.now_ms,
+        )
+        conn.add_listener("COMMAND_LONG", camera.on_command)
     conn.add_listener("ADSB_VEHICLE", adsb.on_adsb)
     remote_id = RemoteId(conn, config.remote_id.send_operator_location)
     builder = StateBuilder(
@@ -110,6 +132,8 @@ def build(config: Config) -> Companion:
         payload_state=payload_monitor.state_block,
         adsb_state=adsb.state_block,
         logdl_state=(dataflash.state_block if dataflash else (lambda: None)),
+        camera_state=camera.state_block if camera else None,
+        terrain_state=terrain.state_block if terrain else None,
         rid_state=remote_id.state_block,
     )
     handlers = Handlers(
@@ -124,6 +148,7 @@ def build(config: Config) -> Companion:
         gimbal=GimbalControl(conn, commands),
         payload=PayloadControl(conn, commands),
         dataflash=dataflash,
+        camera=camera,
     )
 
     def ack_sink(ack: dict) -> None:
@@ -174,12 +199,13 @@ def build(config: Config) -> Companion:
             tlog=tlog,
             gimbal=GimbalStreamer(conn),
             dataflash=dataflash,
+            camera=camera,
             lease_holder=cloud.lease_holder,
         )
         holder["direct"] = direct
     return Companion(
         config, clock, conn, commands, missions, params, status, streams, sysinfo, builder, cloud, handlers, executor,
-        heartbeat, manual, direct, video, remote_id, tlog,
+        heartbeat, manual, direct, video, remote_id, tlog, camera,
     )
 
 
@@ -227,6 +253,8 @@ async def run(config: Config) -> None:
         tasks.append(asyncio.create_task(c.video.run(), name="video"))
     if c.remote_id is not None:
         tasks.append(asyncio.create_task(c.remote_id.run(), name="remote-id"))
+    if c.camera is not None:
+        tasks.append(asyncio.create_task(c.camera.run(), name="camera"))
     log.info("running (contract v%d, gcs heartbeat %s)", config.contract, config.gcs_heartbeat)
     try:
         await stop.wait()

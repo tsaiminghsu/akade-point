@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdminOrDevBypass } from "@/lib/session";
+import { requireAccess } from "@/lib/access-server";
 import {
   createEvent,
   listEventsByMachine,
@@ -10,7 +10,7 @@ import {
 import { eventCreateSchema, recentQuerySchema } from "./schema";
 
 export async function GET(req: Request) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const query = recentQuerySchema.safeParse(Object.fromEntries(searchParams));
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("simulate"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const json = await req.json().catch(() => null);
   const body = eventCreateSchema.safeParse(json);
   if (!body.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });

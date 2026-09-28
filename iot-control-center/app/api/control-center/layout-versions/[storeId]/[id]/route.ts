@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdminOrDevBypass } from "@/lib/session";
+import { requireAccess } from "@/lib/access-server";
 import { deleteVersion, renameVersion, updateVersionWidgets } from "@/lib/dynamo/cc-layout-versions";
 import type { Widget } from "@/lib/control-center/types";
 
@@ -18,7 +18,7 @@ const patchSchema = z
   });
 
 export async function PATCH(req: Request, { params }: { params: { storeId: string; id: string } }) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const contentLength = Number(req.headers.get("content-length") ?? 0);
   if (contentLength > MAX_PAYLOAD_BYTES) {
@@ -38,7 +38,7 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
 }
 
 export async function DELETE(_req: Request, { params }: { params: { storeId: string; id: string } }) {
-  if (!(await requireAdminOrDevBypass())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireAccess("store.manage"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const ok = await deleteVersion(params.storeId, params.id);
   if (!ok) return NextResponse.json({ error: "Cannot delete the only saved layout version for this store" }, { status: 409 });
   return NextResponse.json({ ok: true });
