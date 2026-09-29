@@ -37,8 +37,28 @@ export function HistoryTable({ events }: { events: MachineEvent[] }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-auto rounded-lg border border-border">
+    <div className="flex flex-col md:h-full">
+      {/* Phones: one card per event. */}
+      <ul className="space-y-2 md:hidden">
+        {pagination.pageItems.map((e) => {
+          const Icon = SEVERITY_ICON[e.severity];
+          return (
+            <li key={e.id} className="rounded-lg border border-border bg-card/60 p-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className={cn("flex min-w-0 flex-1 items-center gap-1.5 truncate font-medium", SEVERITY_CLASS[e.severity])}>
+                  <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" /> {e.type}
+                </span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">{new Date(e.timestamp).toLocaleString(locale)}</span>
+              </div>
+              <p className="mt-1 text-foreground">{e.message}</p>
+              <p className="mt-1 truncate text-muted-foreground">
+                {machineNameById.get(e.machineId) ?? e.machineId} · {storeNameById.get(e.storeId) ?? e.storeId}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="hidden flex-1 overflow-auto rounded-lg border border-border md:block">
         <Table>
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>

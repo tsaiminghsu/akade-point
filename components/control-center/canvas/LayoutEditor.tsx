@@ -133,13 +133,19 @@ export default function LayoutEditor() {
   return (
     <div className="flex h-full flex-col">
       <Toolbar containerRef={containerRef} />
+      {/* Phones get the canvas alone (view, pan, switch to live mode); adding widgets and editing properties needs a wider screen. */}
+      <p className="shrink-0 border-b border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground md:hidden">{t("mobileHint")}</p>
       <div className="flex flex-1 overflow-hidden">
-        <WidgetPalette onAddWidget={handleAddWidget} />
+        <div className="hidden md:flex">
+          <WidgetPalette onAddWidget={handleAddWidget} />
+        </div>
         <div className="relative flex-1">
           <CanvasViewport containerRef={containerRef} />
-          <Minimap containerRef={containerRef} />
+          <div className="hidden md:block">
+            <Minimap containerRef={containerRef} />
+          </div>
         </div>
-        <div className="flex w-72 shrink-0 flex-col">
+        <div className="hidden w-72 shrink-0 flex-col md:flex">
           <div className="flex-1 overflow-hidden">
             <PropertyPanel />
           </div>

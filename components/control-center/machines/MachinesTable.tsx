@@ -39,9 +39,61 @@ export function MachinesTable({ machines }: { machines: Machine[] }) {
     return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
   }
 
+  const rowActions = (m: Machine) => (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={t("viewMachine", { name: m.name })}
+        onClick={() => openMachineDrawer(m.id)}
+      >
+        <Eye aria-hidden className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={t("editMachine", { name: m.name })}
+        disabled={!mayManageAt(m.storeId)}
+        onClick={() => setEditingMachine(m)}
+      >
+        <Pencil aria-hidden className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-status-alarm"
+        aria-label={t("deleteMachine", { name: m.name })}
+        disabled={!mayManageAt(m.storeId)}
+        onClick={() => setDeletingMachine(m)}
+      >
+        <Trash2 aria-hidden className="h-3.5 w-3.5" />
+      </Button>
+    </>
+  );
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-auto rounded-lg border border-border">
+    <div className="flex flex-col md:h-full">
+      {/* Phones: one card per machine; the table needs more width than a phone has. */}
+      <ul className="space-y-2 md:hidden">
+        {pagination.pageItems.map((m) => (
+          <li key={m.id} className="rounded-lg border border-border bg-card/60 p-3">
+            <div className="flex items-center gap-2">
+              <StatusBadge status={m.status} />
+              <button type="button" className="min-w-0 flex-1 truncate text-left font-medium text-foreground" onClick={() => openMachineDrawer(m.id)}>
+                {m.name}
+              </button>
+              <span className="text-xs tabular-nums text-muted-foreground">{m.current.toFixed(1)}A</span>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {m.deviceId} · {storeNameById.get(m.storeId) ?? "—"} · {groupNameById.get(m.groupId) ?? "—"}
+              </p>
+              <span className="flex shrink-0">{rowActions(m)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden flex-1 overflow-auto rounded-lg border border-border md:block">
         <Table>
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>
@@ -66,35 +118,7 @@ export function MachinesTable({ machines }: { machines: Machine[] }) {
                   <TableCell className="text-xs text-muted-foreground">{storeNameById.get(m.storeId) ?? "—"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{groupNameById.get(m.groupId) ?? "—"}</TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">{m.current.toFixed(1)}A</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={t("viewMachine", { name: m.name })}
-                      onClick={() => openMachineDrawer(m.id)}
-                    >
-                      <Eye aria-hidden className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={t("editMachine", { name: m.name })}
-                      disabled={!mayManageAt(m.storeId)}
-                      onClick={() => setEditingMachine(m)}
-                    >
-                      <Pencil aria-hidden className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-status-alarm"
-                      aria-label={t("deleteMachine", { name: m.name })}
-                      disabled={!mayManageAt(m.storeId)}
-                      onClick={() => setDeletingMachine(m)}
-                    >
-                      <Trash2 aria-hidden className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
+                  <TableCell className="text-right">{rowActions(m)}</TableCell>
                 </TableRow>
               );
             })}

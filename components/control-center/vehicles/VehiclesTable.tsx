@@ -42,9 +42,57 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
     return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
   }
 
+  const rowActions = (v: Vehicle) => (
+    <>
+      <Button asChild variant="ghost" size="icon-sm" aria-label={t("view", { name: v.name })}>
+        <Link href={`/iot-control-center/vehicles/${v.id}`}>
+          <Eye aria-hidden className="h-3.5 w-3.5" />
+        </Link>
+      </Button>
+      <Button variant="ghost" size="icon-sm" aria-label={t("edit", { name: v.name })} onClick={() => setEditing(v)}>
+        <Pencil aria-hidden className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-status-alarm"
+        aria-label={t("remove", { name: v.name })}
+        onClick={() => setDeleting(v)}
+      >
+        <Trash2 aria-hidden className="h-3.5 w-3.5" />
+      </Button>
+    </>
+  );
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-auto rounded-lg border border-border">
+    <div className="flex flex-col md:h-full">
+      {/* Phones: one card per vehicle; tap the name for its ground station. */}
+      <ul className="space-y-2 md:hidden">
+        {pagination.pageItems.map((v) => {
+          const s = summarize(v.state);
+          const TypeIcon = v.type === "drone" ? Plane : Car;
+          return (
+            <li key={v.id} className="rounded-lg border border-border bg-card/60 p-3">
+              <div className="flex items-center gap-2">
+                <LinkStateBadge state={v.linkState} />
+                <Link href={`/iot-control-center/vehicles/${v.id}`} className="flex min-w-0 flex-1 items-center gap-1.5 truncate font-medium text-foreground">
+                  <TypeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> <span className="truncate">{v.name}</span>
+                </Link>
+                <span className="text-xs text-muted-foreground">{relativeTime(v.lastSeenAt, locale, t("never"))}</span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <p className="min-w-0 flex-1 truncate text-xs tabular-nums text-muted-foreground">
+                  {s?.mode ?? "—"} · {s?.armed == null ? "—" : s.armed ? t("armedYes") : t("armedNo")} · {s?.batPct == null ? "—" : `${Math.round(s.batPct)}%`} · GPS{" "}
+                  {s?.fix == null ? "—" : `${fixLabel(s.fix)} · ${s.sats ?? "—"}`}
+                  {v.storeId && storeNames.get(v.storeId) ? ` · ${storeNames.get(v.storeId)}` : ""}
+                </p>
+                <span className="flex shrink-0">{rowActions(v)}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="hidden flex-1 overflow-auto rounded-lg border border-border md:block">
         <Table>
           <TableHeader className="sticky top-0 bg-card">
             <TableRow>
@@ -85,25 +133,7 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                     {s?.pos ? `${s.pos.lat.toFixed(5)}, ${s.pos.lon.toFixed(5)}` : "—"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{relativeTime(v.lastSeenAt, locale, t("never"))}</TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="ghost" size="icon-sm" aria-label={t("view", { name: v.name })}>
-                      <Link href={`/iot-control-center/vehicles/${v.id}`}>
-                        <Eye aria-hidden className="h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="icon-sm" aria-label={t("edit", { name: v.name })} onClick={() => setEditing(v)}>
-                      <Pencil aria-hidden className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-status-alarm"
-                      aria-label={t("remove", { name: v.name })}
-                      onClick={() => setDeleting(v)}
-                    >
-                      <Trash2 aria-hidden className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
+                  <TableCell className="text-right">{rowActions(v)}</TableCell>
                 </TableRow>
               );
             })}

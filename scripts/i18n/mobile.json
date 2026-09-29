@@ -1,0 +1,5 @@
+{
+  "zh-TW": { "Toolbar": { "mobileHint": "手機上可檢視平面圖與切換即時模式；新增元件與編輯屬性請用平板或電腦。" } },
+  "en-US": { "Toolbar": { "mobileHint": "On a phone you can view the floor plan and switch to live mode; adding widgets and editing properties needs a tablet or computer." } },
+  "ja-JP": { "Toolbar": { "mobileHint": "スマートフォンではフロア図の閲覧とライブモードの切り替えができます。ウィジェットの追加やプロパティの編集はタブレットかパソコンで行ってください。" } }
+}

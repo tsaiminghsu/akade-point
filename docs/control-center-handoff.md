@@ -449,6 +449,16 @@ GSI（定義於 `scripts/create-tables.mjs`）：
 - **S3 模式已驗證**（LocalStack 4.12，開啟簽章驗證）：
   - 整條流程與拒收情境都通過，見 `docs/vehicles-files.md`。
   - MinIO 已不再提供映像或執行檔；LocalStack `latest` 需要 auth token，所以固定用 4.12，並設 `S3_SKIP_SIGNATURE_VALIDATION=0`。
+- **手機版面**（2026-09-30）：以 iPhone 13 尺寸（390×844）逐頁截圖檢查後修正。
+  - 清單頁（機台、載具、歷史、警報）：手機上整頁捲動，列表改成卡片；md 以上維持原本的固定高度與表格。
+  - 門市、品牌、使用者表格：設 `min-w` 並讓表頭不換行，改為左右捲動。
+  - 載具頁：地圖在上、清單在下，不再被壓成 0 高。
+  - 地面站飛行資料：手機上依序為 HUD、地圖、面板，用 `contents` 拆開左欄再以 `order` 排序。
+  - 任務規劃：地圖 `sticky` 固定在上方；回放的航班清單限高。
+  - 平面圖編輯器：手機只顯示畫布與提示，元件庫、屬性、小地圖從 md 起才出現。
+  - 娃娃機模擬器：手機上給接近一整個畫面的高度，設定面板最多佔 58%。
+  - 共用 Dialog／AlertDialog：左右留邊、圓角、超過螢幕高度時可捲動。
+  - 檢查腳本放在 session scratchpad（Playwright 無頭瀏覽器，截圖加橫向溢出偵測），沒有放進 repo。
 - **待辦**：
   - 真實 AWS bucket 與 Amplify SSR role 的權限。
   - 角色變更的稽核紀錄（目前只存最後的 `updatedBy`／`updatedAt`）。

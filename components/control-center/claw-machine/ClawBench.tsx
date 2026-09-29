@@ -505,7 +505,7 @@ function ClawMachine({ settings, rig, onSettings: setSettings, onRig: setRig }: 
 
         {/* Service drawer: side panel on desktop, bottom sheet on phones */}
         {service && (
-          <aside className="absolute inset-x-0 bottom-0 z-10 max-h-[70%] overflow-hidden rounded-t-xl border-t border-amber-500/40 shadow-2xl md:static md:max-h-none md:w-96 md:rounded-none md:border-l md:border-t-0">
+          <aside className="absolute inset-x-0 bottom-0 z-10 max-h-[58%] overflow-hidden rounded-t-xl border-t border-amber-500/40 shadow-2xl md:static md:max-h-none md:w-96 md:rounded-none md:border-l md:border-t-0">
             <ServicePanel
               tab={serviceTab}
               onTab={setServiceTab}

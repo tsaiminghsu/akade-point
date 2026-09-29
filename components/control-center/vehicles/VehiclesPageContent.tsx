@@ -105,11 +105,12 @@ export default function VehiclesPageContent() {
         ))}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+      {/* Below lg the page scrolls: map on top, the list under it at its full length. */}
+      <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
         <div className="h-64 shrink-0 lg:h-auto lg:w-[42%]">
           <FleetMap vehicles={filtered} />
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <VehiclesTable vehicles={filtered} />
         </div>
       </div>

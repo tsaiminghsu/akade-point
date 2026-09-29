@@ -36,7 +36,7 @@ export default function HistoryPageContent() {
   }, [events, filters]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6">
+    <div className="flex h-full flex-col overflow-y-auto p-4 sm:p-6 md:overflow-hidden">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -51,7 +51,7 @@ export default function HistoryPageContent() {
         <HistoryFilters filters={filters} onChange={setFilters} allEvents={events} />
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="md:flex-1 md:overflow-hidden">
         <HistoryTable events={filtered} />
       </div>
     </div>

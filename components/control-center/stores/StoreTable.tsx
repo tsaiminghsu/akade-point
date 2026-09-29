@@ -53,7 +53,7 @@ export function StoreTable() {
       {stores.length === 0 ? (
         <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
       ) : (
-        <Table>
+        <Table className="min-w-[640px] [&_th]:whitespace-nowrap">
           <TableHeader>
             <TableRow>
               <TableHead>{t("store")}</TableHead>

@@ -108,7 +108,7 @@ export default async function UsersPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <KPICard
           label={t("totalUsers")}
           value={sortedUsers.length}
@@ -154,7 +154,7 @@ export default async function UsersPage() {
             <p className="text-sm font-medium text-foreground">{t("directoryTitle")}</p>
             <p className="text-xs text-muted-foreground">{t("directorySubtitle")}</p>
           </div>
-          <Table>
+          <Table className="min-w-[860px] [&_th]:whitespace-nowrap">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("user")}</TableHead>

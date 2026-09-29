@@ -52,7 +52,8 @@ export function MachineDetailDrawer() {
         {machine && (
           <>
             <SheetHeader>
-              <div className="flex items-center justify-between gap-2">
+              {/* pr-8: room for the sheet's own close button in the corner */}
+              <div className="flex items-center justify-between gap-2 pr-8">
                 <SheetTitle className="flex items-center gap-2">
                   <Cpu className="h-4 w-4 text-primary" />
                   {machine.name}
