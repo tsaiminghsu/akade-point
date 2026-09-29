@@ -25,6 +25,44 @@ function Tile({ label, value, unit, tone }: { label: string; value: string; unit
 
 const GRID: Record<QuickLayout["columns"], string> = { 2: "grid-cols-2", 3: "grid-cols-2 sm:grid-cols-3", 4: "grid-cols-2 sm:grid-cols-4" };
 
+const LAYOUT_EVENT = "gcs-layout-change";
+
+/**
+ * A field layout remembered in this browser under `key`. Every component
+ * using the same key sees a save at once (the quick tab and its dialog, the
+ * values bar and its dialog).
+ */
+export function useStoredLayout(key: string, family: "copter" | "rover", fallback: QuickLayout) {
+  const [layout, setLayout] = useState<QuickLayout>(fallback);
+  useEffect(() => {
+    const load = () => {
+      try {
+        setLayout(parseLayout(localStorage.getItem(key), family, fallback));
+      } catch {
+        setLayout(fallback);
+      }
+    };
+    load();
+    const onChange = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === key) load();
+    };
+    window.addEventListener(LAYOUT_EVENT, onChange);
+    return () => window.removeEventListener(LAYOUT_EVENT, onChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, family]);
+
+  function save(next: QuickLayout) {
+    setLayout(next);
+    try {
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      /* private mode: this session only */
+    }
+    window.dispatchEvent(new CustomEvent(LAYOUT_EVENT, { detail: key }));
+  }
+  return [layout, save] as const;
+}
+
 /**
  * Mission Planner's "Quick" tab: the numbers a pilot glances at, large. The
  * fields, their order and the columns are the operator's choice, remembered
@@ -33,24 +71,11 @@ const GRID: Record<QuickLayout["columns"], string> = { 2: "grid-cols-2", 3: "gri
 export function QuickPanel({ state, stale, family }: { state: VehicleStateV2 | null; stale: boolean; family: "copter" | "rover" }) {
   const t = useTranslations("Gcs.quick");
   const s = stale ? null : state;
-  const [layout, setLayout] = useState<QuickLayout>(DEFAULT_LAYOUT[family]);
+  const [layout, saveLayout] = useStoredLayout(layoutKey(family), family, DEFAULT_LAYOUT[family]);
   const [editing, setEditing] = useState<QuickLayout | null>(null);
 
-  useEffect(() => {
-    try {
-      setLayout(parseLayout(localStorage.getItem(layoutKey(family)), family));
-    } catch {
-      setLayout(DEFAULT_LAYOUT[family]);
-    }
-  }, [family]);
-
   function save(next: QuickLayout) {
-    setLayout(next);
-    try {
-      localStorage.setItem(layoutKey(family), JSON.stringify(next));
-    } catch {
-      /* private mode: this session only */
-    }
+    saveLayout(next);
     setEditing(null);
   }
 
@@ -67,20 +92,39 @@ export function QuickPanel({ state, stale, family }: { state: VehicleStateV2 | n
           <Settings2 className="h-3 w-3" /> {t("customize")}
         </Button>
       </div>
-      {editing && <LayoutDialog family={family} layout={editing} onChange={setEditing} onSave={save} onClose={() => setEditing(null)} />}
+      {editing && (
+        <LayoutDialog
+          family={family}
+          layout={editing}
+          defaults={DEFAULT_LAYOUT[family]}
+          title={t("customizeTitle")}
+          description={t("customizeDescription")}
+          onChange={setEditing}
+          onSave={save}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
 
-function LayoutDialog({
+export function LayoutDialog({
   family,
   layout,
+  defaults,
+  title,
+  description,
+  showColumns = true,
   onChange,
   onSave,
   onClose,
 }: {
   family: "copter" | "rover";
   layout: QuickLayout;
+  defaults: QuickLayout;
+  title: string;
+  description: string;
+  showColumns?: boolean;
   onChange: (l: QuickLayout) => void;
   onSave: (l: QuickLayout) => void;
   onClose: () => void;
@@ -107,10 +151,10 @@ function LayoutDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{t("customizeTitle")}</DialogTitle>
-          <DialogDescription>{t("customizeDescription")}</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="flex items-center gap-2 text-xs">
+        <div className={showColumns ? "flex items-center gap-2 text-xs" : "hidden"}>
           <span className="text-muted-foreground">{t("columns")}</span>
           {([2, 3, 4] as const).map((c) => (
             <Button key={c} size="sm" variant={layout.columns === c ? "default" : "outline"} className="h-6 px-2 text-xs" onClick={() => onChange({ ...layout, columns: c })}>
@@ -143,7 +187,7 @@ function LayoutDialog({
           })}
         </ul>
         <DialogFooter className="gap-2 sm:justify-between">
-          <Button variant="ghost" onClick={() => onChange(DEFAULT_LAYOUT[family])}>
+          <Button variant="ghost" onClick={() => onChange(defaults)}>
             {t("reset")}
           </Button>
           <Button disabled={layout.fields.length === 0} onClick={() => onSave(layout)}>

@@ -28,7 +28,7 @@ export function MachineEventsList({ events }: { events: MachineEvent[] }) {
           <div key={e.id} className="flex items-start gap-2.5 rounded-md border border-border/60 p-2.5 text-xs">
             <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", SEVERITY_CLASS[e.severity])} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-foreground">{e.message}</p>
+              <p className="break-words text-foreground">{e.message}</p>
               <p className="text-muted-foreground">{new Date(e.timestamp).toLocaleString(locale)}</p>
             </div>
           </div>

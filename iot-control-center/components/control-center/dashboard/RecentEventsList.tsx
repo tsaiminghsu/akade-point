@@ -33,7 +33,8 @@ export function RecentEventsList() {
         {events.length === 0 ? (
           <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
         ) : (
-          <div className="max-h-80 space-y-1.5 overflow-y-auto custom-scrollbar pr-1">
+          // Phones: the latest ten in the page's own scroll, not a scroller inside a scroller.
+          <div className="space-y-1.5 max-md:[&>*:nth-child(n+11)]:hidden md:max-h-80 md:overflow-y-auto md:pr-1 custom-scrollbar">
             {events.slice(0, 30).map((e) => {
               const Icon = SEVERITY_ICON[e.severity];
               return (
@@ -44,7 +45,7 @@ export function RecentEventsList() {
                 >
                   <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", SEVERITY_CLASS[e.severity])} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-foreground">{e.message}</p>
+                    <p className="break-words text-foreground">{e.message}</p>
                   </div>
                   <span className="shrink-0 text-muted-foreground">{new Date(e.timestamp).toLocaleTimeString(locale)}</span>
                 </button>

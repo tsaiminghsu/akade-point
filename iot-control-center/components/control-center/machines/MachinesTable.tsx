@@ -79,13 +79,13 @@ export function MachinesTable({ machines }: { machines: Machine[] }) {
           <li key={m.id} className="rounded-lg border border-border bg-card/60 p-3">
             <div className="flex items-center gap-2">
               <StatusBadge status={m.status} />
-              <button type="button" className="min-w-0 flex-1 truncate text-left font-medium text-foreground" onClick={() => openMachineDrawer(m.id)}>
+              <button type="button" className="min-w-0 flex-1 break-words text-left font-medium text-foreground" onClick={() => openMachineDrawer(m.id)}>
                 {m.name}
               </button>
               <span className="text-xs tabular-nums text-muted-foreground">{m.current.toFixed(1)}A</span>
             </div>
             <div className="mt-1 flex items-center gap-2">
-              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              <p className="min-w-0 flex-1 break-words text-xs text-muted-foreground">
                 {m.deviceId} · {storeNameById.get(m.storeId) ?? "—"} · {groupNameById.get(m.groupId) ?? "—"}
               </p>
               <span className="flex shrink-0">{rowActions(m)}</span>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
+import { ChevronDown, Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { Vehicle } from "@/lib/control-center/vehicles/types";
@@ -20,6 +20,9 @@ interface TlogFile {
 
 const size = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} kB`);
 
+/** Pi tlogs listed on a phone before "show all". */
+const PHONE_TLOGS = 8;
+
 /**
  * Telemetry logs the companion records on the Pi (one .tlog per flight),
  * downloaded over the direct link. Log analysis is left to ArduPilot's own
@@ -31,6 +34,7 @@ export function LogsView({ vehicle, canCommand }: { vehicle: Vehicle; canCommand
   const [files, setFiles] = useState<TlogFile[] | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error" | "disabled">("idle");
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     if (!vehicle.directUrl) return;
@@ -88,11 +92,13 @@ export function LogsView({ vehicle, canCommand }: { vehicle: Vehicle; canCommand
         ) : files && files.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t("none")}</p>
         ) : (
+          <>
+          {/* Phones: the newest few; a Pi keeps dozens of boot and flight logs. */}
           <ul className="divide-y divide-border/50 rounded-md border border-border/60 text-xs">
-            {(files ?? []).map((f) => (
-              <li key={f.name} className="flex items-center gap-2 px-3 py-2">
+            {(files ?? []).map((f, i) => (
+              <li key={f.name} className={`flex items-center gap-2 px-3 py-2 ${!showAll && i >= PHONE_TLOGS ? "max-md:hidden" : ""}`}>
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate font-mono">{f.name}</span>
+                <span className="min-w-0 flex-1 break-all font-mono">{f.name}</span>
                 {f.active && <span className="rounded bg-primary/15 px-1.5 text-[10px] text-primary">{t("recording")}</span>}
                 <span className="tabular-nums text-muted-foreground">{size(f.bytes)}</span>
                 <span className="hidden tabular-nums text-muted-foreground sm:inline">{new Date(f.mtime).toLocaleString()}</span>
@@ -102,6 +108,12 @@ export function LogsView({ vehicle, canCommand }: { vehicle: Vehicle; canCommand
               </li>
             ))}
           </ul>
+          {!showAll && (files?.length ?? 0) > PHONE_TLOGS && (
+            <Button size="sm" variant="ghost" className="gap-1.5 md:hidden" onClick={() => setShowAll(true)}>
+              <ChevronDown className="h-3.5 w-3.5" /> {t("showAll", { n: files!.length })}
+            </Button>
+          )}
+          </>
         )}
       </section>
       <DataflashPanel vehicle={vehicle} canCommand={canCommand} />

@@ -589,7 +589,7 @@ export default function ServicePanel(props: Props) {
           {closeLabel}
         </button>
       </div>
-      <div className="mt-3 flex gap-1 overflow-x-auto border-b border-slate-700 px-4 [scrollbar-width:none]" role="tablist">
+      <div className="mt-3 flex flex-wrap gap-x-1 border-b border-slate-700 px-4" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -603,7 +603,7 @@ export default function ServicePanel(props: Props) {
           </button>
         ))}
       </div>
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4" role="tabpanel">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4" role="tabpanel">
         {tab === 'board' && <BoardTab {...props} />}
         {tab === 'claw' && <ClawTab {...props} />}
         {tab === 'stock' && <StockTab {...props} />}

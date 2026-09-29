@@ -18,7 +18,7 @@ import { FlightPlanView } from "./plan/FlightPlanView";
 import { LogsView } from "./logs/LogsView";
 import { ReplayView } from "./replay/ReplayView";
 import { ParamsView } from "./params/ParamsView";
-import { StatusBar } from "./flight/StatusBar";
+import { FlyToolbar } from "./flight/FlyToolbar";
 import { VehicleSetupPanel } from "./setup/VehicleSetupPanel";
 import { useVoiceAlerts } from "./useVoiceAlerts";
 import { useCan } from "@/store/useAccessStore";
@@ -57,6 +57,8 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
   }
   const [voice, setVoice] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [tab, setTab] = useState("flight");
+  const messages = useGcsStore((s) => s.messages);
 
   useEffect(() => {
     open(vehicleId);
@@ -111,57 +113,79 @@ export default function GcsPageContent({ vehicleId }: { vehicleId: string }) {
 
   const TypeIcon = vehicle?.type === "rover" ? Car : Plane;
 
+  const TAB_CLASS = "px-1 text-xs sm:px-3 sm:text-sm";
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-3 sm:p-4 lg:overflow-hidden">
+    // The fly view fills the screen like QGC's; the other tabs scroll as a page on phones.
+    <div className={`flex h-full min-h-0 flex-col gap-2 p-2 sm:gap-3 sm:p-4 ${tab === "flight" ? "overflow-hidden" : "overflow-y-auto lg:overflow-hidden"}`}>
       <header className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <Button asChild variant="ghost" size="icon-sm" aria-label={t("back")}>
             <Link href="/iot-control-center/vehicles">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="flex items-center gap-1.5 text-base font-semibold text-foreground">
-            <TypeIcon className="h-4 w-4 text-primary" /> {vehicle?.name ?? "…"}
+          <h1 className="flex min-w-0 items-center gap-1.5 break-words text-base font-semibold text-foreground">
+            <TypeIcon className="h-4 w-4 shrink-0 text-primary" /> {vehicle?.name ?? "…"}
           </h1>
-          {vehicle && <LinkStateBadge state={vehicle.linkState} />}
-          {state?.mode && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary">{state.mode}</span>}
-          {state?.armed != null && (
-            <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${state.armed ? "bg-status-alarm/15 text-status-alarm" : "bg-status-online/15 text-status-online"}`}>
-              {state.armed ? t("hud.armed") : t("hud.disarmed")}
-            </span>
-          )}
-          {state?.veh?.ap === "px4" && <span className="rounded bg-status-warning/15 px-1.5 py-0.5 text-xs text-status-warning">{t("px4Basic")}</span>}
-          <div className="ml-auto flex items-center gap-3">
-            <label className="flex items-center gap-2 text-xs font-medium">
+          {vehicle && <LinkStateBadge state={vehicle.linkState} className="hidden sm:inline-flex" />}
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <label className="flex items-center gap-1.5 text-xs font-medium">
               <Hand className={`h-3.5 w-3.5 ${control ? "text-status-warning" : "text-muted-foreground"}`} />
               {t("control")}
               <Switch checked={control} disabled={!mayCommand && !control} onCheckedChange={(on) => void toggleControl(on)} aria-label={t("control")} />
             </label>
-            <Button size="sm" variant={voice ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={toggleVoice} aria-pressed={voice}>
-              {voice ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />} {voice ? t("voiceOn") : t("voiceOff")}
+            <Button
+              size="sm"
+              variant={voice ? "secondary" : "ghost"}
+              className="h-7 gap-1.5 px-2 text-xs"
+              onClick={toggleVoice}
+              aria-pressed={voice}
+              aria-label={voice ? t("voiceOn") : t("voiceOff")}
+              title={voice ? t("voiceOn") : t("voiceOff")}
+            >
+              {voice ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{voice ? t("voiceOn") : t("voiceOff")}</span>
             </Button>
           </div>
         </div>
-        <StatusBar state={state} stale={stale} link={link} />
+        {vehicle && <FlyToolbar vehicleType={vehicle.type} state={state} stale={stale} link={link} messages={messages} canCommand={canCommand} />}
         {lease && !leaseMine && (
           <p className="flex items-center gap-1.5 text-xs text-status-warning">
-            <Lock className="h-3.5 w-3.5" /> {t("leaseHeld", { name: lease.name, since: new Date(lease.since).toLocaleTimeString() })}
+            <Lock className="h-3.5 w-3.5 shrink-0" /> {t("leaseHeld", { name: lease.name, since: new Date(lease.since).toLocaleTimeString() })}
           </p>
         )}
         {!control && !(lease && !leaseMine) && <p className="text-xs text-muted-foreground">{t("controlHint")}</p>}
         {control && link.active === "cloud" && <p className="text-xs text-status-warning">{t("cloudControlNote")}</p>}
       </header>
 
-      <Tabs defaultValue="flight" className="flex flex-col lg:min-h-0 lg:flex-1">
-        <TabsList className="shrink-0 self-start">
-          <TabsTrigger value="flight">{t("tabs.flight")}</TabsTrigger>
-          {state?.caps.includes("mission") !== false && <TabsTrigger value="plan">{t("tabs.plan")}</TabsTrigger>}
-          {state?.caps.includes("params") !== false && <TabsTrigger value="params">{t("tabs.params")}</TabsTrigger>}
-          <TabsTrigger value="logs">{t("tabs.logs")}</TabsTrigger>
-          <TabsTrigger value="replay">{t("tabs.replay")}</TabsTrigger>
-          <TabsTrigger value="setup">{t("tabs.setup")}</TabsTrigger>
+      <Tabs value={tab} onValueChange={setTab} className={`flex flex-col ${tab === "flight" ? "min-h-0 flex-1" : "lg:min-h-0 lg:flex-1"}`}>
+        {/* Six tabs across a phone: equal columns, so none is cut off. */}
+        <TabsList className="grid h-auto w-full shrink-0 auto-cols-fr grid-flow-col sm:inline-flex sm:w-auto sm:self-start">
+          <TabsTrigger value="flight" className={TAB_CLASS}>
+            {t("tabs.flight")}
+          </TabsTrigger>
+          {state?.caps.includes("mission") !== false && (
+            <TabsTrigger value="plan" className={TAB_CLASS}>
+              {t("tabs.plan")}
+            </TabsTrigger>
+          )}
+          {state?.caps.includes("params") !== false && (
+            <TabsTrigger value="params" className={TAB_CLASS}>
+              {t("tabs.params")}
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="logs" className={TAB_CLASS}>
+            {t("tabs.logs")}
+          </TabsTrigger>
+          <TabsTrigger value="replay" className={TAB_CLASS}>
+            {t("tabs.replay")}
+          </TabsTrigger>
+          <TabsTrigger value="setup" className={TAB_CLASS}>
+            {t("tabs.setup")}
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="flight" className="mt-3 lg:min-h-0 lg:flex-1">
+        <TabsContent value="flight" className="mt-2 min-h-0 flex-1 sm:mt-3">
           <FlightDataView canCommand={canCommand} />
         </TabsContent>
         <TabsContent value="plan" className="mt-3 lg:min-h-0 lg:flex-1">

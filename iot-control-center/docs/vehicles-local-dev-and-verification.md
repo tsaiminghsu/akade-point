@@ -58,10 +58,10 @@ cd companion && .venv/Scripts/python -m vehicle_companion --config companion.loc
 ## 瀏覽器檢查清單（`/iot-control-center/vehicles/{id}`）
 
 地面站各頁籤的操作與預期見 [`vehicles-gcs.md`](./vehicles-gcs.md)。基本檢查：
-- **連線**：companion 啟動約 2 秒內，狀態列出現「直連」與 FC 心跳；關掉 companion 後 HUD 顯示 LINK LOST，飛行指令停用。
+- **連線**：companion 啟動約 2 秒內，工具列的「連線」出現直連與 FC 心跳；關掉 companion 後主狀態變成「失去連線」，左側動作列變暗。
 - **飛行**：取得控制權 → 滑動解鎖 → 起飛 → 地圖右鍵「飛到這裡」→ RTL，指令紀錄逐一顯示 acked。
 - **任務規劃**：上傳後自動下載比對，不應出現差異。
-- **Mission Planner 同時連線**：狀態列出現「另有 1 個 GCS」。
+- **Mission Planner 同時連線**：工具列「系統狀態」變黃，裡面出現「另有 1 個 GCS」。
 
 ## 單元測試
 

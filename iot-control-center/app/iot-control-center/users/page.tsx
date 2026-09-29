@@ -154,7 +154,34 @@ export default async function UsersPage() {
             <p className="text-sm font-medium text-foreground">{t("directoryTitle")}</p>
             <p className="text-xs text-muted-foreground">{t("directorySubtitle")}</p>
           </div>
-          <Table className="min-w-[860px] [&_th]:whitespace-nowrap">
+          {/* Phones: one card per user; the table is wider than the screen. */}
+          <ul className="divide-y divide-border/70 md:hidden">
+            {sortedUsers.map((user) => {
+              const displayName = getDisplayName(user, t("anonymousUser"));
+              return (
+                <li key={user.userId} className="space-y-2 px-4 py-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                      {getInitials(displayName)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words font-medium text-foreground">{displayName}</p>
+                      <p className="break-all text-xs text-muted-foreground">{getSubtitle(user)}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("points")} <span className="font-semibold tabular-nums text-foreground">{(user.totalPoints ?? 0).toLocaleString(locale)}</span> · {t("tickets")}{" "}
+                    <span className="tabular-nums">{(user.ticketCount ?? 0).toLocaleString(locale)}</span> · {t("joined")} {formatDate(user.createdAt, locale)}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 [&_button]:ml-0">
+                    <RoleSelect userId={user.userId} role={roles.get(user.userId)?.role ?? null} isAdmin={user.isAdmin} self={user.userId === actor.id} />
+                    <StoreGrants userId={user.userId} stores={stores} grants={storeGrantsOf(user)} self={user.userId === actor.id} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <Table className="min-w-[860px] [&_th]:whitespace-nowrap" wrapperClassName="hidden md:block">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("user")}</TableHead>

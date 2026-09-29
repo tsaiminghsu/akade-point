@@ -353,7 +353,7 @@ function ClawMachine({ settings, rig, onSettings: setSettings, onRig: setRig }: 
   return (
     <div ref={root} className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b0718] text-white">
       {/* View toolbar: camera preset, screen layout, aiming aid, panels */}
-      <nav className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-white/10 bg-black/30 px-3 py-1.5 text-xs [scrollbar-width:none]" aria-label="視角">
+      <nav className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-white/10 bg-black/30 px-3 py-1.5 text-xs" aria-label="視角">
         <span className="shrink-0 text-white/40">視角</span>
         <div className="flex shrink-0 rounded-md border border-white/15">
           {VIEW_BUTTONS.map((b) => (
@@ -378,8 +378,10 @@ function ClawMachine({ settings, rig, onSettings: setSettings, onRig: setRig }: 
         </button>
         <span className="flex-1" />
         {won.length > 0 && (
-          <span className="max-w-[30%] shrink-0 truncate text-base leading-none" aria-label={`已夾到 ${won.length} 個`} title="已夾到">
-            {won.map((k) => itemDef(k).icon).join("")}
+          <span className="shrink-0 whitespace-nowrap text-base leading-none" aria-label={`已夾到 ${won.length} 個`} title="已夾到">
+            {/* The latest few prizes, then a count, rather than a row cut off mid-icon. */}
+            {won.slice(-5).map((k) => itemDef(k).icon).join("")}
+            {won.length > 5 && <span className="ml-1 text-xs text-white/60">+{won.length - 5}</span>}
           </span>
         )}
         <button type="button" onClick={() => setMonitor((m) => !m)} className={`shrink-0 rounded-md border px-2 py-1 ${monitor ? "border-cyan-400/60 text-cyan-300" : "border-white/15 text-white/60"}`}>
@@ -505,7 +507,7 @@ function ClawMachine({ settings, rig, onSettings: setSettings, onRig: setRig }: 
 
         {/* Service drawer: side panel on desktop, bottom sheet on phones */}
         {service && (
-          <aside className="absolute inset-x-0 bottom-0 z-10 max-h-[58%] overflow-hidden rounded-t-xl border-t border-amber-500/40 shadow-2xl md:static md:max-h-none md:w-96 md:rounded-none md:border-l md:border-t-0">
+          <aside className="absolute inset-x-0 bottom-0 z-10 h-[58%] overflow-hidden rounded-t-xl border-t border-amber-500/40 shadow-2xl md:static md:h-auto md:w-96 md:rounded-none md:border-l md:border-t-0">
             <ServicePanel
               tab={serviceTab}
               onTab={setServiceTab}

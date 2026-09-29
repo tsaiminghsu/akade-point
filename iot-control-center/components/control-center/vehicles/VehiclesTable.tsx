@@ -75,13 +75,13 @@ export function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
             <li key={v.id} className="rounded-lg border border-border bg-card/60 p-3">
               <div className="flex items-center gap-2">
                 <LinkStateBadge state={v.linkState} />
-                <Link href={`/iot-control-center/vehicles/${v.id}`} className="flex min-w-0 flex-1 items-center gap-1.5 truncate font-medium text-foreground">
-                  <TypeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> <span className="truncate">{v.name}</span>
+                <Link href={`/iot-control-center/vehicles/${v.id}`} className="flex min-w-0 flex-1 items-center gap-1.5 break-words font-medium text-foreground">
+                  <TypeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> <span className="min-w-0 break-words">{v.name}</span>
                 </Link>
                 <span className="text-xs text-muted-foreground">{relativeTime(v.lastSeenAt, locale, t("never"))}</span>
               </div>
               <div className="mt-1.5 flex items-center gap-2">
-                <p className="min-w-0 flex-1 truncate text-xs tabular-nums text-muted-foreground">
+                <p className="min-w-0 flex-1 break-words text-xs tabular-nums text-muted-foreground">
                   {s?.mode ?? "—"} · {s?.armed == null ? "—" : s.armed ? t("armedYes") : t("armedNo")} · {s?.batPct == null ? "—" : `${Math.round(s.batPct)}%`} · GPS{" "}
                   {s?.fix == null ? "—" : `${fixLabel(s.fix)} · ${s.sats ?? "—"}`}
                   {v.storeId && storeNames.get(v.storeId) ? ` · ${storeNames.get(v.storeId)}` : ""}

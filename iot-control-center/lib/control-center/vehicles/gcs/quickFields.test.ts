@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import stateV2Fixture from "../__fixtures__/state-v2.json";
 import type { VehicleStateV2 } from "../types";
-import { DEFAULT_LAYOUT, QUICK_FIELDS, fieldsFor, parseLayout, quickValue } from "./quickFields";
+import { DEFAULT_BAR, DEFAULT_LAYOUT, QUICK_FIELDS, fieldsFor, parseLayout, quickValue } from "./quickFields";
 
 const base = stateV2Fixture as unknown as VehicleStateV2;
 
@@ -10,7 +10,7 @@ describe("quick panel fields", () => {
   it("every default field exists and applies to its vehicle type", () => {
     for (const fam of ["copter", "rover"] as const) {
       const keys = new Set(fieldsFor(fam).map((f) => f.key));
-      for (const k of DEFAULT_LAYOUT[fam].fields) expect(keys.has(k)).toBe(true);
+      for (const k of [...DEFAULT_LAYOUT[fam].fields, ...DEFAULT_BAR[fam].fields]) expect(keys.has(k)).toBe(true);
     }
     expect(new Set(QUICK_FIELDS.map((f) => f.key)).size).toBe(QUICK_FIELDS.length);
   });
@@ -34,5 +34,8 @@ describe("quick panel fields", () => {
     expect(parseLayout(JSON.stringify({ fields: ["alt", "sats", "gone", "sats"], columns: 2 }), "rover")).toEqual({ fields: ["sats"], columns: 2 });
     expect(parseLayout(JSON.stringify({ fields: ["alt"], columns: 7 }), "copter")).toEqual({ fields: ["alt"], columns: 3 });
     expect(parseLayout(JSON.stringify({ fields: ["alt"] }), "rover")).toEqual(DEFAULT_LAYOUT.rover);
+    // The values bar keeps its own defaults.
+    expect(parseLayout(null, "copter", DEFAULT_BAR.copter)).toEqual(DEFAULT_BAR.copter);
+    expect(parseLayout(JSON.stringify({ fields: ["gone"] }), "rover", DEFAULT_BAR.rover)).toEqual(DEFAULT_BAR.rover);
   });
 });

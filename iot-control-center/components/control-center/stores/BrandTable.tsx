@@ -34,6 +34,23 @@ export function BrandTable() {
     setFormOpen(true);
   }
 
+  const rowActions = (brand: Brand) => (
+    <>
+      <Button variant="ghost" size="icon-sm" disabled={!mayManage} onClick={() => openEdit(brand)}>
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-status-alarm"
+        disabled={!mayManage}
+        onClick={() => setDeletingBrand(brand)}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    </>
+  );
+
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
@@ -45,7 +62,23 @@ export function BrandTable() {
       {brands.length === 0 ? (
         <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
       ) : (
-        <Table className="min-w-[640px] [&_th]:whitespace-nowrap">
+        <>
+        {/* Phones: one card per brand. */}
+        <ul className="space-y-2 md:hidden">
+          {brands.map((brand) => (
+            <li key={brand.id} className="flex items-start gap-2 rounded-lg border border-border bg-card/60 p-3 text-sm">
+              <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: brand.color }} />
+              <div className="min-w-0 flex-1">
+                <p className="break-words font-medium text-foreground">{brand.name}</p>
+                <p className="mt-0.5 break-words text-xs text-muted-foreground">
+                  {brand.description || "—"} · {t("stores")} {stores.filter((st) => st.brandId === brand.id).length}
+                </p>
+              </div>
+              <div className="flex shrink-0">{rowActions(brand)}</div>
+            </li>
+          ))}
+        </ul>
+        <Table className="min-w-[640px] [&_th]:whitespace-nowrap" wrapperClassName="hidden md:block">
           <TableHeader>
             <TableRow>
               <TableHead>{t("brand")}</TableHead>
@@ -67,24 +100,12 @@ export function BrandTable() {
                 <TableCell className="text-muted-foreground">
                   {stores.filter((s) => s.brandId === brand.id).length}
                 </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon-sm" disabled={!mayManage} onClick={() => openEdit(brand)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-status-alarm"
-                    disabled={!mayManage}
-                    onClick={() => setDeletingBrand(brand)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TableCell>
+                <TableCell className="text-right">{rowActions(brand)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </>
       )}
 
       <BrandFormDialog open={formOpen} onOpenChange={setFormOpen} brand={editingBrand} />

@@ -92,7 +92,7 @@ export function ParamsView({ vehicle, canCommand }: { vehicle: Vehicle; canComma
           <RefreshCw className={`h-3.5 w-3.5 ${s.busy === "fetch" ? "animate-spin" : ""}`} /> {s.busy === "fetch" ? t("fetching") : t("fetch")}
         </Button>
         <Select value={s.capturedAt ? String(s.capturedAt) : undefined} onValueChange={(v) => void s.loadSnapshot(Number(v))}>
-          <SelectTrigger className="h-8 w-60 text-xs">
+          <SelectTrigger className="min-h-8 w-60 max-w-full text-xs h-auto py-1 text-left [&>span]:line-clamp-none">
             <SelectValue placeholder={t("noSnapshot")} />
           </SelectTrigger>
           <SelectContent>
@@ -306,7 +306,7 @@ function SafetyPanel({ family, values, policy, disabled }: { family: "copter" | 
                 <div key={p} className="grid grid-cols-[1fr_12rem] items-start gap-2 text-xs">
                   <div className="min-w-0">
                     <p className="font-mono">{p}</p>
-                    <p className="truncate text-muted-foreground" title={meta?.[p]?.desc}>
+                    <p className="break-words text-muted-foreground" title={meta?.[p]?.desc}>
                       {meta?.[p]?.display ?? ""}
                     </p>
                   </div>
@@ -354,7 +354,7 @@ function ComparePanel({
       <p className="text-muted-foreground">{t("compareHint")}</p>
       <div className="flex flex-wrap items-center gap-2">
         <Select onValueChange={(v) => void pickSnapshot(v)}>
-          <SelectTrigger className="h-8 w-64 text-xs">
+          <SelectTrigger className="min-h-8 w-64 max-w-full text-xs h-auto py-1 text-left [&>span]:line-clamp-none">
             <SelectValue placeholder={t("compareSnapshot")} />
           </SelectTrigger>
           <SelectContent>

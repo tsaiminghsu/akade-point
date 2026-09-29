@@ -94,7 +94,7 @@ export function StoreGrants({
                     })
                   }
                 >
-                  <SelectTrigger className="h-8 w-40 text-xs" aria-label={t("storeRoleAt", { store: s.name })}>
+                  <SelectTrigger className="min-h-8 w-40 text-xs h-auto py-1 text-left [&>span]:line-clamp-none" aria-label={t("storeRoleAt", { store: s.name })}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -53,7 +53,7 @@ function ToolbarIconButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant={active ? "secondary" : "ghost"} size="icon-sm" onClick={onClick} disabled={disabled}>
+        <Button variant={active ? "secondary" : "ghost"} size="icon-sm" onClick={onClick} disabled={disabled} aria-label={label}>
           {children}
         </Button>
       </TooltipTrigger>
@@ -108,6 +108,13 @@ export function Toolbar({ containerRef }: ToolbarProps) {
     fitToScreen({ width: rect?.width ?? 1200, height: rect?.height ?? 800 });
   }
 
+  // Phones open on a sliver of a layout drawn for a wide screen: show all of it on each load.
+  const savedWidgets = useControlCenterStore((s) => s.savedWidgets);
+  useEffect(() => {
+    if (savedWidgets && window.matchMedia("(max-width: 767px)").matches) handleFit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedWidgets]);
+
   function handleExport() {
     // Read at click time: subscribing to `widgets` would re-render the whole
     // toolbar on every frame of every drag.
@@ -130,7 +137,9 @@ export function Toolbar({ containerRef }: ToolbarProps) {
   }
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-border bg-card/60 px-2 custom-scrollbar">
+    <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-1 border-b border-border bg-card/60 px-2 py-1 md:h-12 md:flex-nowrap md:overflow-x-auto md:overflow-y-hidden md:py-0 custom-scrollbar">
+      {/* Editing tools: phones can't edit the layout (see mobileHint), so they only get the view tools. */}
+      <div className="hidden items-center gap-1 md:contents">
       <ToolbarIconButton label={t("undo")} onClick={undo} disabled={!canUndo}>
         <Undo2 className="h-4 w-4" />
       </ToolbarIconButton>
@@ -164,6 +173,7 @@ export function Toolbar({ containerRef }: ToolbarProps) {
       </ToolbarIconButton>
 
       <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
+      </div>
 
       <ToolbarIconButton label={t("zoomOut")} onClick={() => zoomOut(centerPoint())}>
         <ZoomOut className="h-4 w-4" />
@@ -176,6 +186,7 @@ export function Toolbar({ containerRef }: ToolbarProps) {
         <Maximize className="h-4 w-4" />
       </ToolbarIconButton>
 
+      <div className="hidden items-center gap-1 md:contents">
       <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
 
       <ToolbarIconButton label={t("exportLayout")} onClick={handleExport}>
@@ -195,6 +206,7 @@ export function Toolbar({ containerRef }: ToolbarProps) {
           e.target.value = "";
         }}
       />
+      </div>
 
       <div className="min-w-2 flex-1" />
 
@@ -202,7 +214,7 @@ export function Toolbar({ containerRef }: ToolbarProps) {
         <SearchLocate containerRef={containerRef} />
       </div>
 
-      <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
+      <Separator orientation="vertical" className="mx-1 hidden h-6 shrink-0 md:block" />
 
       <ToggleGroup
         type="single"
