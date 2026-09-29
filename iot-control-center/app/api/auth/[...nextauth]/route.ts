@@ -8,8 +8,9 @@ async function createHandler(
   context: { params: { nextauth: string[] } }
 ) {
   const { clientId, clientSecret } = await getActiveLineConfig();
-  const handler = NextAuth(buildAuthOptions(clientId, clientSecret));
-  return handler(req as any, context as any);
+  // The App Router overload (request, route context, options) is typed; the
+  // one-argument form returns an untyped handler that needed `any` casts.
+  return NextAuth(req, context, buildAuthOptions(clientId, clientSecret));
 }
 
 export async function GET(req: NextRequest, context: { params: { nextauth: string[] } }) {
