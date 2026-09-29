@@ -88,11 +88,12 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
 
   return (
     <div className="flex flex-col gap-3 lg:h-full lg:min-h-0 lg:flex-row">
-      <div className="flex flex-col gap-3 lg:min-h-0 lg:w-[400px] lg:shrink-0">
-        <div className="aspect-[4/3] w-full shrink-0">
+      {/* Phones: HUD, then the map, then the panels (the column dissolves below lg so they can be reordered). */}
+      <div className="contents lg:flex lg:min-h-0 lg:w-[400px] lg:shrink-0 lg:flex-col lg:gap-3">
+        <div className="order-1 aspect-[4/3] w-full shrink-0 lg:order-none">
           <Hud state={state} stale={stale} everReceived={state !== null} labels={hudLabels} />
         </div>
-        <Tabs defaultValue="quick" className="flex flex-col lg:min-h-0 lg:flex-1">
+        <Tabs defaultValue="quick" className="order-3 flex flex-col lg:order-none lg:min-h-0 lg:flex-1">
           <TabsList className="w-full shrink-0">
             <TabsTrigger value="quick" className="flex-1 text-xs">
               {t("tabs.quick")}
@@ -170,7 +171,7 @@ export function FlightDataView({ canCommand }: { canCommand: boolean }) {
         </Tabs>
       </div>
 
-      <div className="relative h-[60vh] min-h-[360px] lg:h-auto lg:flex-1">
+      <div className="relative order-2 h-[45vh] min-h-[300px] lg:order-none lg:h-auto lg:flex-1">
         {main === "video" && hasVideo ? (
           <VideoPanel
             url={vehicle!.videoUrl}

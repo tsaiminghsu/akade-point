@@ -137,7 +137,7 @@ export function ReplayView({ vehicle }: { vehicle: Vehicle }) {
         </div>
         {error && <p className="text-xs text-status-alarm">{t("loadFailed")}</p>}
         {!loading && flights.length === 0 && !error && <p className="text-xs text-muted-foreground">{t("none")}</p>}
-        <ul className="divide-y divide-border/50 overflow-y-auto rounded-md border border-border/60 text-xs lg:min-h-0 lg:flex-1">
+        <ul className="max-h-56 divide-y divide-border/50 overflow-y-auto rounded-md border border-border/60 text-xs lg:max-h-none lg:min-h-0 lg:flex-1">
           {flights.map((f) => (
             <li key={f.start}>
               <button

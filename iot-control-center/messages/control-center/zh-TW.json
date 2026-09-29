@@ -399,7 +399,8 @@
     "switchStoreTitle": "切換門市？",
     "switchStoreDescription": "目前的平面圖有未儲存的變更，切換門市將會捨棄這些變更。",
     "switchStoreConfirm": "捨棄並切換",
-    "loadFailed": "無法載入此門市的平面圖。"
+    "loadFailed": "無法載入此門市的平面圖。",
+    "mobileHint": "手機上可檢視平面圖與切換即時模式；新增元件與編輯屬性請用平板或電腦。"
   },
   "LayersPanel": {
     "title": "圖層",

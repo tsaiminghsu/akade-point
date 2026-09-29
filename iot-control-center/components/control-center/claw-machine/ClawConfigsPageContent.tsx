@@ -228,7 +228,7 @@ export default function ClawConfigsPageContent() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-y-auto lg:overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2 sm:px-6 sm:py-3">
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 text-base font-semibold text-foreground sm:text-lg">
@@ -238,7 +238,7 @@ export default function ClawConfigsPageContent() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex flex-1 lg:min-h-0">
         {/* Machine list (desktop). Phones pick from the select in the toolbar. */}
         <aside className="hidden w-72 shrink-0 flex-col border-r border-border lg:flex">
           <div className="space-y-2 border-b border-border p-3">
@@ -367,7 +367,8 @@ export default function ClawConfigsPageContent() {
             )}
           </div>
 
-          <div className="min-h-0 flex-1">
+          {/* Phones: the page scrolls and the simulator gets (nearly) a screen of its own instead of what the header leaves. */}
+          <div className="h-[calc(100dvh-4rem)] min-h-[560px] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
             {machine && draft ? (
               <ClawBench
                 key={`${machine.id}:${benchKey}`}

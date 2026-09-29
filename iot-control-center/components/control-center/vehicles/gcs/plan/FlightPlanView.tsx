@@ -503,7 +503,8 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
         </div>
       </div>
 
-      <div className="h-[60vh] min-h-[360px] lg:h-auto lg:flex-1">
+      {/* Phones: the map first and pinned while the list scrolls under it, so a tool picked below lands on a map in view. */}
+      <div className="sticky top-0 z-20 order-first h-[42vh] min-h-[280px] rounded-md bg-background lg:static lg:order-none lg:h-auto lg:flex-1">
         <GcsMap
           state={gcsState}
           trail={trail}

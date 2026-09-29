@@ -399,7 +399,8 @@
     "switchStoreTitle": "Switch store?",
     "switchStoreDescription": "You have unsaved layout changes. Switching store will discard them.",
     "switchStoreConfirm": "Discard and switch",
-    "loadFailed": "Failed to load this store's layout."
+    "loadFailed": "Failed to load this store's layout.",
+    "mobileHint": "On a phone you can view the floor plan and switch to live mode; adding widgets and editing properties needs a tablet or computer."
   },
   "LayersPanel": {
     "title": "Layers",
