@@ -25,7 +25,9 @@ export function CloudFilesPanel({ vehicle }: { vehicle: Vehicle }) {
   const [kind, setKind] = useState<VehicleFileKind>("photo");
   const upload = useGcsStore((s) => s.state?.upload ?? null);
   const mayDelete = useCan("store.manage", vehicle.storeId);
-  const list = useCloudFiles(vehicle.id, kind);
+  // A phone (and its data plan) gets a short page, two photos a row; "older" loads the next.
+  const [pageSize] = useState(() => (window.matchMedia("(max-width: 767px)").matches ? 8 : 60));
+  const list = useCloudFiles(vehicle.id, kind, pageSize);
   const [deleting, setDeleting] = useState<VehicleFileView | null>(null);
 
   // A photo or log finished uploading: show it without a manual refresh.
@@ -88,12 +90,14 @@ export function CloudFilesPanel({ vehicle }: { vehicle: Vehicle }) {
                 {/* eslint-disable-next-line @next/next/no-img-element -- presigned / authenticated URLs, not static assets */}
                 <img src={f.url ?? ""} alt={f.name} loading="lazy" className="h-full w-full object-cover" />
               </a>
-              <div className="flex items-center gap-1 px-2 py-1.5">
+              <div className="flex items-start gap-1 px-2 py-1.5">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate tabular-nums">{new Date(f.t).toLocaleString()}</p>
-                  <p className="flex items-center gap-1 truncate tabular-nums text-muted-foreground">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    {f.geo ? `${f.geo.lat.toFixed(5)}, ${f.geo.lon.toFixed(5)}${f.geo.rel != null ? ` · ${f.geo.rel.toFixed(0)} m` : ""}` : t("noGeo")}
+                  <p className="break-words tabular-nums">{new Date(f.t).toLocaleString()}</p>
+                  <p className="flex items-start gap-1 tabular-nums text-muted-foreground">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span className="min-w-0 break-words">
+                      {f.geo ? `${f.geo.lat.toFixed(5)}, ${f.geo.lon.toFixed(5)}${f.geo.rel != null ? ` · ${f.geo.rel.toFixed(0)} m` : ""}` : t("noGeo")}
+                    </span>
                   </p>
                 </div>
                 <FileActions f={f} mayDelete={mayDelete} onDelete={() => setDeleting(f)} />
@@ -106,7 +110,7 @@ export function CloudFilesPanel({ vehicle }: { vehicle: Vehicle }) {
           {list.files.map((f) => (
             <li key={f.fileId} className="flex items-center gap-2 px-3 py-2">
               <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate font-mono">{f.name}</span>
+              <span className="min-w-0 flex-1 break-all font-mono">{f.name}</span>
               <span className="tabular-nums text-muted-foreground">{formatBytes(f.bytes)}</span>
               <span className="hidden tabular-nums text-muted-foreground sm:inline">{new Date(f.t).toLocaleString()}</span>
               <FileActions f={f} mayDelete={mayDelete} onDelete={() => setDeleting(f)} />

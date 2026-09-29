@@ -117,11 +117,11 @@ export function StoreMembersDialog({ storeId, storeName, open, onOpenChange }: {
           {members?.map((m) => (
             <div key={m.userId} className="flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-muted/30">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm">
+                <p className="break-words text-sm">
                   {who(m)}
                   {m.self && <span className="ml-1.5 text-[11px] text-muted-foreground">{t("you")}</span>}
                 </p>
-                <p className="truncate text-[11px] text-muted-foreground">
+                <p className="break-all text-[11px] text-muted-foreground">
                   {m.email && m.name ? `${m.email} · ` : ""}
                   {m.globalRole ? t("globalRole", { role: tRole(m.globalRole) }) : t("storeOnly")}
                 </p>
@@ -178,8 +178,8 @@ export function StoreMembersDialog({ storeId, storeName, open, onOpenChange }: {
             {found && (
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 p-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{who(found)}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">{found.email ?? found.userId}</p>
+                  <p className="break-words text-sm">{who(found)}</p>
+                  <p className="break-all text-[11px] text-muted-foreground">{found.email ?? found.userId}</p>
                 </div>
                 {already ? (
                   <span className="text-[11px] text-muted-foreground">{t("alreadyMember")}</span>

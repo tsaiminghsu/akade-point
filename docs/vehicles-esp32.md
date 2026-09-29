@@ -35,7 +35,7 @@ DroneBridge 把飛控 TELEM 的 MAVLink 轉成 WiFi（AP 或 client 模式）的
 
 **地面中繼**：
 - 在場邊筆電或 Pi 跑一個 companion 實例，設定 `mavlink_url = "udpin:0.0.0.0:14550"`，DroneBridge 的目標就指向這台。
-- DroneBridge 會注入 `RADIO_STATUS`，地面站狀態列的 RSSI 會優先顯示它。
+- DroneBridge 會注入 `RADIO_STATUS`，地面站工具列的訊號指示器會優先顯示它。
 - 要同時開 Mission Planner 的話，請讓 mavlink-router 擁有這個 UDP 埠，companion 與 MP 都接 router（見 [`vehicles-companion.md`](./vehicles-companion.md)）。
 
 ## 2. 酬載節點 `esp32-payload-node`
@@ -135,7 +135,7 @@ sudo systemctl enable --now vehicle-companion@esp32rover
 - 飛控設 `DID_ENABLE=1` 以及 `DID_MAVPORT` 或 `DID_CANDRIVER`。
 
 **地面站**：
-- 模組送出的 `OPEN_DRONE_ID_ARM_STATUS` 會顯示成狀態列的 Remote ID 徽章：綠色表示可解鎖；紅色表示模組拒絕解鎖，滑過徽章可看原因。
+- 模組送出的 `OPEN_DRONE_ID_ARM_STATUS` 會顯示在工具列「系統狀態」裡的 Remote ID 徽章：綠色表示可解鎖；紅色表示模組拒絕解鎖，滑過徽章可看原因。
 - 沒有模組時不顯示徽章。
 
 **操作者位置**：

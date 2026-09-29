@@ -45,13 +45,13 @@ export function HistoryTable({ events }: { events: MachineEvent[] }) {
           return (
             <li key={e.id} className="rounded-lg border border-border bg-card/60 p-3 text-xs">
               <div className="flex items-center gap-2">
-                <span className={cn("flex min-w-0 flex-1 items-center gap-1.5 truncate font-medium", SEVERITY_CLASS[e.severity])}>
+                <span className={cn("flex min-w-0 flex-1 items-center gap-1.5 break-words font-medium", SEVERITY_CLASS[e.severity])}>
                   <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" /> {e.type}
                 </span>
                 <span className="shrink-0 tabular-nums text-muted-foreground">{new Date(e.timestamp).toLocaleString(locale)}</span>
               </div>
               <p className="mt-1 text-foreground">{e.message}</p>
-              <p className="mt-1 truncate text-muted-foreground">
+              <p className="mt-1 break-words text-muted-foreground">
                 {machineNameById.get(e.machineId) ?? e.machineId} · {storeNameById.get(e.storeId) ?? e.storeId}
               </p>
             </li>

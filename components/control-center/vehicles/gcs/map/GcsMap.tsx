@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import { Crosshair, Download, Home, Layers, LocateFixed, Navigation, Plane, Ruler, X } from "lucide-react";
+import { Crosshair, Download, Home, Layers, LocateFixed, Minus, Navigation, Plane, Plus, Ruler, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -108,6 +108,22 @@ function PrefetchButton({ layerId }: { layerId: string }) {
   );
 }
 
+/** Zoom buttons in the right-hand control column (the left edge belongs to the fly view's tool strip). */
+function ZoomButtons() {
+  const t = useTranslations("Gcs.map");
+  const map = useMap();
+  return (
+    <div className="flex flex-col overflow-hidden rounded-md shadow">
+      <Button size="icon-sm" variant="secondary" className="rounded-none" onClick={() => map.zoomIn()} aria-label={t("zoomIn")} title={t("zoomIn")}>
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
+      <Button size="icon-sm" variant="secondary" className="rounded-none border-t border-border/60" onClick={() => map.zoomOut()} aria-label={t("zoomOut")} title={t("zoomOut")}>
+        <Minus className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export function GcsMap({
   state,
   trail,
@@ -120,6 +136,7 @@ export function GcsMap({
   children,
   vehicleLabel,
   cursor,
+  controls,
 }: {
   state: VehicleStateV2 | null;
   trail: [number, number][];
@@ -134,6 +151,8 @@ export function GcsMap({
   vehicleLabel?: string;
   /** CSS cursor over the map, e.g. "crosshair" while adding points */
   cursor?: string;
+  /** extra buttons for the right-hand control column */
+  controls?: React.ReactNode;
 }) {
   const t = useTranslations("Gcs.map");
   const [layerId, setLayerId] = useState(DEFAULT_LAYER_ID);
@@ -197,7 +216,7 @@ export function GcsMap({
 
   return (
     <div ref={boxRef} className="gcs-map relative h-full w-full overflow-hidden rounded-md" style={cursor ? ({ "--gcs-cursor": cursor } as React.CSSProperties) : undefined} data-cursor={cursor ? "" : undefined}>
-      <MapContainer center={pos ? [pos.lat, pos.lon] : TAIPEI} zoom={pos ? 17 : 12} maxZoom={21} className="h-full w-full" zoomControl>
+      <MapContainer center={pos ? [pos.lat, pos.lon] : TAIPEI} zoom={pos ? 17 : 12} maxZoom={21} className="h-full w-full" zoomControl={false}>
         <TileLayer key={layer.id} url={layer.url} attribution={layer.attribution} maxZoom={layer.maxZoom} maxNativeZoom={layer.maxNativeZoom} crossOrigin="anonymous" />
         <AutoResize />
         <InitialView lat={pos?.lat ?? null} lon={pos?.lon ?? null} />
@@ -213,6 +232,7 @@ export function GcsMap({
         {children}
         <div className="leaflet-top leaflet-right">
           <div className="leaflet-control flex flex-col gap-1.5">
+            <ZoomButtons />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="icon-sm" variant="secondary" className="shadow" aria-label={t("layers")} title={t("layers")}>
@@ -254,12 +274,13 @@ export function GcsMap({
               </Button>
             )}
             <PrefetchButton layerId={layerId} />
+            {controls}
           </div>
         </div>
       </MapContainer>
 
       {measureInfo && (
-        <div className="absolute bottom-3 left-3 z-[1000] flex items-center gap-2 rounded-md bg-background/90 px-2.5 py-1.5 text-xs shadow">
+        <div className="absolute left-1/2 top-2 z-[1000] flex -translate-x-1/2 items-center gap-2 rounded-md bg-background/90 px-2.5 py-1.5 text-xs shadow">
           <Ruler className="h-3.5 w-3.5 text-primary" />
           <span className="tabular-nums">
             {measureInfo.dist} · {measureInfo.brg}°

@@ -361,7 +361,7 @@ export function FlightPlanView({ vehicle, canCommand }: { vehicle: Vehicle; canC
         <div className="space-y-2 rounded-md border border-border/60 p-2">
           <div className="flex gap-2">
             <Select value={recordId ?? "new"} onValueChange={openRecord}>
-              <SelectTrigger className="h-8 flex-1 text-xs">
+              <SelectTrigger className="min-h-8 flex-1 text-xs h-auto py-1 text-left [&>span]:line-clamp-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CircleMarker, Popup, useMap } from "react-leaflet";
-import { History, Pause, Play, RefreshCw } from "lucide-react";
+import { ChevronDown, History, Pause, Play, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { formatDistance } from "@/lib/control-center/vehicles/gcs/geo";
@@ -14,6 +14,8 @@ import { VehicleMarker } from "../map/mapParts";
 import { useCloudFiles } from "../logs/useCloudFiles";
 
 const PAGE = 2000;
+/** Flights listed on a phone before "show all". */
+const PHONE_FLIGHTS = 4;
 const SPEEDS = [1, 4, 16] as const;
 
 function duration(ms: number): string {
@@ -47,6 +49,7 @@ export function ReplayView({ vehicle }: { vehicle: Vehicle }) {
   const [points, setPoints] = useState<TelemetryPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [more, setMore] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [at, setAt] = useState(0);
@@ -137,9 +140,10 @@ export function ReplayView({ vehicle }: { vehicle: Vehicle }) {
         </div>
         {error && <p className="text-xs text-status-alarm">{t("loadFailed")}</p>}
         {!loading && flights.length === 0 && !error && <p className="text-xs text-muted-foreground">{t("none")}</p>}
-        <ul className="max-h-56 divide-y divide-border/50 overflow-y-auto rounded-md border border-border/60 text-xs lg:max-h-none lg:min-h-0 lg:flex-1">
-          {flights.map((f) => (
-            <li key={f.start}>
+        {/* Phones: the latest few in the page flow (no scroller squeezed above the map); the rest on request. */}
+        <ul className="divide-y divide-border/50 rounded-md border border-border/60 text-xs lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+          {flights.map((f, i) => (
+            <li key={f.start} className={!showAll && i >= PHONE_FLIGHTS && selected !== f.start ? "max-lg:hidden" : undefined}>
               <button
                 className={`w-full space-y-0.5 px-3 py-2 text-left hover:bg-muted/40 ${selected === f.start ? "bg-primary/10" : ""}`}
                 onClick={() => choose(f)}
@@ -154,6 +158,11 @@ export function ReplayView({ vehicle }: { vehicle: Vehicle }) {
             </li>
           ))}
         </ul>
+        {!showAll && flights.length > PHONE_FLIGHTS && (
+          <Button size="sm" variant="ghost" className="gap-1.5 lg:hidden" onClick={() => setShowAll(true)}>
+            <ChevronDown className="h-3.5 w-3.5" /> {t("showAll", { n: flights.length })}
+          </Button>
+        )}
         {more && oldest !== undefined && (
           <Button size="sm" variant="ghost" className="gap-1.5" disabled={loading} onClick={() => void load(oldest)}>
             <History className="h-3.5 w-3.5" /> {t("older")}

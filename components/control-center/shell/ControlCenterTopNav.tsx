@@ -61,11 +61,12 @@ export function ControlCenterTopNav() {
         <Button variant="ghost" size="icon-sm" className="shrink-0 md:hidden" onClick={toggleMobileSidebar}>
           <Menu className="h-4 w-4" />
         </Button>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+        {/* Phones drop the logo so the title fits; a long translation wraps instead of being cut. */}
+        <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary sm:flex">
           <Radio className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-semibold tracking-wide text-foreground">{t("title")}</p>
+          <p className="break-words text-sm font-semibold tracking-wide text-foreground sm:truncate">{t("title")}</p>
           <p className="hidden truncate text-[10px] text-muted-foreground sm:block">{t("subtitle")}</p>
         </div>
       </div>

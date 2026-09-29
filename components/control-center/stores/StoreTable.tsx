@@ -42,6 +42,33 @@ export function StoreTable() {
     setFormOpen(true);
   }
 
+  const rowActions = (store: Store) => (
+    <>
+      {store.id !== activeStoreId && (
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setActiveStore(store.id)}>
+          {t("switchTo")}
+        </Button>
+      )}
+      {mayMembersAt(store.id) && (
+        <Button variant="ghost" size="icon-sm" onClick={() => setMembersOf(store)} aria-label={t("members", { name: store.name })} title={t("members", { name: store.name })}>
+          <Users className="h-3.5 w-3.5" />
+        </Button>
+      )}
+      <Button variant="ghost" size="icon-sm" disabled={!mayManageAt(store.id)} onClick={() => openEdit(store)}>
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-status-alarm"
+        disabled={!mayManage}
+        onClick={() => setDeletingStore(store)}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    </>
+  );
+
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
@@ -53,7 +80,30 @@ export function StoreTable() {
       {stores.length === 0 ? (
         <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
       ) : (
-        <Table className="min-w-[640px] [&_th]:whitespace-nowrap">
+        <>
+        {/* Phones: one card per store instead of a table wider than the screen. */}
+        <ul className="space-y-2 md:hidden">
+          {stores.map((store) => {
+            const brand = brands.find((b) => b.id === store.brandId);
+            return (
+              <li key={store.id} className="rounded-lg border border-border bg-card/60 p-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 break-words font-medium text-foreground">
+                      {store.name}
+                      {store.id === activeStoreId && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                    </p>
+                    <p className="mt-0.5 break-words text-xs text-muted-foreground">
+                      {store.address || "—"} · {brand?.name ?? "—"} · {t("machines")} {machines.filter((m) => m.storeId === store.id).length}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center justify-end gap-0.5">{rowActions(store)}</div>
+              </li>
+            );
+          })}
+        </ul>
+        <Table className="min-w-[640px] [&_th]:whitespace-nowrap" wrapperClassName="hidden md:block">
           <TableHeader>
             <TableRow>
               <TableHead>{t("store")}</TableHead>
@@ -88,35 +138,13 @@ export function StoreTable() {
                   <TableCell className="text-muted-foreground">
                     {machines.filter((m) => m.storeId === store.id).length}
                   </TableCell>
-                  <TableCell className="text-right">
-                    {store.id !== activeStoreId && (
-                      <Button variant="ghost" size="sm" className="text-xs" onClick={() => setActiveStore(store.id)}>
-                        {t("switchTo")}
-                      </Button>
-                    )}
-                    {mayMembersAt(store.id) && (
-                      <Button variant="ghost" size="icon-sm" onClick={() => setMembersOf(store)} aria-label={t("members", { name: store.name })} title={t("members", { name: store.name })}>
-                        <Users className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon-sm" disabled={!mayManageAt(store.id)} onClick={() => openEdit(store)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-status-alarm"
-                      disabled={!mayManage}
-                      onClick={() => setDeletingStore(store)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
+                  <TableCell className="text-right">{rowActions(store)}</TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
+        </>
       )}
 
       <StoreFormDialog open={formOpen} onOpenChange={setFormOpen} store={editingStore} />

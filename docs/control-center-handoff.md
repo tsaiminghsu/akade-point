@@ -451,14 +451,23 @@ GSI（定義於 `scripts/create-tables.mjs`）：
   - MinIO 已不再提供映像或執行檔；LocalStack `latest` 需要 auth token，所以固定用 4.12，並設 `S3_SKIP_SIGNATURE_VALIDATION=0`。
 - **手機版面**（2026-09-30）：以 iPhone 13 尺寸（390×844）逐頁截圖檢查後修正。
   - 清單頁（機台、載具、歷史、警報）：手機上整頁捲動，列表改成卡片；md 以上維持原本的固定高度與表格。
-  - 門市、品牌、使用者表格：設 `min-w` 並讓表頭不換行，改為左右捲動。
+  - 門市、品牌、使用者：手機上改成卡片（`Table` 新增 `wrapperClassName`，表格從 md 起才出現）。
   - 載具頁：地圖在上、清單在下，不再被壓成 0 高。
-  - 地面站飛行資料：手機上依序為 HUD、地圖、面板，用 `contents` 拆開左欄再以 `order` 排序。
-  - 任務規劃：地圖 `sticky` 固定在上方；回放的航班清單限高。
-  - 平面圖編輯器：手機只顯示畫布與提示，元件庫、屬性、小地圖從 md 起才出現。
+  - 地面站飛行資料：已改成 QGC 版面（見下一項）。
+  - 任務規劃：地圖 `sticky` 固定在上方。回放的航班、樹莓派 tlog 在手機上先列最新幾筆，加「顯示全部」；雲端照片手機一頁 8 張。
+  - 平面圖編輯器：手機只顯示畫布、檢視工具與提示，元件庫、屬性、小地圖與編輯工具從 md 起才出現；手機載入時自動 fit。
   - 娃娃機模擬器：手機上給接近一整個畫面的高度，設定面板最多佔 58%。
   - 共用 Dialog／AlertDialog：左右留邊、圓角、超過螢幕高度時可捲動。
-  - 檢查腳本放在 session scratchpad（Playwright 無頭瀏覽器，截圖加橫向溢出偵測），沒有放進 repo。
+  - 「不被切到」：手機上的 `truncate` 多改成換行（`break-words`），長選項的 SelectTrigger 改成可換行、高度自動；儀表板最近事件在手機上不再是巢狀捲動（只列 10 筆）。
+  - 檢查腳本放在 session scratchpad（Playwright 無頭瀏覽器：截圖、橫向溢出、被父層裁切、省略號截斷偵測），沒有放進 repo。
+- **飛行資料改成 QGroundControl 版面**（2026-09-30）：地圖全螢幕，其餘浮在地圖上，手機與電腦同一套。
+  - 頁首工具列 `FlyToolbar`（所有頁籤共用，取代原本的狀態列晶片）：主狀態、模式選單、各指示器的 Popover。
+  - 左側動作列 `FlyToolStrip` + 滑動確認 `GuidedConfirm`（地圖選單的飛到這裡、設為 Home 也改走這裡）；數值列 `ValuesBar`（`gcs.bar.*`，與 Quick 面板分開記）；姿態羅盤 `AttitudeCompass`。
+  - 原本的分頁（動作、數值、HUD、訊息、圖表、雲台、相機、酬載、駕駛）移到「更多」面板：lg 以上停靠右側，以下是底部面板。
+  - 狀態判斷是純函式 `lib/control-center/vehicles/gcs/flyView.ts`（有測試）：飛行中是推算的（解鎖且離地 >1 m 或在移動）；任務鈕靠「最後一個 acked 的任務指令」分辨 AUTO 中的暫停與執行，因為 DO_PAUSE_CONTINUE 暫停後模式仍是 AUTO。
+  - GcsMap 的縮放鈕移到右側控制欄（左邊給動作列），量距離結果移到地圖上方；新 prop `controls` 可加按鈕。
+  - 已用假飛控在手機尺寸實測：起飛（滑動、+5 m）、煞停、降落，工具列與儀表隨之更新。
+  - 使用者手冊的截圖全部換成手機版（`docs/images/user-guide/`，會捲動的頁面是整頁長截圖），Claude Docs 版同步更新。
 - **待辦**：
   - 真實 AWS bucket 與 Amplify SSR role 的權限。
   - 角色變更的稽核紀錄（目前只存最後的 `updatedBy`／`updatedAt`）。

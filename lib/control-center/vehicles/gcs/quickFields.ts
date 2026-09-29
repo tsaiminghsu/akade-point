@@ -110,16 +110,24 @@ export const DEFAULT_LAYOUT: Record<Family, QuickLayout> = {
 
 export const layoutKey = (family: Family) => `gcs.quick.${family}`;
 
-/** Parses a stored layout, dropping unknown or inapplicable fields; the default if nothing usable is left. */
-export function parseLayout(raw: string | null, family: Family): QuickLayout {
-  if (!raw) return DEFAULT_LAYOUT[family];
+/** The fly view's values bar (QGC's telemetry bar): a few big numbers over the map. */
+export const DEFAULT_BAR: Record<Family, QuickLayout> = {
+  copter: { columns: 4, fields: ["alt", "groundspeed", "climb", "homeDist"] },
+  rover: { columns: 4, fields: ["groundspeed", "homeDist", "wpDist", "heading"] },
+};
+
+export const barKey = (family: Family) => `gcs.bar.${family}`;
+
+/** Parses a stored layout, dropping unknown or inapplicable fields; the fallback if nothing usable is left. */
+export function parseLayout(raw: string | null, family: Family, fallback: QuickLayout = DEFAULT_LAYOUT[family]): QuickLayout {
+  if (!raw) return fallback;
   try {
     const v = JSON.parse(raw) as Partial<QuickLayout>;
     const allowed = new Set(fieldsFor(family).map((f) => f.key));
     const fields = Array.isArray(v.fields) ? [...new Set(v.fields.filter((k): k is string => typeof k === "string" && allowed.has(k)))] : [];
-    const columns = v.columns === 2 || v.columns === 3 || v.columns === 4 ? v.columns : DEFAULT_LAYOUT[family].columns;
-    return fields.length ? { fields, columns } : DEFAULT_LAYOUT[family];
+    const columns = v.columns === 2 || v.columns === 3 || v.columns === 4 ? v.columns : fallback.columns;
+    return fields.length ? { fields, columns } : fallback;
   } catch {
-    return DEFAULT_LAYOUT[family];
+    return fallback;
   }
 }

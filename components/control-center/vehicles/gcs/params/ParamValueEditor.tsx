@@ -42,7 +42,7 @@ export function ParamValueEditor({
     return (
       <div className="min-w-0">
         <Select value={value === undefined ? undefined : String(value)} disabled={disabled || value === undefined} onValueChange={(v) => onChange(Number(v))}>
-          <SelectTrigger className={cn("h-7 text-xs", changed && "border-status-warning")} aria-label={name}>
+          <SelectTrigger className={cn("min-h-7 text-xs h-auto py-1 text-left [&>span]:line-clamp-none", changed && "border-status-warning")} aria-label={name}>
             <SelectValue placeholder="—" />
           </SelectTrigger>
           <SelectContent>

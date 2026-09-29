@@ -43,7 +43,7 @@ export function RoleSelect({ userId, role, isAdmin, self }: { userId: string; ro
 
   return (
     <Select value={value} onValueChange={(v) => void change(v)} disabled={busy || self}>
-      <SelectTrigger className="ml-auto h-8 w-44 text-xs" aria-label={t("label")} title={self ? t("cannotChangeSelf") : undefined}>
+      <SelectTrigger className="ml-auto min-h-8 w-44 text-xs h-auto py-1 text-left [&>span]:line-clamp-none" aria-label={t("label")} title={self ? t("cannotChangeSelf") : undefined}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

@@ -14,7 +14,7 @@ Pixhawk ──UART── mavlink-router ──UDP 14540── vehicle_companion 
   - 樹莓派：`sudo raspi-config nonint do_serial_cons 1 && sudo raspi-config nonint do_serial_hw 0`（關序列 console、開硬體 UART），重開機後為 `/dev/serial0`。
   - 飛控：`SERIAL2_PROTOCOL = 2`（MAVLink2）、`SERIAL2_BAUD = 921`（921600）。
 - 也可用 USB（`/dev/ttyACM0`），但 USB 供電與干擾較不穩，飛行時建議 UART。
-- **Pi 的 5V 供電要夠**：欠壓時 Pi 會降頻、斷線；地面站狀態列會顯示 `vcgencmd get_throttled` 的欠壓旗標。
+- **Pi 的 5V 供電要夠**：欠壓時 Pi 會降頻、斷線；地面站工具列的「系統狀態」會顯示 `vcgencmd get_throttled` 的欠壓旗標。
 
 ## 安裝
 
@@ -64,7 +64,7 @@ mavlink-router 同時服務所有 endpoint：Mission Planner 以 **TCP** 連 `<P
 - companion 用 `source_system = 253`，避開 Mission Planner 的 255。
 - companion 只接受「回給自己」的 COMMAND_ACK：Mission Planner 同時操作時，雙方的 ACK 不會互搶。
 - Mission Planner 連上時會用 `REQUEST_DATA_STREAM` 改掉飛控的訊息頻率；companion 每 20 秒以 `SET_MESSAGE_INTERVAL` 重設一次。
-- 地面站狀態列會顯示「有其他 GCS 連線」。
+- 地面站工具列的「系統狀態」會顯示「另有 N 個 GCS」。
 
 ## GCS 失控保護（`gcs_heartbeat`）
 
