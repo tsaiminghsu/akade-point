@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 392" width="760" height="392" role="img" aria-label="範本 2　測繪航拍：來回航線，邊飛邊拍" font-family="'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif">
+<defs>
+<marker id="a-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#57606a"/></marker>
+<marker id="a-route" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e8743b"/></marker>
+<marker id="a-rally" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7b61ff"/></marker>
+</defs>
+<rect width="760" height="392" rx="12" fill="#ffffff"/>
+<text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">範本 2　測繪航拍：來回航線，邊飛邊拍</text>
+<rect x="24" y="52" width="440" height="316" rx="10" fill="#f3f6f9" stroke="#c9d1d9"/>
+<polygon points="70,100 372,90 386,320 80,336" fill="#0b6fa4" fill-opacity="0.06" stroke="#0b6fa4" stroke-width="1.5"/>
+<path d="M96 110 L96 318 L138 318 L138 110 L180 110 L180 318 L222 318 L222 110 L264 110 L264 318 L306 318 L306 110 L348 110 L348 318" fill="none" stroke="#e8743b" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="96" cy="122" r="3.2" fill="#1f78c8"/>
+<circle cx="96" cy="154" r="3.2" fill="#1f78c8"/>
+<circle cx="96" cy="186" r="3.2" fill="#1f78c8"/>
+<circle cx="96" cy="218" r="3.2" fill="#1f78c8"/>
+<circle cx="96" cy="250" r="3.2" fill="#1f78c8"/>
+<circle cx="96" cy="282" r="3.2" fill="#1f78c8"/>
+<circle cx="96" cy="314" r="3.2" fill="#1f78c8"/>
+<circle cx="138" cy="122" r="3.2" fill="#1f78c8"/>
+<circle cx="138" cy="154" r="3.2" fill="#1f78c8"/>
+<circle cx="138" cy="186" r="3.2" fill="#1f78c8"/>
+<circle cx="138" cy="218" r="3.2" fill="#1f78c8"/>
+<circle cx="138" cy="250" r="3.2" fill="#1f78c8"/>
+<circle cx="138" cy="282" r="3.2" fill="#1f78c8"/>
+<circle cx="138" cy="314" r="3.2" fill="#1f78c8"/>
+<circle cx="180" cy="122" r="3.2" fill="#1f78c8"/>
+<circle cx="180" cy="154" r="3.2" fill="#1f78c8"/>
+<circle cx="180" cy="186" r="3.2" fill="#1f78c8"/>
+<circle cx="180" cy="218" r="3.2" fill="#1f78c8"/>
+<circle cx="180" cy="250" r="3.2" fill="#1f78c8"/>
+<circle cx="180" cy="282" r="3.2" fill="#1f78c8"/>
+<circle cx="180" cy="314" r="3.2" fill="#1f78c8"/>
+<circle cx="222" cy="122" r="3.2" fill="#1f78c8"/>
+<circle cx="222" cy="154" r="3.2" fill="#1f78c8"/>
+<circle cx="222" cy="186" r="3.2" fill="#1f78c8"/>
+<circle cx="222" cy="218" r="3.2" fill="#1f78c8"/>
+<circle cx="222" cy="250" r="3.2" fill="#1f78c8"/>
+<circle cx="222" cy="282" r="3.2" fill="#1f78c8"/>
+<circle cx="222" cy="314" r="3.2" fill="#1f78c8"/>
+<circle cx="264" cy="122" r="3.2" fill="#1f78c8"/>
+<circle cx="264" cy="154" r="3.2" fill="#1f78c8"/>
+<circle cx="264" cy="186" r="3.2" fill="#1f78c8"/>
+<circle cx="264" cy="218" r="3.2" fill="#1f78c8"/>
+<circle cx="264" cy="250" r="3.2" fill="#1f78c8"/>
+<circle cx="264" cy="282" r="3.2" fill="#1f78c8"/>
+<circle cx="264" cy="314" r="3.2" fill="#1f78c8"/>
+<circle cx="306" cy="122" r="3.2" fill="#1f78c8"/>
+<circle cx="306" cy="154" r="3.2" fill="#1f78c8"/>
+<circle cx="306" cy="186" r="3.2" fill="#1f78c8"/>
+<circle cx="306" cy="218" r="3.2" fill="#1f78c8"/>
+<circle cx="306" cy="250" r="3.2" fill="#1f78c8"/>
+<circle cx="306" cy="282" r="3.2" fill="#1f78c8"/>
+<circle cx="306" cy="314" r="3.2" fill="#1f78c8"/>
+<circle cx="348" cy="122" r="3.2" fill="#1f78c8"/>
+<circle cx="348" cy="154" r="3.2" fill="#1f78c8"/>
+<circle cx="348" cy="186" r="3.2" fill="#1f78c8"/>
+<circle cx="348" cy="218" r="3.2" fill="#1f78c8"/>
+<circle cx="348" cy="250" r="3.2" fill="#1f78c8"/>
+<circle cx="348" cy="282" r="3.2" fill="#1f78c8"/>
+<circle cx="348" cy="314" r="3.2" fill="#1f78c8"/>
+<path d="M96 250 V 210" fill="none" stroke="#e8743b" stroke-width="3" marker-end="url(#a-route)"/>
+<circle cx="56" cy="348" r="11" fill="#0b6fa4"/><text x="56" y="352.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">H</text>
+<path d="M66 342 L94 322" stroke="#e8743b" stroke-width="2" stroke-dasharray="5 4" fill="none"/>
+<path d="M222 344 H264" stroke="#1f2328" stroke-width="1" marker-start="url(#a-ink)" marker-end="url(#a-ink)"/>
+<text x="243.0" y="362" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="middle">航線間距 ← 左右重疊</text>
+<path d="M398 154 V 186" stroke="#1f2328" stroke-width="1" marker-start="url(#a-ink)" marker-end="url(#a-ink)"/>
+<text x="406" y="166" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="start">拍照間距</text>
+<text x="406" y="182" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="start">← 前後重疊</text>
+<text x="492" y="76" font-size="14" font-weight="700" fill="#1f2328" text-anchor="start">重疊率建議（Pix4D）</text>
+<rect x="492" y="90" width="120" height="70" rx="4" fill="#1f78c8" fill-opacity="0.10" stroke="#1f78c8"/>
+<rect x="522" y="90" width="120" height="70" rx="4" fill="#1f78c8" fill-opacity="0.10" stroke="#1f78c8" stroke-dasharray="4 3"/>
+<text x="567" y="130" font-size="13" font-weight="700" fill="#1f78c8" text-anchor="middle">75%</text>
+<text x="662" y="120" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">相鄰兩張照片</text>
+<text x="662" y="136" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">至少重疊這麼多</text>
+<text x="492" y="196" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">地形</text><text x="642" y="196" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">前後</text><text x="702" y="196" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">左右</text>
+<line x1="492" x2="736" y1="204" y2="204" stroke="#c9d1d9"/>
+<text x="492" y="224" font-size="13" font-weight="400" fill="#1f2328" text-anchor="start">一般地形</text><text x="642" y="224" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">75%</text><text x="702" y="224" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">60%</text>
+<line x1="492" x2="736" y1="232" y2="232" stroke="#c9d1d9"/>
+<text x="492" y="252" font-size="13" font-weight="400" fill="#1f2328" text-anchor="start">平坦農地</text><text x="642" y="252" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">80%</text><text x="702" y="252" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">80%</text>
+<line x1="492" x2="736" y1="260" y2="260" stroke="#c9d1d9"/>
+<text x="492" y="280" font-size="13" font-weight="400" fill="#1f2328" text-anchor="start">樹林、密集植被</text><text x="642" y="280" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">85%</text><text x="702" y="280" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">85%</text>
+<text x="492" y="320" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">橘線：航線　藍點：拍照位置</text>
+<text x="492" y="338" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">工具：任務規劃 → 測繪 → 依距離自動拍照</text>
+</svg>

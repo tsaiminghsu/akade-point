@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 324" width="760" height="324" role="img" aria-label="範本 6　門市的一天：開店檢查、有事才處理、收店留紀錄" font-family="'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif">
+<defs>
+<marker id="a-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#57606a"/></marker>
+<marker id="a-route" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e8743b"/></marker>
+<marker id="a-rally" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7b61ff"/></marker>
+</defs>
+<rect width="760" height="324" rx="12" fill="#ffffff"/>
+<text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">範本 6　門市的一天：開店檢查、有事才處理、收店留紀錄</text>
+<rect x="24" y="64" width="166" height="150" rx="10" fill="#0b6fa4" fill-opacity="0.08" stroke="#0b6fa4" stroke-width="1.6"/>
+<rect x="24" y="64" width="166" height="36" rx="10" fill="#0b6fa4"/><rect x="24" y="84" width="166" height="16" fill="#0b6fa4"/>
+<text x="107.0" y="88" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">開店前</text>
+<text x="36" y="128" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 儀表板：離線與警報數</text>
+<text x="36" y="156" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 鈴鐺：處理進行中的警報</text>
+<text x="36" y="184" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 機台頁篩「離線」</text>
+<path d="M192 139 H204" stroke="#57606a" stroke-width="1.5" marker-end="url(#a-ink)"/>
+<rect x="206" y="64" width="166" height="150" rx="10" fill="#e8743b" fill-opacity="0.08" stroke="#e8743b" stroke-width="1.6"/>
+<rect x="206" y="64" width="166" height="36" rx="10" fill="#e8743b"/><rect x="206" y="84" width="166" height="16" fill="#e8743b"/>
+<text x="289.0" y="88" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">營業中</text>
+<text x="218" y="128" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 收到警報才去處理</text>
+<text x="218" y="156" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 抽屜看電流與心跳</text>
+<text x="218" y="184" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 確認 → 處理 → 解決</text>
+<path d="M374 139 H386" stroke="#57606a" stroke-width="1.5" marker-end="url(#a-ink)"/>
+<rect x="388" y="64" width="166" height="150" rx="10" fill="#2e9e5b" fill-opacity="0.08" stroke="#2e9e5b" stroke-width="1.6"/>
+<rect x="388" y="64" width="166" height="36" rx="10" fill="#2e9e5b"/><rect x="388" y="84" width="166" height="16" fill="#2e9e5b"/>
+<text x="471.0" y="88" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">需要時調整</text>
+<text x="400" y="128" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 娃娃機設定試夾後儲存</text>
+<text x="400" y="156" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 套用到其他機台</text>
+<text x="400" y="184" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 看套用狀態</text>
+<path d="M556 139 H568" stroke="#57606a" stroke-width="1.5" marker-end="url(#a-ink)"/>
+<rect x="570" y="64" width="166" height="150" rx="10" fill="#7b61ff" fill-opacity="0.08" stroke="#7b61ff" stroke-width="1.6"/>
+<rect x="570" y="64" width="166" height="36" rx="10" fill="#7b61ff"/><rect x="570" y="84" width="166" height="16" fill="#7b61ff"/>
+<text x="653.0" y="88" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">收店後</text>
+<text x="582" y="128" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 歷史紀錄匯出 CSV</text>
+<text x="582" y="156" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 數據分析看運行率</text>
+<text x="582" y="184" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">• 登記維修紀錄</text>
+<path d="M239.0 214 C 239.0 250, 339.0 250, 339.0 214" fill="none" stroke="#e8743b" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#a-route)"/>
+<text x="289.0" y="266" font-size="11.5" font-weight="700" fill="#e8743b" text-anchor="middle">有警報時重複</text>
+<text x="24" y="300" font-size="12" font-weight="400" fill="#57606a" text-anchor="start">做法和機台廠商的遠端管理平台一樣：平常看儀表板，有警報才到現場，減少不必要的巡視。</text>
+</svg>
