@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 376" width="760" height="376" role="img" aria-label="範本 3　環繞巡檢：鏡頭鎖定目標，一圈一圈拍" font-family="'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif">
+<defs>
+<marker id="a-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#57606a"/></marker>
+<marker id="a-route" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e8743b"/></marker>
+<marker id="a-rally" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7b61ff"/></marker>
+</defs>
+<rect width="760" height="376" rx="12" fill="#ffffff"/>
+<text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">範本 3　環繞巡檢：鏡頭鎖定目標，一圈一圈拍</text>
+<rect x="24" y="52" width="340" height="300" rx="10" fill="#f3f6f9" stroke="#c9d1d9"/>
+<text x="40" y="76" font-size="12" font-weight="700" fill="#57606a" text-anchor="start">俯視</text>
+<rect x="168" y="180" width="52" height="52" rx="4" fill="#dfe5ec" stroke="#57606a"/>
+<text x="194" y="211" font-size="12" font-weight="700" fill="#1f2328" text-anchor="middle">目標</text>
+<circle cx="194" cy="206" r="104" fill="none" stroke="#e8743b" stroke-width="2"/>
+<circle cx="194.0" cy="102.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<line x1="194.0" y1="102.0" x2="194.0" y2="172.0" stroke="#1f78c8" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#a-ink)"/>
+<circle cx="246.0" cy="115.9" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<circle cx="284.1" cy="154.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<circle cx="298.0" cy="206.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<line x1="298.0" y1="206.0" x2="228.0" y2="206.0" stroke="#1f78c8" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#a-ink)"/>
+<circle cx="284.1" cy="258.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<circle cx="246.0" cy="296.1" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<circle cx="194.0" cy="310.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<line x1="194.0" y1="310.0" x2="194.0" y2="240.0" stroke="#1f78c8" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#a-ink)"/>
+<circle cx="142.0" cy="296.1" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<circle cx="103.9" cy="258.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<circle cx="90.0" cy="206.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<line x1="90.0" y1="206.0" x2="160.0" y2="206.0" stroke="#1f78c8" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#a-ink)"/>
+<circle cx="103.9" cy="154.0" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<circle cx="142.0" cy="115.9" r="4" fill="#fff" stroke="#e8743b" stroke-width="2"/>
+<path d="M246.0 115.9 A 104 104 0 0 1 284.1 154.0" fill="none" stroke="#e8743b" stroke-width="3" marker-end="url(#a-route)"/>
+<text x="194" y="338" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="middle">半徑：與目標保持安全距離</text>
+<text x="292" y="106" font-size="11.5" font-weight="600" fill="#1f78c8" text-anchor="start">鏡頭朝中心</text>
+<rect x="388" y="52" width="348" height="300" rx="10" fill="#f3f6f9" stroke="#c9d1d9"/>
+<text x="404" y="76" font-size="12" font-weight="700" fill="#57606a" text-anchor="start">側視：分層繞圈</text>
+<path d="M578 330 L588 96 L600 96 L610 330 Z" fill="#dfe5ec" stroke="#57606a"/>
+<line x1="404" x2="720" y1="330" y2="330" stroke="#57606a"/>
+<ellipse cx="594" cy="128" rx="84" ry="14" fill="none" stroke="#e8743b" stroke-width="2"/>
+<text x="688" y="132" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start">第 1 圈</text>
+<ellipse cx="594" cy="192" rx="84" ry="14" fill="none" stroke="#e8743b" stroke-width="2"/>
+<text x="688" y="196" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start">第 2 圈</text>
+<ellipse cx="594" cy="256" rx="84" ry="14" fill="none" stroke="#e8743b" stroke-width="2"/>
+<text x="688" y="260" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start">第 3 圈</text>
+<path d="M434 136 V 248" stroke="#1f2328" stroke-width="1" marker-end="url(#a-ink)"/>
+<text x="418" y="282" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="start">每圈降低一段高度</text>
+<text x="418" y="298" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="start">拍完整個立面</text>
+<text x="418" y="314" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">（QGC Structure Scan）</text>
+</svg>

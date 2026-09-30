@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 376" width="760" height="376" role="img" aria-label="範本 4　無人車定時巡邏：走一圈，跳回起點再走" font-family="'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif">
+<defs>
+<marker id="a-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#57606a"/></marker>
+<marker id="a-route" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e8743b"/></marker>
+<marker id="a-rally" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7b61ff"/></marker>
+</defs>
+<rect width="760" height="376" rx="12" fill="#ffffff"/>
+<text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">範本 4　無人車定時巡邏：走一圈，跳回起點再走</text>
+<rect x="24" y="52" width="420" height="300" rx="10" fill="#f3f6f9" stroke="#c9d1d9"/>
+<path d="M84 290 L84 110" fill="none" stroke="#e8743b" stroke-width="2.2" marker-end="url(#a-route)" transform="translate(0,0)"/>
+<path d="M84 110 L380 110" fill="none" stroke="#e8743b" stroke-width="2.2" marker-end="url(#a-route)" transform="translate(0,0)"/>
+<path d="M380 110 L380 290" fill="none" stroke="#e8743b" stroke-width="2.2" marker-end="url(#a-route)" transform="translate(0,0)"/>
+<path d="M372 290 C 300 330, 170 330, 94 296" fill="none" stroke="#e8743b" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#a-route)"/>
+<text x="232" y="336" font-size="12" font-weight="700" fill="#e8743b" text-anchor="middle">跳到 1（重複）</text>
+<circle cx="84" cy="290" r="13" fill="#fff" stroke="#e8743b" stroke-width="2.2"/>
+<text x="84" y="294.5" font-size="12" font-weight="700" fill="#e8743b" text-anchor="middle">1</text>
+<text x="106" y="272" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="start">起點</text>
+<circle cx="84" cy="110" r="13" fill="#fff" stroke="#e8743b" stroke-width="2.2"/>
+<text x="84" y="114.5" font-size="12" font-weight="700" fill="#e8743b" text-anchor="middle">3</text>
+<circle cx="380" cy="110" r="13" fill="#fff" stroke="#e8743b" stroke-width="2.2"/>
+<text x="380" y="114.5" font-size="12" font-weight="700" fill="#e8743b" text-anchor="middle">4</text>
+<text x="358" y="92" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="end">停 30 秒</text>
+<circle cx="380" cy="290" r="13" fill="#fff" stroke="#e8743b" stroke-width="2.2"/>
+<text x="380" y="294.5" font-size="12" font-weight="700" fill="#e8743b" text-anchor="middle">6</text>
+<circle cx="114" cy="104" r="3" fill="#1f78c8"/>
+<circle cx="170" cy="104" r="3" fill="#1f78c8"/>
+<circle cx="226" cy="104" r="3" fill="#1f78c8"/>
+<circle cx="282" cy="104" r="3" fill="#1f78c8"/>
+<circle cx="338" cy="104" r="3" fill="#1f78c8"/>
+<text x="232" y="140" font-size="11.5" font-weight="600" fill="#1f78c8" text-anchor="middle">沿途每 20 公尺拍一張（可選）</text>
+<rect x="170" y="176" width="124" height="60" rx="6" fill="#dfe5ec" stroke="#57606a"/>
+<text x="232" y="212" font-size="12" font-weight="600" fill="#57606a" text-anchor="middle">建物</text>
+<text x="468" y="76" font-size="14" font-weight="700" fill="#1f2328" text-anchor="start">任務清單</text>
+<text x="468" y="100" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">1</text><text x="492" y="100" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">航點</text><text x="576" y="100" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">起點</text>
+<text x="468" y="130" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">2</text><text x="492" y="130" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">依距離拍照</text><text x="576" y="130" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">20 m（可選）</text>
+<text x="468" y="160" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">3</text><text x="492" y="160" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">航點</text><text x="576" y="160" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start"></text>
+<text x="468" y="190" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">4</text><text x="492" y="190" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">航點</text><text x="576" y="190" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start"></text>
+<text x="468" y="220" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">5</text><text x="492" y="220" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">等待</text><text x="576" y="220" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">30 秒，原地停住</text>
+<text x="468" y="250" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">6</text><text x="492" y="250" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">航點</text><text x="576" y="250" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start"></text>
+<rect x="462" y="264" width="280" height="24" rx="5" fill="#e8743b" fill-opacity="0.12"/>
+<text x="468" y="280" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">7</text><text x="492" y="280" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">跳到</text><text x="576" y="280" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">第 1 項，重複 N 次或 -1</text>
+<text x="468" y="310" font-size="12" font-weight="600" fill="#57606a" text-anchor="start">8</text><text x="492" y="310" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">返航</text><text x="576" y="310" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">跑完 N 圈才會到</text>
+<text x="468" y="344" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="start">-1 表示一直重複；一個任務最多 15 個「跳到」</text>
+</svg>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 376" width="760" height="376" role="img" aria-label="範本 1　飛行前先畫圍籬與 Rally 點" font-family="'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif">
+<defs>
+<marker id="a-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#57606a"/></marker>
+<marker id="a-route" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e8743b"/></marker>
+<marker id="a-rally" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7b61ff"/></marker>
+</defs>
+<rect width="760" height="376" rx="12" fill="#ffffff"/>
+<text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">範本 1　飛行前先畫圍籬與 Rally 點</text>
+<rect x="24" y="52" width="440" height="300" rx="10" fill="#f3f6f9" stroke="#c9d1d9"/>
+<polygon points="60,90 400,78 440,250 300,330 70,300" fill="#2e9e5b" fill-opacity="0.08" stroke="#2e9e5b" stroke-width="2" stroke-dasharray="8 5"/>
+<polygon points="270,120 350,128 340,190 262,184" fill="#d9534f" fill-opacity="0.14" stroke="#d9534f" stroke-width="1.5"/>
+<text x="306" y="160" font-size="12" font-weight="700" fill="#d9534f" text-anchor="middle">禁飛區</text>
+<text x="78" y="110" font-size="12" font-weight="700" fill="#2e9e5b" text-anchor="start">包含區（可飛行範圍）</text>
+<circle cx="120" cy="262" r="11" fill="#0b6fa4"/><text x="120" y="266.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">H</text>
+<text x="120" y="290" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="middle">Home（起降區，人多）</text>
+<circle cx="372" cy="272" r="11" fill="#7b61ff"/><text x="372" y="276.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">R</text>
+<text x="354" y="276" font-size="11.5" font-weight="700" fill="#7b61ff" text-anchor="end">Rally 點</text>
+<path d="M408 118L392 128L400 132Z" fill="#1f2328"/><circle cx="400" cy="126" r="16" fill="none" stroke="#1f2328" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="356" y="104" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">載具</text>
+<path d="M396 146 C 410 190, 400 230, 378 256" fill="none" stroke="#7b61ff" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#a-rally)"/>
+<text x="390" y="206" font-size="12" font-weight="700" fill="#7b61ff" text-anchor="end">RTL</text>
+<path d="M388 138 C 300 220, 200 250, 138 258" fill="none" stroke="#57606a" stroke-width="1.2" stroke-dasharray="3 5"/>
+<text x="190" y="312" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">不再飛回人多的 Home</text>
+<rect x="489" y="76" width="18" height="16" rx="3" fill="#2e9e5b" fill-opacity="0.12" stroke="#2e9e5b" stroke-dasharray="4 3"/>
+<text x="518" y="88" font-size="13" font-weight="600" fill="#1f2328" text-anchor="start">畫包含區</text>
+<text x="518" y="106" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">載具只能在範圍內，越界就返航</text>
+<rect x="489" y="126" width="18" height="16" rx="3" fill="#d9534f" fill-opacity="0.18" stroke="#d9534f"/>
+<text x="518" y="138" font-size="13" font-weight="600" fill="#1f2328" text-anchor="start">畫禁飛區</text>
+<text x="518" y="156" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">學校、人群、建物不能進入</text>
+<circle cx="498" cy="184" r="11" fill="#7b61ff"/><text x="498" y="188.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">R</text>
+<text x="518" y="188" font-size="13" font-weight="600" fill="#1f2328" text-anchor="start">新增 Rally 點</text>
+<text x="518" y="206" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">RTL 時改去最近的 Rally 點</text>
+<rect x="489" y="226" width="18" height="16" rx="3" fill="#fff" stroke="#0b6fa4"/><path d="M493 234l3 3l6 -6" fill="none" stroke="#0b6fa4" stroke-width="2"/>
+<text x="518" y="238" font-size="13" font-weight="600" fill="#1f2328" text-anchor="start">啟用圍籬參數</text>
+<text x="518" y="256" font-size="11.5" font-weight="400" fill="#57606a" text-anchor="start">讀取 → 勾選 → 寫入修改</text>
+</svg>
