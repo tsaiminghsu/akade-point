@@ -1,12 +1,16 @@
 'use client';
 import { useState } from 'react';
-import { GraphicsSettings, Preset, detectPreset } from './graphicsSettings';
+import { DetectedTier, GraphicsSettings, MIN_BUDGET_SCALE, Preset, detectPreset } from './graphicsSettings';
 import { SegmentedRow, SettingsRow, SliderRow, ToggleRow, SegmentedControl } from './SettingsControls';
 
 interface Props {
   open: boolean;
   settings: GraphicsSettings;
   gpuName: string;
+  /** What detectTier suggests for this GPU. */
+  detectedTier: DetectedTier;
+  /** Drawing-buffer size the current settings give, device pixels. */
+  renderSize: [number, number];
   onChange: (patch: Partial<GraphicsSettings>) => void;
   onPreset: (preset: Preset) => void;
   onAutoDetect: () => void;
@@ -31,6 +35,7 @@ const KEY_HELP: [string, string][] = [
   ['Shift', '跑步 · 競速加速'],
   ['F', '上車 · 劫車 · 下車'],
   ['C', '自動駕駛'],
+  ['左鍵 / Ctrl', '戰車開砲（瞄準跟隨鏡頭）'],
   ['E / X', '接受任務 · 放棄任務'],
   ['R / Tab', '競速重生 · FPV 視角'],
   ['P / M / T / G', '手機 · 地圖 · 辦事處 · 天氣'],
@@ -38,10 +43,11 @@ const KEY_HELP: [string, string][] = [
 ];
 
 const MUTED = 'rgba(255,255,255,0.35)';
+const TIER_LABEL: Record<DetectedTier, string> = { low: '低', medium: '中', high: '高' };
 const LABEL = 'rgba(255,255,255,0.82)';
 
 export default function PauseMenu({
-  open, settings, gpuName, onChange, onPreset, onAutoDetect,
+  open, settings, gpuName, detectedTier, renderSize, onChange, onPreset, onAutoDetect,
   onClose, onRestart, onExit, isMobile = false,
 }: Props) {
   const [tab, setTab] = useState<Tab>('display');
@@ -54,6 +60,7 @@ export default function PauseMenu({
 
   return (
     <div
+      data-testid="pause-menu"
       style={{
         position: 'fixed',
         inset: 0,
@@ -248,7 +255,9 @@ export default function PauseMenu({
 
             <SliderRow
               label="解析度"
-              hint="高於 100% 會以超取樣消除鋸齒，成本隨面積增加"
+              hint={`實際渲染 ${renderSize[0]}×${renderSize[1]}`
+                + (settings.maxPixels > 0 ? `（此畫質上限約 ${settings.maxPixels} 百萬像素）` : '')
+                + (settings.budgetScale < 1 ? ' · 已被自動調整降低' : '')}
               value={settings.resolutionScale}
               min={0.5} max={2} step={0.05}
               onChange={(v) => onChange({ resolutionScale: v })}
@@ -320,10 +329,21 @@ export default function PauseMenu({
               onChange={(v) => onChange({ fpsCap: v })}
               isMobile={isMobile}
               options={[
-                { value: 0,  label: '不限' },
-                { value: 60, label: '60' },
-                { value: 30, label: '30' },
+                { value: 0,   label: '不限' },
+                { value: 144, label: '144' },
+                { value: 120, label: '120' },
+                { value: 60,  label: '60' },
+                { value: 30,  label: '30' },
               ]}
+            />
+
+            <ToggleRow
+              label="自動調整畫質"
+              hint={settings.budgetScale <= MIN_BUDGET_SCALE + 1e-6
+                ? '持續卡頓時自動降低解析度與畫質（解析度已降到最低）'
+                : '持續卡頓時自動降低解析度與畫質，不會自動調高'}
+              value={settings.autoAdjust}
+              onChange={(v) => onChange({ autoAdjust: v })}
             />
 
             <ToggleRow
@@ -332,7 +352,10 @@ export default function PauseMenu({
               onChange={(v) => onChange({ showFps: v })}
             />
 
-            <SettingsRow label="重設為自動偵測" hint={gpuName || '未知顯示卡'}>
+            <SettingsRow
+              label="重設為自動偵測"
+              hint={`${gpuName || '未知顯示卡'} · 建議「${TIER_LABEL[detectedTier]}」`}
+            >
               <button
                 onClick={onAutoDetect}
                 style={{

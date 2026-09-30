@@ -4,12 +4,13 @@ import {
   Tile,
   TileType,
   Vehicle,
-  VehicleType,
   WorldData,
   TILE_SIZE,
   GRID_SIZE,
 } from './types';
 import { getTileAt, isWalkable } from './worldGen';
+import { isAirVehicle } from './vehicleSpecs';
+import { frameScale } from './timestep';
 
 /**
  * Pedestrian crowd simulation.
@@ -35,7 +36,7 @@ const SPAWN_MIN = 300;
 const SPAWN_MAX = 560;
 const MAX_SPAWNS_PER_FRAME = 4;
 const SPAWN_ATTEMPTS = 8;
-const DESPAWN_CHECK_INTERVAL = 10;   // frames
+const DESPAWN_CHECK_INTERVAL = 1 / 6; // seconds
 
 // Reactions
 const KNOCK_SPEED = 40;         // px/s — below this a vehicle only shoves
@@ -121,7 +122,8 @@ export class PedestrianSystem {
   // Intrusive linked list per tile: cellHead[key] -> ped index, nextIdx[i] -> next.
   private cellHead = new Map<number, number>();
   private nextIdx: Int32Array;
-  private frame = 0;
+  /** Seconds until the next far-away despawn sweep. */
+  private despawnIn = DESPAWN_CHECK_INTERVAL;
 
   constructor(world: WorldData, capacity = 128) {
     this.world = world;
@@ -382,6 +384,33 @@ export class PedestrianSystem {
     }
   }
 
+  /**
+   * An explosion: knock down everyone in the radius, scatter everyone near it.
+   * Returns how many were knocked down.
+   */
+  blast(x: number, y: number, r: number): number {
+    const scratch: number[] = [];
+    const n = this.queryCircle(x, y, r, scratch);
+    let knocked = 0;
+    for (let i = 0; i < n; i++) {
+      const p = this.peds[scratch[i]];
+      if (!p.active || p.state === 'waiting') continue;
+      const dx = p.x - x;
+      const dy = p.y - y;
+      const d = Math.hypot(dx, dy) || 1;
+      const force = 120 * (1 - Math.min(1, d / r));
+      p.state = 'knocked';
+      p.stateTimer = 2.5 + Math.random();
+      p.fallT = 0;
+      p.fallDir = Math.random() < 0.5 ? 1 : -1;
+      p.flingVx = (dx / d) * force;
+      p.flingVy = (dy / d) * force;
+      knocked++;
+    }
+    this.panicAround(x, y, r * 3);
+    return knocked;
+  }
+
   // ── Wander targets ────────────────────────────────────────────────────────
 
   private pickNextTarget(p: Pedestrian): void {
@@ -443,13 +472,14 @@ export class PedestrianSystem {
   // ── Per-frame update ──────────────────────────────────────────────────────
 
   update(dt: number, ctx: PedContext): void {
-    this.frame++;
     const { player, world, maxPeds } = ctx;
 
     this.rebuildHash();
 
     // Despawn far-away peds periodically rather than every frame.
-    if (this.frame % DESPAWN_CHECK_INTERVAL === 0) {
+    this.despawnIn -= dt;
+    if (this.despawnIn <= 0) {
+      this.despawnIn += DESPAWN_CHECK_INTERVAL;
       for (const p of this.peds) {
         if (!p.active) continue;
         if (dist(p.x, p.y, player.x, player.y) > DESPAWN_DIST) {
@@ -556,7 +586,7 @@ export class PedestrianSystem {
       p.phase += (p.speed / 18) * dt * (p.state === 'flee' ? 2.2 : 1) * Math.PI;
     }
 
-    this.separate();
+    this.separate(dt);
     this.pushAwayFromPlayer(ctx);
   }
 
@@ -623,7 +653,7 @@ export class PedestrianSystem {
     const { vehicles, playerVehicleId, onHitByPlayer } = ctx;
 
     vehicles.forEach(v => {
-      if (v.type === VehicleType.RC_DRONE || v.type === VehicleType.HELICOPTER) return;
+      if (isAirVehicle(v.type)) return;
       const vx = v.vx ?? 0;
       const vy = v.vy ?? 0;
       const vmag = Math.hypot(vx, vy);
@@ -703,7 +733,7 @@ export class PedestrianSystem {
   }
 
   /** Keep pedestrians from stacking; only checks hash neighbours. */
-  private separate(): void {
+  private separate(dt: number): void {
     const peds = this.peds;
     const minSep = PED_RADIUS * 2;
     for (let i = 0; i < peds.length; i++) {
@@ -719,7 +749,7 @@ export class PedestrianSystem {
         const dy = a.y - b.y;
         const d = Math.hypot(dx, dy);
         if (d > 0 && d < minSep) {
-          const push = ((minSep - d) / minSep) * 0.5;
+          const push = ((minSep - d) / minSep) * 0.5 * frameScale(dt);
           a.x += (dx / d) * push;
           a.y += (dy / d) * push;
         }

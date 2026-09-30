@@ -23,6 +23,8 @@ export interface InputState {
   cancelMission: boolean; // X — one-shot, ground only (X is drone yaw in the air)
   // Driving
   autopilot: boolean;     // C — one-shot, toggle self-driving to the active waypoint
+  // Combat
+  fire: boolean;          // Left mouse (while pointer-locked) or Ctrl — held
 }
 
 /** Movement axes: +y = forward (away from the camera), +x = right. */
@@ -43,6 +45,7 @@ export class InputManager {
     brake: false,
     boost: false,
     sprint: false,
+    fire: false,
   };
   private touchOneShots: Set<string> = new Set();
 
@@ -58,6 +61,8 @@ export class InputManager {
   private locked = false;
   private releasedByUs = false;
   private dragging = false;
+  /** Left button held while already locked. The click that takes the lock never fires. */
+  private mouseFire = false;
   lastLookMs = 0;
 
   private canvas: HTMLElement | null = null;
@@ -170,12 +175,14 @@ export class InputManager {
     this.releasePointerLock();
     this.canvas = null;
     this.dragging = false;
+    this.mouseFire = false;
     this.locked = false;
   }
 
   private onMouseDown(e: MouseEvent): void {
     if (e.button !== 0) return;
     this.dragging = true;
+    if (this.locked) this.mouseFire = true;
     if (!this.locked && this.canvas?.requestPointerLock) {
       // Chrome returns a promise and rejects during the ~1s cooldown after Esc;
       // Firefox/Safari return undefined. Swallow either way.
@@ -197,6 +204,7 @@ export class InputManager {
 
   private onMouseUp(): void {
     this.dragging = false;
+    this.mouseFire = false;
   }
 
   private onWheel(e: WheelEvent): void {
@@ -206,6 +214,7 @@ export class InputManager {
 
   private onLockChange(): void {
     this.locked = document.pointerLockElement === this.canvas;
+    if (!this.locked) this.mouseFire = false;
   }
 
   private onLockError(): void {
@@ -278,7 +287,7 @@ export class InputManager {
   }
 
   setTouchButton(
-    name: 'droneThrottleUp' | 'droneThrottleDown' | 'droneYawLeft' | 'droneYawRight' | 'brake' | 'boost' | 'sprint',
+    name: 'droneThrottleUp' | 'droneThrottleDown' | 'droneYawLeft' | 'droneYawRight' | 'brake' | 'boost' | 'sprint' | 'fire',
     pressed: boolean,
   ): void {
     this.touchState[name] = pressed;
@@ -344,6 +353,7 @@ export class InputManager {
       interact:          !isAirborne && (this.wasJustPressed('KeyE') || this.touchOneShots.has('interact')),
       cancelMission:     !isAirborne && (this.wasJustPressed('KeyX') || this.touchOneShots.has('cancelMission')),
       autopilot:         this.wasJustPressed('KeyC') || this.touchOneShots.has('autopilot'),
+      fire:              this.mouseFire || this.isDown('ControlLeft') || this.isDown('ControlRight') || ts.fire,
     };
   }
 }

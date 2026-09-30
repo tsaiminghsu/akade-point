@@ -32,10 +32,18 @@ import {
   updateParkedCars,
   ensureTraffic,
   updateServiceVehicle,
+  serviceEta,
   updateDrone,
   nextVehicleId,
 } from './traffic';
-import { generateWorld, getZoneName, isSolidAtAltitude } from './worldGen';
+import {
+  generateWorld,
+  getTileAt,
+  getZoneName,
+  isSolidAtAltitude,
+  isSolidTile,
+  roofAltitudeAt,
+} from './worldGen';
 import { createRaceSession, tickRace } from './race';
 import { getCourse } from './raceCourses';
 import {
@@ -48,6 +56,21 @@ import { PedestrianSystem } from './pedestrians';
 import { CollisionSystem, Impact } from './collision';
 import { WantedSystem } from './wanted';
 import { PoliceSystem, SIGHT_RANGE } from './police';
+import { Dispatch, dispatchFor } from './dispatch';
+import { HeliSystem } from './policeHeli';
+import { RoadblockSystem } from './roadblocks';
+import { BaseGuards } from './baseGuards';
+import {
+  CombatHooks,
+  CombatSystem,
+  PLAYER_TANK_RELOAD,
+  PLAYER_TURRET_RATE,
+  Shooter,
+  stepTankGunner,
+  turnToward,
+} from './combat';
+import { TRESPASS_STARS, WARNING_DIST, distanceToBase, isInsideBase } from './militaryBase';
+import { SPIKE_SPEED_MULT, armorOf, isLawGround, isLawVehicle, specOf } from './vehicleSpecs';
 import { isWalkable } from './worldGen';
 import { RouteCache } from './gpsRoute';
 import { Economy, FOOD_MENU, PRICES } from './economy';
@@ -62,10 +85,10 @@ import {
   tileKeyOf,
 } from './autopilot';
 import * as gameClock from './gameClock';
+import { Cadence, decay } from './timestep';
 import { DRONE_PAD, droneConfinement, isInsideArena } from './droneArena';
 
 const CAR_MAX_SPEED = 160;      // 2D px / sec
-const CAR_ACCELERATION = 280;   // 2D px / sec²
 const CAR_DECEL = 200;
 const FRICTION = 0.06;           // fraction of speed lost per second (exponential)
 const STEER_SPEED = 2.2;         // radians / sec
@@ -120,6 +143,18 @@ const POLICE_RAM_CRIME_SPEED = 45;    // px/s closing speed that counts as rammi
 const POLICE_HIT_COOLDOWN = 3000;     // ms
 const BUSTED_TOTAL = 2.4;             // seconds of the whole Busted sequence
 const BUSTED_RESPAWN_AT = 1.2;        // seconds — screen is fully black here
+const WASTED_TOTAL = 3.2;             // slower fade: death should land
+const WASTED_RESPAWN_AT = 1.8;
+const MAX_HELIS = 2;
+/** Health regained per second once nobody is after the player. */
+const HEALTH_REGEN = 4;
+const HEALTH_REGEN_DELAY = 6000;      // ms since the last hit
+const EXPLOSION_CRIME_COOLDOWN = 4000; // ms
+/** Ticks between "restricted area" warnings at the fence. */
+/** Seconds between the "military zone ahead" warnings. */
+const BASE_WARNING_SECONDS = 8;
+/** Seconds between "arena boundary" nudges. */
+const ARENA_WALL_NOTE_SECONDS = 3;
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 function dist(ax: number, ay: number, bx: number, by: number) {
@@ -150,6 +185,10 @@ export class GameEngine3D {
   notifications!: Notification[];
   zone!: string;
   tick!: number;
+  /** Simulated seconds since the last reset (pause-aware, cap-aware). */
+  simTime!: number;
+  /** Periodic jobs, in simulated seconds rather than frames. */
+  private cadence!: { traffic: Cadence; discovery: Cadence; route: Cadence };
   camera!: { x: number; y: number };
   raceSession: RaceSession | null = null;
 
@@ -164,10 +203,18 @@ export class GameEngine3D {
   collisions = new CollisionSystem();
   wanted: WantedSystem;
   police = new PoliceSystem();
+  helis = new HeliSystem();
+  roadblocks = new RoadblockSystem();
+  guards = new BaseGuards();
+  combat = new CombatSystem();
+  /** What the current wanted level sends after the player. */
+  response: Dispatch = dispatchFor(0);
 
-  /** 0 = clear, 1 = fully black. Driven by the Busted sequence. */
+  /** 0 = clear, 1 = fully black. Driven by the Busted / Wasted sequences. */
   screenFade = 0;
   screenLabel: string | null = null;
+  /** 0-1 red flash after taking damage. */
+  hurtFlash = 0;
 
   /** Cached GPS route to the active waypoint. */
   route = new RouteCache();
@@ -181,12 +228,21 @@ export class GameEngine3D {
   /** Set by the pause menu. While true `update()` is a no-op. */
   paused = false;
 
-  private lastArenaWallTick = -999;
+  private lastArenaWallTime = -Infinity;
 
   private parkedBlocks = new Set<number>();
   private wreckIds: string[] = [];
   private lastPoliceHitMs = 0;
-  private bustedRespawned = false;
+  /** The Busted / Wasted fade has already swapped the player out. */
+  private fadeRespawned = false;
+  private lastHurtMs = -Infinity;
+  private lastExplosionCrimeMs = -Infinity;
+  private trespassing = false;
+  private lastBaseWarnTime = -Infinity;
+  /** `isSolidAt` bound once, for the many systems that take it as a callback. */
+  private readonly solidAt = (wx: number, wy: number): boolean => this.isSolidAt(wx, wy);
+  private hooks: CombatHooks | null = null;
+  private readonly gunnerTarget = { x: 0, y: 0, vx: 0, vy: 0 };
   private persistTimer = 0;
   private persistDirty = false;
 
@@ -225,6 +281,7 @@ export class GameEngine3D {
     this.missions = new MissionManager(this);
 
     this.registerBlipProvider('police', () => this.police.getBlips(this.vehicles));
+    this.registerBlipProvider('helis', () => this.helis.getBlips(this.vehicles));
     this.registerBlipProvider('missions', () => this.missions.getBlips());
     this.garages = createGarages(this.world);
     this.registerBlipProvider('garages', () => garageBlips(this.garages, gameClock.now()));
@@ -238,6 +295,12 @@ export class GameEngine3D {
    */
   private initDynamicState() {
     this.tick = 0;
+    this.simTime = 0;
+    this.cadence = {
+      traffic: new Cadence(1),
+      discovery: new Cadence(0.25),
+      route: new Cadence(1 / 6),
+    };
     this.zone = '城市區';
     this.notifications = [];
     this.orders = [];
@@ -247,7 +310,10 @@ export class GameEngine3D {
     this.banner = null;
     this.screenFade = 0;
     this.screenLabel = null;
-    this.bustedRespawned = false;
+    this.hurtFlash = 0;
+    this.fadeRespawned = false;
+    this.trespassing = false;
+    this.lastHurtMs = -Infinity;
     this.raceSession = null;
     this.raceVx = 0;
     this.raceVy = 0;
@@ -303,8 +369,14 @@ export class GameEngine3D {
 
     this.pedestrians.clear();
     this.pedestrians.populate(sx, sy, this.perf.maxPeds);
+    // The vehicle map is brand new, so these only reset their own bookkeeping.
     this.police.clear(this.vehicles);
+    this.helis.clear(this.vehicles);
+    this.roadblocks.clear(this.vehicles);
+    this.guards.despawn(this.vehicles);
+    this.combat.clear();
     this.wanted.clear();
+    this.response = dispatchFor(0);
   }
 
   /**
@@ -524,14 +596,17 @@ export class GameEngine3D {
       return;
     }
     this.tick++;
+    this.simTime += dt;
     const { player, vehicles, orders, drone } = this;
     const isDriving = player.state === 'inCar' || player.state === 'inHelicopter';
     const isOnFoot  = player.state === 'onFoot';
     const isAirborne = player.state === 'inDrone' || player.state === 'inHelicopter';
     const input = this.input.getState(isDriving, isOnFoot, isAirborne);
 
-    // Expire notifications
-    this.notifications = this.notifications.filter(n => n.expiresAt > nowMs);
+    // Expire notifications (a new array only when one actually expired)
+    if (this.notifications.some(n => n.expiresAt <= nowMs)) {
+      this.notifications = this.notifications.filter(n => n.expiresAt > nowMs);
+    }
 
     // Reset race collision flag each tick
     this.raceDroneCollision = false;
@@ -621,7 +696,7 @@ export class GameEngine3D {
     );
 
     // Replenish traffic once a second (wrecks, thefts and despawns shrink it).
-    if (this.tick % 60 === 0) {
+    if (this.cadence.traffic.step(dt)) {
       ensureTraffic(vehicles, this.world, this.player, this.perf.npcCars);
     }
 
@@ -631,17 +706,64 @@ export class GameEngine3D {
     );
 
     // Police pursuit (moves units, may complete an arrest)
-    const playerVeh = player.currentVehicleId ? vehicles.get(player.currentVehicleId) : null;
+    const playerVeh = player.currentVehicleId ? vehicles.get(player.currentVehicleId) ?? null : null;
+    const playerVehicleType = player.state === 'inCar' ? playerVeh?.type ?? null : null;
+    const playerSpeedPx = Math.hypot(playerVeh?.vx ?? 0, playerVeh?.vy ?? 0);
+    const inBase = isInsideBase(player.x, player.y);
+    const isSolidAt = this.solidAt;
     const arrested = this.police.update({
       world: this.world,
       vehicles,
       player: { x: player.x, y: player.y, state: player.state, speed: player.speed },
-      playerSpeed: Math.hypot(playerVeh?.vx ?? 0, playerVeh?.vy ?? 0),
+      playerSpeed: playerSpeedPx,
       playerVx: playerVeh?.vx ?? 0,
       playerVy: playerVeh?.vy ?? 0,
+      playerVehicleType,
+      playerInBase: inBase,
       dt,
-      isSolidAt: (wx, wy) => this.isSolidAt(wx, wy),
+      isSolidAt,
     });
+
+    // Helicopters, roadblocks, the base garrison and every gun in play.
+    const hooks = this.combatHooks();
+    this.helis.update(
+      {
+        vehicles,
+        player,
+        playerSpeed: player.state === 'onFoot' ? Math.abs(player.speed) : playerSpeedPx,
+        covered: getTileAt(this.world.grid, player.x, player.y)?.type === TileType.TOWN_HALL_INTERIOR,
+        dt,
+        roofAltAt: (x, y) => roofAltitudeAt(this.world.grid, x, y),
+      },
+      { fire: (from, hit) => this.combat.fireRound(from, player, hit, hooks) },
+    );
+    const popped = this.roadblocks.update(
+      {
+        world: this.world,
+        vehicles,
+        player,
+        playerSpeed: playerSpeedPx,
+        playerVehicle: player.state === 'inCar' ? playerVeh : null,
+        dt,
+      },
+      { ...this.response, stars: this.wanted.stars },
+    );
+    if (popped) {
+      this.addNotification('💥 輪胎被釘刺帶刺破！', '#ff8800');
+      this.missions.onCollision();
+    }
+    const guardArrest = this.guards.update({
+      vehicles,
+      player,
+      playerSpeed: player.state === 'onFoot' ? 0 : playerSpeedPx,
+      playerVehicleType,
+      playerInBase: inBase,
+      dt,
+      isSolidAt,
+    });
+    this.updateTankGunners(dt, playerVeh);
+    this.updatePlayerGun(dt, input.fire);
+    this.combat.update(dt, hooks);
 
     // Velocities must be derived after ALL movement this frame, because the
     // player's `speed` is px/s while NPC `speed` is px/frame — only position
@@ -654,7 +776,10 @@ export class GameEngine3D {
       playerVehicleId: player.state === 'inCar' ? player.currentVehicleId : null,
       nowMs,
       onImpact: imp => this.handleImpact(imp, nowMs),
-      onDestroyed: v => this.handleDestroyed(v),
+      onDestroyed: (v, by) => {
+        this.handleDestroyed(v);
+        if (by && by.occupant === 'player' && isLawVehicle(v.type)) this.wanted.addCrime('destroyLaw');
+      },
     });
 
     this.updateWrecks(dt);
@@ -671,12 +796,22 @@ export class GameEngine3D {
       onHitByPlayer: () => this.onPlayerHitPedestrian(),
     });
 
-    // Wanted level — police presence scales with the star count
-    const nearestPolice = this.police.nearestDist({ vehicles, player });
-    const seen = nearestPolice < SIGHT_RANGE;
-    const targetUnits = this.wanted.update(dt, seen, seen && this.wanted.stars > 0);
-    this.police.setTarget(Math.min(this.perf.maxPolice, targetUnits));
-    if (arrested === 'busted') this.bust();
+    // Trespassing: the base holds anyone inside it at four stars or more.
+    this.updateTrespass(inBase);
+
+    // Wanted level — the response scales with the star count
+    const seen = inBase
+      || this.guards.engaged()
+      || this.helis.seesPlayer
+      || this.police.nearestDist({ vehicles, player }) < SIGHT_RANGE
+      || this.roadblocks.nearestDist(vehicles, player) < SIGHT_RANGE;
+    this.wanted.update(dt, seen, seen && this.wanted.stars > 0);
+    this.response = dispatchFor(this.wanted.stars, this.perf.maxPolice, MAX_HELIS);
+    this.police.setTargets(this.response);
+    this.helis.setTarget(this.response.helis, this.response.heliGunner);
+    if (arrested === 'busted' || guardArrest === 'busted') this.bust();
+
+    this.updateHealth(dt);
 
     // Pay-n-Spray: pull in slowly with a damaged or wanted car
     this.updateGarages(nowMs);
@@ -707,12 +842,13 @@ export class GameEngine3D {
     }
 
     // Camera (2D mini-map tracking)
-    this.camera.x = lerp(this.camera.x, player.x, 0.1);
-    this.camera.y = lerp(this.camera.y, player.y, 0.1);
+    const follow = 1 - decay(0.9, dt);
+    this.camera.x = lerp(this.camera.x, player.x, follow);
+    this.camera.y = lerp(this.camera.y, player.y, follow);
 
     // Zone + sightseeing discovery (cheap, but no need to run every frame)
     this.zone = getZoneName(this.world.grid, player.x, player.y);
-    if (this.tick % 15 === 0) this.missions.checkDiscovery();
+    if (this.cadence.discovery.step(dt)) this.missions.checkDiscovery();
 
     // Banner expiry
     if (this.banner && nowMs > this.banner.until) this.banner = null;
@@ -725,7 +861,7 @@ export class GameEngine3D {
 
     // GPS route — the cache re-runs BFS only when the destination changes or
     // the player leaves the route corridor, so this stays cheap.
-    if (this.tick % 10 === 0) {
+    if (this.cadence.route.step(dt)) {
       this.route.update(this.world.grid, player, this.waypoint);
     }
 
@@ -827,20 +963,22 @@ export class GameEngine3D {
     if (!act) return;
     act.timer += dt;
 
-    if (act.kind === 'busted') {
+    if (act.kind === 'busted' || act.kind === 'wasted') {
       // Fade to black, swap the player out at full black, then fade back in.
-      this.screenFade = act.timer < BUSTED_RESPAWN_AT
-        ? Math.min(1, act.timer / 1.0)
-        : Math.max(0, 1 - (act.timer - BUSTED_RESPAWN_AT) / 1.2);
-      if (act.timer >= BUSTED_RESPAWN_AT && !this.bustedRespawned) {
-        this.bustedRespawned = true;
-        this.respawnAfterBust();
+      const at = act.kind === 'busted' ? BUSTED_RESPAWN_AT : WASTED_RESPAWN_AT;
+      const fadeIn = act.kind === 'busted' ? 1.0 : 1.5;
+      this.screenFade = act.timer < at
+        ? Math.min(1, act.timer / fadeIn)
+        : Math.max(0, 1 - (act.timer - at) / (act.total - at));
+      if (act.timer >= at && !this.fadeRespawned) {
+        this.fadeRespawned = true;
+        this.respawnAfterFade(act.kind);
       }
       if (act.timer >= act.total) {
         this.player.action = null;
         this.screenFade = 0;
         this.screenLabel = null;
-        this.bustedRespawned = false;
+        this.fadeRespawned = false;
       }
       return;
     }
@@ -869,12 +1007,13 @@ export class GameEngine3D {
     this.wanted.addCrime('hitPed');
   }
 
-  /** E: accept a brief, or start taxi work from inside a cab. */
+  /** E: accept a brief, reopen one underfoot, or start taxi work from a cab. */
   private handleInteract(nowMs: number) {
     if (this.missions.isBriefing()) {
       this.missions.accept();
       return;
     }
+    if (this.missions.reopenBrief(nowMs)) return;
     if (this.missions.startTaxiFromVehicle(nowMs)) return;
     this.addNotification('這裡沒有可互動的東西', '#666');
   }
@@ -916,7 +1055,7 @@ export class GameEngine3D {
     this.player.jumpVel = 0;
     this.orbitCam.lastLookMs = 0;
 
-    this.wanted.addCrime(v.type === VehicleType.POLICE ? 'carjackPolice' : 'carjack');
+    this.wanted.addCrime(isLawVehicle(v.type) ? 'carjackPolice' : 'carjack');
     this.addNotification('🔓 搶到車了！', '#ff8800');
   }
 
@@ -931,7 +1070,7 @@ export class GameEngine3D {
       : null;
     if (!other) return;
 
-    if (other.type === VehicleType.POLICE) {
+    if (isLawGround(other.type)) {
       if (imp.relSpeed > POLICE_RAM_CRIME_SPEED && nowMs - this.lastPoliceHitMs > POLICE_HIT_COOLDOWN) {
         this.lastPoliceHitMs = nowMs;
         this.wanted.addCrime('hitPolice');
@@ -966,7 +1105,11 @@ export class GameEngine3D {
       const oldest = this.wreckIds.shift();
       if (oldest) this.vehicles.delete(oldest);
     }
-    this.addNotification('💥 車輛報廢！', '#ff4444');
+    v.hostile = false;
+    // Cosmetic only: chaining real blasts from wreck to wreck gets out of hand.
+    this.combat.addExplosionVisual(v.x, v.y, v.type === VehicleType.TANK ? 55 : 40);
+    // Tank fights wreck cars by the handful; only the player's own is news.
+    if (wasPlayers) this.addNotification('💥 車輛報廢！', '#ff4444');
   }
 
   private updateWrecks(dt: number) {
@@ -1019,26 +1162,58 @@ export class GameEngine3D {
     player.action = { kind: 'ejected', timer: 0, total: 0.6 };
   }
 
+  private inFadeSequence(): boolean {
+    const k = this.player.action?.kind;
+    return k === 'busted' || k === 'wasted';
+  }
+
   /** Start the Busted sequence. Safe to call repeatedly. */
   bust() {
-    if (this.player.action?.kind === 'busted') return;
+    if (this.inFadeSequence()) return;
     this.disengageAutopilot(null);
     this.player.action = { kind: 'busted', timer: 0, total: BUSTED_TOTAL };
     this.screenLabel = 'BUSTED';
-    this.bustedRespawned = false;
+    this.fadeRespawned = false;
     this.addNotification('🚔 你被逮捕了', '#ff4444');
   }
 
-  private respawnAfterBust() {
+  /** Start the Wasted sequence. Safe to call repeatedly. */
+  wasted() {
+    if (this.inFadeSequence()) return;
+    this.disengageAutopilot(null);
+    this.player.action = { kind: 'wasted', timer: 0, total: WASTED_TOTAL };
+    this.screenLabel = 'WASTED';
+    this.fadeRespawned = false;
+    this.addNotification('☠️ 你陣亡了', '#ff4444');
+  }
+
+  /** Call off every pursuer: after a bust, a death, or a Pay-n-Spray. */
+  private standDownLaw() {
+    this.wanted.clear();
+    this.police.clear(this.vehicles);
+    this.helis.clear(this.vehicles);
+    this.roadblocks.clear(this.vehicles);
+    this.combat.clear();
+    this.guards.standDown();
+    this.response = dispatchFor(0);
+  }
+
+  private respawnAfterFade(kind: 'busted' | 'wasted') {
     const { player } = this;
 
-    // The car is impounded.
+    // Arrested: the car is impounded. Killed: it stays where it was left.
     if (player.currentVehicleId) {
       const v = this.vehicles.get(player.currentVehicleId);
       if (v) {
         v.occupant = null;
         v.isParked = true;
       }
+    }
+    // A drone pilot who goes down loses the drone too.
+    if (player.state === 'inDrone') {
+      if (this.raceSession) this.raceSession = null;
+      if (this.drone.vehicleId) this.vehicles.delete(this.drone.vehicleId);
+      this.drone = { active: false, altitude: 0, throttle: 0, pitch: 0, roll: 0, yaw: 0, battery: 100, signal: 100, vehicleId: null };
     }
 
     // townHallPos is a solid TOWN_HALL tile, so respawn in the walkable lobby.
@@ -1051,17 +1226,142 @@ export class GameEngine3D {
     player.state = 'onFoot';
     player.currentVehicleId = null;
     player.health = 100;
+    this.hurtFlash = 0;
 
-    this.wanted.clear();
-    this.police.clear(this.vehicles);
+    this.standDownLaw();
     this.orbitCam.lastLookMs = 0;
 
     // A partial charge, so a broke player loses what they have rather than
     // going into debt.
-    this.economy.charge('busted', 'busted', { allowPartial: true });
-    this.save.stats.timesBusted += 1;
-    this.missions.onBusted();
+    if (kind === 'busted') {
+      this.economy.charge('busted', 'busted', { allowPartial: true });
+      this.save.stats.timesBusted += 1;
+      this.missions.onBusted();
+    } else {
+      this.economy.charge('hospital', 'hospital', { allowPartial: true });
+      this.save.stats.timesWasted += 1;
+      this.missions.onWasted();
+      this.addNotification('🏥 已送醫治療，支付醫療費', '#fbbf24');
+    }
     this.persist();
+  }
+
+  // ── Combat ────────────────────────────────────────────────────────────────
+
+  /** Damage routed from shells, gunfire and blasts. Armour applies here. */
+  private damageVehicle(v: Vehicle, amount: number, by: Shooter) {
+    if (v.hp <= 0) return;
+    v.hp = Math.max(0, v.hp - amount * armorOf(v.type));
+    v.lastHitTime = gameClock.now();
+    const isPlayers = v.occupant === 'player';
+    if (isPlayers) this.noteHurt(0.6);
+    if (v.hp > 0) return;
+    this.handleDestroyed(v);
+    if (by === 'player' && !isPlayers && isLawVehicle(v.type)) this.wanted.addCrime('destroyLaw');
+  }
+
+  /** Only people on foot (or a drone pilot) take damage directly. */
+  private damagePlayer(amount: number) {
+    const p = this.player;
+    if (p.state !== 'onFoot' && p.state !== 'inDrone') return;
+    if (this.inFadeSequence()) return;
+    p.health = Math.max(0, p.health - amount);
+    this.noteHurt(1);
+    if (p.health <= 0) this.wasted();
+  }
+
+  private noteHurt(flash: number) {
+    this.hurtFlash = Math.max(this.hurtFlash, flash);
+    this.lastHurtMs = gameClock.now();
+  }
+
+  /**
+   * The combat system's view of the world. Built once; only the fields that
+   * change are refreshed each frame (it used to be a new object and six new
+   * closures per frame).
+   */
+  private combatHooks(): CombatHooks {
+    const p = this.player;
+    let h = this.hooks;
+    if (!h) {
+      h = this.hooks = {
+        vehicles: this.vehicles,
+        isSolidAt: this.solidAt,
+        player: { x: 0, y: 0, onFoot: false },
+        damageVehicle: (v, amount, by) => this.damageVehicle(v, amount, by),
+        damagePlayer: amount => this.damagePlayer(amount),
+        blast: (x, y, r) => this.pedestrians.blast(x, y, r),
+        onPlayerExplosion: (_x, _y, hitSomething) => {
+          if (!hitSomething) return;
+          const now = gameClock.now();
+          if (now - this.lastExplosionCrimeMs < EXPLOSION_CRIME_COOLDOWN) return;
+          this.lastExplosionCrimeMs = now;
+          this.wanted.addCrime('explosion');
+        },
+      };
+    }
+    // reset() swaps in a fresh vehicle map.
+    h.vehicles = this.vehicles;
+    h.player.x = p.x;
+    h.player.y = p.y;
+    h.player.onFoot = p.state === 'onFoot' || p.state === 'inDrone';
+    return h;
+  }
+
+  /** Every hostile AI tank traverses onto the player and fires when it can. */
+  private updateTankGunners(dt: number, playerVeh: Vehicle | null) {
+    if (this.inFadeSequence()) return;
+    const p = this.player;
+    const target = this.gunnerTarget;
+    target.x = p.x;
+    target.y = p.y;
+    target.vx = playerVeh?.vx ?? 0;
+    target.vy = playerVeh?.vy ?? 0;
+    this.vehicles.forEach(v => {
+      if (v.type !== VehicleType.TANK || !v.hostile || v.occupant !== 'npc' || v.hp <= 0) return;
+      stepTankGunner(v, target, dt, this.solidAt, this.combat);
+    });
+  }
+
+  /** The player's tank: the turret follows the camera, the main gun fires on demand. */
+  private updatePlayerGun(dt: number, fire: boolean) {
+    const { player } = this;
+    if (player.state !== 'inCar' || !player.currentVehicleId) return;
+    const tank = this.vehicles.get(player.currentVehicleId);
+    if (!tank || tank.type !== VehicleType.TANK) return;
+    tank.turretAngle = turnToward(tank.turretAngle ?? tank.angle, this.orbitCam.yaw, PLAYER_TURRET_RATE, dt);
+    tank.gunCooldown = Math.max(0, (tank.gunCooldown ?? 0) - dt);
+    if (fire && tank.gunCooldown <= 0) {
+      this.combat.fireShell(tank, 'player');
+      tank.gunCooldown = PLAYER_TANK_RELOAD;
+    }
+  }
+
+  /** Enter the base and the army treats you as an intruder; loiter by the fence and get warned. */
+  private updateTrespass(inBase: boolean) {
+    const { player } = this;
+    if (inBase) {
+      if (!this.trespassing) {
+        this.showBanner('擅闖軍事禁區', `通緝等級提升至 ${TRESPASS_STARS} 星`, '#ef4444', 2600);
+      }
+      this.wanted.raiseTo(TRESPASS_STARS);
+    } else if (
+      this.wanted.stars === 0
+      && distanceToBase(player.x, player.y) < WARNING_DIST
+      && this.simTime - this.lastBaseWarnTime > BASE_WARNING_SECONDS
+    ) {
+      this.lastBaseWarnTime = this.simTime;
+      this.addNotification('⚠️ 前方軍事禁區，擅闖者將遭通緝', '#fbbf24');
+    }
+    this.trespassing = inBase;
+  }
+
+  private updateHealth(dt: number) {
+    this.hurtFlash = Math.max(0, this.hurtFlash - dt * 2);
+    const p = this.player;
+    if (this.inFadeSequence() || this.wanted.stars > 0 || p.health >= 100) return;
+    if (gameClock.now() - this.lastHurtMs < HEALTH_REGEN_DELAY) return;
+    p.health = Math.min(100, p.health + HEALTH_REGEN * dt);
   }
 
   // ── Minimap blips ─────────────────────────────────────────────────────────
@@ -1090,11 +1390,15 @@ export class GameEngine3D {
     const car = vehicles.get(player.currentVehicleId);
     if (!car) return;
 
+    // Handling comes from the vehicle: a tank is slow, heavy and turns on the spot.
+    const spec = specOf(car.type);
+    const topSpeed = spec.driveMax * (car.tiresPopped ? SPIKE_SPEED_MULT : 1);
+
     // Acceleration / braking
     if (input.up) {
-      car.speed = Math.min(CAR_MAX_SPEED, car.speed + CAR_ACCELERATION * dt);
+      car.speed = Math.min(topSpeed, car.speed + spec.accel * dt);
     } else if (input.down) {
-      car.speed = Math.max(-CAR_MAX_SPEED * 0.45, car.speed - CAR_DECEL * dt);
+      car.speed = Math.max(-topSpeed * 0.45, car.speed - CAR_DECEL * dt);
     } else {
       const frict = Math.pow(1 - FRICTION, dt * 60);
       car.speed *= frict;
@@ -1103,11 +1407,21 @@ export class GameEngine3D {
 
     if (input.brake) car.speed *= Math.pow(0.7, dt * 60);
 
-    // Steering: A/D turns, positive speed = turn right with D
-    if (Math.abs(car.speed) > 2) {
-      const steer = STEER_SPEED * Math.sign(car.speed) * Math.min(1, Math.abs(car.speed) / 50);
+    // A car already over its (spiked) limit bleeds speed rather than holding it.
+    if (Math.abs(car.speed) > topSpeed) car.speed *= Math.pow(0.97, dt * 60);
+
+    // Steering: A/D turns, positive speed = turn right with D. Tracked
+    // vehicles pivot in place, so they steer at full rate from a standstill.
+    if (spec.pivot) {
+      const dir = car.speed < -2 ? -1 : 1;
+      if (input.left)  car.angle -= spec.steer * dir * dt;
+      if (input.right) car.angle += spec.steer * dir * dt;
+    } else if (Math.abs(car.speed) > 2) {
+      const steer = spec.steer * Math.sign(car.speed) * Math.min(1, Math.abs(car.speed) / 50);
       if (input.left)  car.angle -= steer * dt;
       if (input.right) car.angle += steer * dt;
+      // Shredded tyres: the car wanders and the wheel fights back.
+      if (car.tiresPopped) car.angle += Math.sin(this.simTime * 22.2) * 0.35 * dt * Math.min(1, Math.abs(car.speed) / 60);
     }
 
     // Forward direction: angle=0 points North (−Y in 2D canvas)
@@ -1117,7 +1431,7 @@ export class GameEngine3D {
     const ny = car.y - Math.cos(car.angle) * car.speed * dt;
 
     // Collision with buildings (half-tile shrink for car edges)
-    const halfCar = 10; // px
+    const halfCar = Math.max(10, spec.radius); // px
     if (!this.isSolidAt(nx, ny) && !this.isSolidAt(nx + halfCar, ny) && !this.isSolidAt(nx - halfCar, ny)) {
       car.x = nx; car.y = ny;
     } else if (!this.isSolidAt(nx, car.y) && !this.isSolidAt(nx + halfCar, car.y) && !this.isSolidAt(nx - halfCar, car.y)) {
@@ -1132,7 +1446,7 @@ export class GameEngine3D {
       const now = gameClock.now();
       if (impactSpeed > WALL_DAMAGE_MIN_SPEED && now - (car.lastHitTime ?? 0) > WALL_DAMAGE_COOLDOWN) {
         car.lastHitTime = now;
-        car.hp = Math.max(0, car.hp - (impactSpeed - 40) * 0.25);
+        car.hp = Math.max(0, car.hp - (impactSpeed - 40) * 0.25 * spec.armor);
         if (car.hp <= 0) this.handleDestroyed(car);
       }
       car.speed *= 0.1;
@@ -1157,6 +1471,8 @@ export class GameEngine3D {
     else heli.altitude = alt;
 
     const spd = 200 * dt; // frame-rate independent speed in px/sec
+    // The HUD speedometer reads `speed` (px/s for anything the player drives).
+    heli.speed = (input.up ? 200 : 0) - (input.down ? 120 : 0);
     if (input.up) {
       heli.x += Math.sin(heli.angle) * spd;
       heli.y -= Math.cos(heli.angle) * spd;
@@ -1349,17 +1665,9 @@ export class GameEngine3D {
     const { player, vehicles } = this;
 
     if (player.state === 'inCar' || player.state === 'inHelicopter') {
-      const v = player.currentVehicleId ? vehicles.get(player.currentVehicleId) : null;
-      if (v) {
-        v.occupant = null;
-        v.speed = 0;
-        // Abandoned where it stands. Traffic skips parked cars, and the
-        // despawn ring recycles it once the player is far enough away.
-        v.isParked = true;
-      }
+      this.releasePlayerVehicle();
       this.disengageAutopilot(null);
       player.state = 'onFoot';
-      player.currentVehicleId = null;
       player.z = 0;
       player.jumpVel = 0;
       this.addNotification('已下車', '#aaa');
@@ -1370,9 +1678,7 @@ export class GameEngine3D {
     let closest: Vehicle | null = null;
     let closestDist = Infinity;
     vehicles.forEach(v => {
-      if (v.type === VehicleType.RC_DRONE) return;
-      if (v.occupant === 'player') return;
-      if (v.hp <= 0) return;   // burnt-out wreck
+      if (!this.canBoard(v)) return;
       const d = dist(player.x, player.y, v.x, v.y);
       if (d < ENTER_VEHICLE_RADIUS && d < closestDist) { closestDist = d; closest = v; }
     });
@@ -1412,8 +1718,17 @@ export class GameEngine3D {
         }
       } else {
         player.state = 'inCar';
-        const lbl = v.type === VehicleType.TAXI ? '🚕 上車！' : v.type === VehicleType.DELIVERY_SCOOTER ? '📦 上機車！' : '🚗 上車！';
-        this.addNotification(lbl, '#00ff88');
+        v.isParked = false;
+        if (v.type === VehicleType.TANK) {
+          this.addNotification('🪖 登上戰車！左鍵 / Ctrl 開砲', '#84cc16');
+          if (this.guards.onBoarded(v.id)) {
+            this.wanted.addCrime('stealMilitary');
+            this.showBanner('戰車失竊', '軍方全力追緝', '#ef4444', 2400);
+          }
+        } else {
+          const lbl = v.type === VehicleType.TAXI ? '🚕 上車！' : v.type === VehicleType.DELIVERY_SCOOTER ? '📦 上機車！' : '🚗 上車！';
+          this.addNotification(lbl, '#00ff88');
+        }
         const o = this.orders.find(o => o.vehicleId === v.id);
         if (o) {
           o.status = 'completed';
@@ -1462,9 +1777,7 @@ export class GameEngine3D {
     if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return true;
     const tile = this.world.grid[gy]?.[gx];
     // TOWN_HALL_INTERIOR and TOWN_HALL_PLAZA are walkable — only TOWN_HALL is solid
-    return tile?.type === TileType.BUILDING
-      || tile?.type === TileType.HELIPAD
-      || tile?.type === TileType.TOWN_HALL;
+    return !!tile && isSolidTile(tile);
   }
 
   // Altitude-aware solid check for drones. Returns false if the drone is physically
@@ -1512,7 +1825,7 @@ export class GameEngine3D {
     const t = createTaxi(this.world, this.player.x, this.player.y, this.player.angle);
     this.vehicles.set(t.id, t);
     const orderId = `o_t_${Date.now()}`;
-    this.orders.push({ id: orderId, type: 'taxi', status: 'dispatched', vehicleId: t.id, eta: 60, label: '🚕 計程車' });
+    this.orders.push({ id: orderId, type: 'taxi', status: 'dispatched', vehicleId: t.id, eta: serviceEta(t, this.player), label: '🚕 計程車' });
     this.callLog.push({ id: orderId, type: 'taxi', label: '🚕 計程車', calledAt: Date.now(), status: 'called' });
     this.addNotification('🚕 計程車已派出！', '#ffee00');
   }
@@ -1528,7 +1841,7 @@ export class GameEngine3D {
     const s = createDeliveryScooter(this.world, shop, this.player.x, this.player.y, this.player.angle);
     this.vehicles.set(s.id, s);
     const orderId = `o_f_${Date.now()}`;
-    this.orders.push({ id: orderId, type: 'food', status: 'dispatched', vehicleId: s.id, eta: 90, label: '🍕 外送' });
+    this.orders.push({ id: orderId, type: 'food', status: 'dispatched', vehicleId: s.id, eta: serviceEta(s, this.player), label: '🍕 外送' });
     this.callLog.push({ id: orderId, type: 'food', label: '🍕 外送', calledAt: Date.now(), status: 'called' });
     this.addNotification('🍕 外送已出發！', '#ff8c00');
   }
@@ -1542,15 +1855,34 @@ export class GameEngine3D {
     const h = createHelicopter(this.world);
     this.vehicles.set(h.id, h);
     const orderId = `o_h_${Date.now()}`;
-    this.orders.push({ id: orderId, type: 'helicopter', status: 'dispatched', vehicleId: h.id, eta: 30, label: '🚁 直升機' });
+    this.orders.push({ id: orderId, type: 'helicopter', status: 'dispatched', vehicleId: h.id, eta: serviceEta(h, this.player, true), label: '🚁 直升機' });
     this.callLog.push({ id: orderId, type: 'helicopter', label: '🚁 直升機', calledAt: Date.now(), status: 'called' });
     this.addNotification('🚁 直升機已起飛！', '#a0d8ef');
+  }
+
+  /**
+   * Leave the vehicle the player is in parked where it stands. Traffic skips
+   * parked cars, and the despawn ring recycles it once the player is far
+   * enough away.
+   */
+  private releasePlayerVehicle(): void {
+    const { player, vehicles } = this;
+    const v = player.currentVehicleId ? vehicles.get(player.currentVehicleId) : null;
+    if (v) {
+      v.occupant = null;
+      v.speed = 0;
+      v.isParked = true;
+    }
+    player.currentVehicleId = null;
   }
 
   launchDrone() {
     if (this.drone.active) { this.addNotification('無人機已在飛', '#00e5ff'); return; }
     this.missions.onDistraction('離開車輛');
     this.disengageAutopilot(null);
+    // Flying from the driver's seat leaves the car parked, like getting out:
+    // still marked as the player's, nobody could ever board it again.
+    this.releasePlayerVehicle();
     // Free flight is confined to the arena, so the drone always starts there
     // rather than beside the player. The camera follows it across the map.
     const pad = this.world.dronePad;
@@ -1655,8 +1987,8 @@ export class GameEngine3D {
 
   /** Throttled nudge so a player pressing into an arena wall knows why. */
   private noteArenaWall() {
-    if (this.tick - this.lastArenaWallTick < 180) return;
-    this.lastArenaWallTick = this.tick;
+    if (this.simTime - this.lastArenaWallTime < ARENA_WALL_NOTE_SECONDS) return;
+    this.lastArenaWallTime = this.simTime;
     this.addNotification('已到達場地邊界', '#ffcc00');
   }
 
@@ -1746,8 +2078,8 @@ export class GameEngine3D {
         return ok;
       },
       onServiced: () => {
-        this.wanted.clear();
-        this.police.clear(this.vehicles);
+        this.standDownLaw();
+        if (vehicle) vehicle.tiresPopped = false;
         this.addNotification('🎨 噴漆完成，車輛修復', '#22d3ee');
         this.showBanner('Pay-n-Spray', '車輛修復 · 通緝解除', '#22d3ee', 2200);
         this.persist();
@@ -1762,6 +2094,17 @@ export class GameEngine3D {
     return v?.type === VehicleType.TAXI;
   }
 
+  /**
+   * Could the player get into this vehicle (by right or by force)? Drones,
+   * wrecks, police helicopters and crewed tanks are all off limits.
+   */
+  private canBoard(v: Vehicle): boolean {
+    if (v.type === VehicleType.RC_DRONE || v.type === VehicleType.POLICE_HELI) return false;
+    if (v.occupant === 'player' || v.hp <= 0) return false;
+    if (v.type === VehicleType.TANK && v.occupant === 'npc') return false;   // hatch locked
+    return true;
+  }
+
   /** What pressing F would do right now — drives the hint and mobile label. */
   nearestVehicleInfo(): HUDData['nearVehicle'] {
     const { player, vehicles } = this;
@@ -1770,18 +2113,16 @@ export class GameEngine3D {
     let best: Vehicle | null = null;
     let bestDist = Infinity;
     vehicles.forEach(v => {
-      if (v.type === VehicleType.RC_DRONE) return;
-      if (v.occupant === 'player') return;
       // Must match handleEnterExit exactly, or the hint promises an action
       // that pressing F will not perform.
-      if (v.hp <= 0) return;
+      if (!this.canBoard(v)) return;
       const d = dist(player.x, player.y, v.x, v.y);
       if (d < ENTER_VEHICLE_RADIUS && d < bestDist) { bestDist = d; best = v; }
     });
 
     if (!best) return 'none';
     const v = best as Vehicle;
-    if (v.type === VehicleType.POLICE) return 'police';
+    if (isLawVehicle(v.type) && v.occupant === 'npc') return 'police';
     // A dispatched service vehicle is yours to board, not to steal.
     const isOrdered = this.orders.some(o => o.vehicleId === v.id && o.status !== 'completed');
     return v.occupant === 'npc' && !isOrdered ? 'occupied' : 'free';
@@ -1812,10 +2153,16 @@ export class GameEngine3D {
       vehicleHp: curVeh?.hp,
       wantedStars: this.wanted.stars,
       wantedEvading: this.wanted.evading,
-      arrestProgress: this.police.arrestProgress(),
+      arrestProgress: Math.max(this.police.arrestProgress(), this.guards.arrestProgress()),
       screenFade: this.screenFade,
       screenLabel: this.screenLabel,
       nearVehicle: this.nearestVehicleInfo(),
+      restrictedZone: this.trespassing,
+      hurtFlash: this.hurtFlash,
+      cannonReady: player.state === 'inCar' && curVeh?.type === VehicleType.TANK
+        ? 1 - Math.min(1, (curVeh.gunCooldown ?? 0) / PLAYER_TANK_RELOAD)
+        : null,
+      tiresPopped: player.state === 'inCar' && !!curVeh?.tiresPopped,
       cash: this.economy.cash,
       cashTicker: this.economy.drainTicks(gameClock.now()),
       mission: this.missions.getHUD(),

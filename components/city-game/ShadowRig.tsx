@@ -5,6 +5,7 @@ import * as THREE from 'three';
 
 import { GameEngine3D } from './engine3d';
 import { toX3D, toZ3D } from './types';
+import { frameGate } from './frameGate';
 
 /**
  * Keeps the sun's shadow camera centred on the player.
@@ -22,6 +23,9 @@ const LIGHT_DISTANCE = 220;
 const LOOK_AHEAD = 0.35;
 /** Below this sun intensity there is nothing meaningful to cast. */
 const MIN_SHADOW_INTENSITY = 0.05;
+
+const ORIGIN = new THREE.Vector3(0, 0, 0);
+const UP = new THREE.Vector3(0, 1, 0);
 
 interface Props {
   engine: GameEngine3D;
@@ -86,7 +90,8 @@ export default function ShadowRig({ engine, sun, sunPosition, half, mapSize, ena
 
   useFrame(() => {
     const light = sun.current;
-    if (!light || !enabled) return;
+    // Nothing is drawn on frames the fps cap skips, so neither is the shadow.
+    if (!light || !enabled || !frameGate.due) return;
 
     sunDir.current.set(sunPosition[0], sunPosition[1], sunPosition[2]);
     if (sunDir.current.lengthSq() < 1e-6) sunDir.current.set(0.4, 1, 0.3);
@@ -118,7 +123,7 @@ export default function ShadowRig({ engine, sun, sunPosition, half, mapSize, ena
     // own axes. Without this the depth samples land differently every frame and
     // every shadow edge crawls as the player moves.
     const texel = (half * 2) / mapSize;
-    lightSpace.current.lookAt(sunDir.current, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0));
+    lightSpace.current.lookAt(sunDir.current, ORIGIN, UP);
     const basis = lightSpace.current.elements;
     const rightX = basis[0], rightY = basis[1], rightZ = basis[2];
     const upX = basis[4], upY = basis[5], upZ = basis[6];

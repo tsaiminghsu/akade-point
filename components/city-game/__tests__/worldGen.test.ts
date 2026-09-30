@@ -18,6 +18,7 @@ import {
   inArenaTile,
   isInsideArena,
 } from '../droneArena';
+import { inBaseTile } from '../militaryBase';
 import {
   GRID_SIZE,
   TILE_SIZE,
@@ -35,15 +36,16 @@ function tileAt(gx: number, gy: number) {
 }
 
 describe('world layout at the current grid size', () => {
-  it('lays a road every 8 tiles, minus the ones the drone arena swallowed', () => {
+  it('lays a road every 8 tiles, minus the ones the arena and the base swallowed', () => {
     const perAxis = Math.ceil(GRID_SIZE / 8);
     const fullGrid = perAxis * GRID_SIZE * 2 - perAxis * perAxis;
     // Derived rather than hardcoded: the point of this test is to catch an
     // accidental layout change, so moving the arena must not need a new
     // magic number here.
     let swallowed = 0;
-    for (let gy = ARENA_TILE_Y0; gy <= ARENA_TILE_Y1; gy++) {
-      for (let gx = ARENA_TILE_X0; gx <= ARENA_TILE_X1; gx++) {
+    for (let gy = 0; gy < GRID_SIZE; gy++) {
+      for (let gx = 0; gx < GRID_SIZE; gx++) {
+        if (!inArenaTile(gx, gy) && !inBaseTile(gx, gy)) continue;
         if (gx % 8 === 0 || gy % 8 === 0) swallowed++;
       }
     }

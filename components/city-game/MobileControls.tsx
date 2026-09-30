@@ -2,6 +2,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { InputManager } from './controls';
 import { HUDData } from './types';
+import { JOYSTICK, type TouchLayout } from './touchLayout';
 
 interface Props {
   input: InputManager;
@@ -11,6 +12,10 @@ interface Props {
   onMapToggle: () => void;
   onTownHallToggle: () => void;
   onWeatherCycle: () => void;
+  /** Opens the pause / settings menu (touch has no Esc key). */
+  onPause: () => void;
+  /** Positions for the current screen shape (see touchLayout). */
+  layout: TouchLayout;
 }
 
 const MAX_RADIUS = 50;
@@ -52,7 +57,7 @@ const ICON_BTN = {
 };
 
 export default function MobileControls({
-  input, hud, onPhone, onChallenge, onMapToggle, onTownHallToggle, onWeatherCycle,
+  input, hud, onPhone, onChallenge, onMapToggle, onTownHallToggle, onWeatherCycle, onPause, layout,
 }: Props) {
   const { playerState } = hud;
 
@@ -171,6 +176,8 @@ export default function MobileControls({
   }
 
   // ── Action cluster (context-aware) ────────────────────────────────────
+  // The HUD sizes its landscape toast stack from actionRows (touchLayout.ts):
+  // a row added or removed here needs the same change there.
   function renderActionCluster() {
     const inDrone = playerState === 'inDrone';
     const inHeli  = playerState === 'inHelicopter';
@@ -187,8 +194,21 @@ export default function MobileControls({
       : hud.nearVehicle === 'occupied' || hud.nearVehicle === 'police' ? '🔓'
       : '🚗';
 
+    // What E would do right now: reopen a brief underfoot or start taxi work.
+    // Keyboards press E; this is the same action as a button.
+    const interact = hud.mission ? null
+      : hud.nearMarker ? { label: '查看任務', emoji: '📋' }
+      : hud.canStartTaxi ? { label: '開始接客', emoji: '🚕' }
+      : null;
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+        {interact && tapBtn('interact', interact.label, interact.emoji, {
+          minWidth: 80,
+          background: 'rgba(255,210,63,0.25)',
+          borderColor: 'rgba(255,210,63,0.7)',
+        })}
+
         {/* Race-mode extras */}
         {inRace && (
           <div style={{ display: 'flex', gap: 6 }}>
@@ -226,6 +246,11 @@ export default function MobileControls({
         {inCar && (
           <div style={{ display: 'flex', gap: 6 }}>
             {holdBtn('brake', '煞車', '🛑', { minWidth: 52 })}
+            {hud.cannonReady !== null && holdBtn('fire', '開砲', '💥', {
+              minWidth: 52,
+              background: 'rgba(220,38,38,0.35)',
+              borderColor: 'rgba(248,113,113,0.7)',
+            })}
             {tapBtn(
               'autopilot',
               hud.autopilot?.active ? '解除' : '自駕',
@@ -244,11 +269,16 @@ export default function MobileControls({
   }
 
   // ── Quick button strip ────────────────────────────────────────────────
+  const { quick, cluster, landscape } = layout;
+  const quickStyle = quick.size === ICON_BTN.minWidth
+    ? ICON_BTN
+    : { ...ICON_BTN, minWidth: quick.size, minHeight: quick.size, fontSize: Math.round(quick.size * 0.42) };
+
   function quickBtn(emoji: string, label: string, onPress: () => void) {
     return (
       <button
         aria-label={label}
-        style={ICON_BTN}
+        style={quickStyle}
         onPointerDown={(e) => { e.stopPropagation(); onPress(); }}
       >
         {emoji}
@@ -257,9 +287,9 @@ export default function MobileControls({
   }
 
   // Shared safe-area offset helpers
-  const safeBottom = 'calc(24px + env(safe-area-inset-bottom, 0px))';
-  const safeRight  = 'calc(12px + env(safe-area-inset-right, 0px))';
-  const safeTop50  = '50%';
+  const safeBottom = `calc(${cluster.bottom}px + env(safe-area-inset-bottom, 0px))`;
+  const safeRight  = (px: number) => `calc(${px}px + env(safe-area-inset-right, 0px))`;
+  const townHallBtn = hud.nearTownHall && quickBtn('🏛', '城鎮辦事處', onTownHallToggle);
 
   return (
     // Full-screen passthrough overlay — pointer-events none so canvas still receives camera drags
@@ -298,10 +328,10 @@ export default function MobileControls({
         aria-label="虛擬搖桿"
         style={{
           position: 'fixed',
-          bottom: safeBottom,
-          left: 24,
-          width: 120,
-          height: 120,
+          bottom: `calc(${JOYSTICK.bottom}px + env(safe-area-inset-bottom, 0px))`,
+          left: `calc(${JOYSTICK.left}px + env(safe-area-inset-left, 0px))`,
+          width: JOYSTICK.size,
+          height: JOYSTICK.size,
           borderRadius: '50%',
           background: 'rgba(0,0,0,0.40)',
           backdropFilter: 'blur(6px)',
@@ -342,7 +372,7 @@ export default function MobileControls({
         style={{
           position: 'fixed',
           bottom: safeBottom,
-          right: safeRight,
+          right: safeRight(cluster.right),
           pointerEvents: 'auto',
           touchAction: 'none',
           userSelect: 'none',
@@ -352,27 +382,33 @@ export default function MobileControls({
         {renderActionCluster()}
       </div>
 
-      {/* ── Right side: quick button strip ── */}
+      {/* ── Right side: quick button strip ──
+          Portrait: halfway down the right edge. Landscape: stacked up from the
+          bottom-right corner beside the action buttons, with the town-hall
+          button added on top so the others never move under the thumb. */}
       <div
         style={{
           position: 'fixed',
-          right: safeRight,
-          top: safeTop50,
-          transform: 'translateY(-50%)',
+          right: safeRight(quick.right),
+          ...(landscape
+            ? { bottom: `calc(${quick.bottom}px + env(safe-area-inset-bottom, 0px))` }
+            : { top: '50%', transform: 'translateY(-50%)' }),
           display: 'flex',
           flexDirection: 'column',
-          gap: 8,
+          gap: quick.gap,
           pointerEvents: 'auto',
           touchAction: 'none',
           userSelect: 'none',
           zIndex: 1,
         }}
       >
+        {landscape && townHallBtn}
+        {quickBtn('⏸', '暫停選單', onPause)}
         {quickBtn('📱', '手機服務', onPhone)}
         {quickBtn('🏁', '挑戰關卡', onChallenge)}
         {quickBtn('🗺', '小地圖', onMapToggle)}
         {quickBtn('🌤', '切換天氣', onWeatherCycle)}
-        {hud.nearTownHall && quickBtn('🏛', '城鎮辦事處', onTownHallToggle)}
+        {!landscape && townHallBtn}
       </div>
     </div>
   );

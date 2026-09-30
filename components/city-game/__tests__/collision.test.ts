@@ -7,6 +7,8 @@ import {
   CollisionSystem,
   Overlap,
   Impact,
+  crushDamage,
+  isGroundVehicle,
 } from '../collision';
 import { Vehicle, VehicleType } from '../types';
 
@@ -229,5 +231,57 @@ describe('CollisionSystem', () => {
     });
     expect(impacts).toEqual([]);
     expect(heli.hp).toBe(100);
+  });
+});
+
+describe('heavy vehicles', () => {
+  it('uses per-type mass and ignores the police helicopter', () => {
+    expect(massOf(car({ type: VehicleType.TANK }))).toBeGreaterThan(massOf(car({ type: VehicleType.SWAT })));
+    expect(massOf(car({ type: VehicleType.SWAT }))).toBeGreaterThan(massOf(car({ type: VehicleType.POLICE })));
+    expect(isGroundVehicle(car({ type: VehicleType.POLICE_HELI }))).toBe(false);
+  });
+
+  it('a tank rolling into a car crushes it and barely notices', () => {
+    const tank = car({ id: 't', type: VehicleType.TANK, x: 100, y: 100, occupant: 'player', vx: 0, vy: -80 });
+    const victim = car({ id: 'n', x: 100, y: 78, vx: 0, vy: 0 });
+    const vehicles = new Map([[tank.id, tank], [victim.id, victim]]);
+    const destroyedBy: Array<[string, string | null]> = [];
+    new CollisionSystem().update({
+      vehicles, playerVehicleId: 't', nowMs: 1000,
+      onDestroyed: (v, by) => destroyedBy.push([v.id, by?.id ?? null]),
+    });
+    expect(victim.hp).toBe(0);
+    expect(destroyedBy).toEqual([['n', 't']]);
+    expect(tank.hp).toBeGreaterThan(95);
+  });
+
+  it('crush damage needs real closing speed, and never applies tank to tank', () => {
+    const tank = car({ type: VehicleType.TANK });
+    expect(crushDamage(tank, car(), 5)).toBe(0);
+    expect(crushDamage(tank, car(), 60)).toBeGreaterThan(50);
+    expect(crushDamage(tank, car({ type: VehicleType.TANK }), 60)).toBe(0);
+    expect(crushDamage(car(), tank, 60)).toBe(0);
+  });
+
+  it('armour scales collision damage', () => {
+    const player = car({ id: 'p', x: 100, y: 100, occupant: 'player', vx: 0, vy: -200 });
+    const swat = car({ id: 's', type: VehicleType.SWAT, x: 100, y: 84, vx: 0, vy: 0 });
+    const vehicles = new Map([[player.id, player], [swat.id, swat]]);
+    new CollisionSystem().update({ vehicles, playerVehicleId: 'p', nowMs: 1000 });
+    expect(100 - swat.hp).toBeLessThan(100 - player.hp);
+  });
+
+  it('simulates SWAT and army impacts like police ones', () => {
+    for (const type of [VehicleType.SWAT, VehicleType.ARMY_TRUCK, VehicleType.TANK]) {
+      const unit = car({ id: 'u', type, x: 100, y: 100, vx: 0, vy: -200 });
+      const npc = car({ id: 'n', x: 100, y: 82, vx: 0, vy: 0 });
+      const impacts: Impact[] = [];
+      new CollisionSystem().update({
+        vehicles: new Map([[unit.id, unit], [npc.id, npc]]),
+        playerVehicleId: null, nowMs: 1000,
+        onImpact: i => impacts.push(i),
+      });
+      expect(impacts).toHaveLength(1);
+    }
   });
 });

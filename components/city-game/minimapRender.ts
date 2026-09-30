@@ -39,6 +39,9 @@ const COLORS = {
   townHall: '#5a4a2a',
   plaza: '#6a5a3a',
   droneField: '#1f5a63',
+  militaryGround: '#4b5433',
+  militaryWall: '#9aa07e',
+  militaryHangar: '#6b7450',
   route: '#c084fc',
   player: '#ffdc00',
 } as const;
@@ -87,6 +90,12 @@ export function getMiniMapBase(world: WorldData): HTMLCanvasElement | null {
           fill = COLORS.plaza; break;
         case TileType.DRONE_FIELD:
           fill = COLORS.droneField; break;
+        case TileType.MILITARY_BASE:
+          fill = COLORS.militaryGround; break;
+        case TileType.MILITARY_WALL:
+          fill = COLORS.militaryWall; break;
+        case TileType.MILITARY_HANGAR:
+          fill = COLORS.militaryHangar; break;
         case TileType.BUILDING: {
           // Taller buildings read lighter, which gives the map some relief.
           const floors = tile.floors ?? 1;
@@ -176,18 +185,24 @@ function drawWorldLayers(
   state.vehicles.forEach(v => {
     if (v.occupant === 'player') return;
     if (v.type === VehicleType.RC_DRONE) return;
-    const color = v.type === VehicleType.TAXI ? '#ffee00'
+    const color = v.hp <= 0 ? '#552222'
+      : v.type === VehicleType.TAXI ? '#ffee00'
       : v.type === VehicleType.DELIVERY_SCOOTER ? '#ff8c00'
       : v.type === VehicleType.HELICOPTER ? '#a0d8ef'
-      : v.type === VehicleType.POLICE ? '#4488ff'
-      : v.hp <= 0 ? '#552222'
+      : v.type === VehicleType.POLICE || v.type === VehicleType.SWAT ? '#4488ff'
+      : v.type === VehicleType.POLICE_HELI ? '#60a5fa'
+      : v.type === VehicleType.TANK ? (v.hostile ? '#ef4444' : '#65a30d')
+      : v.type === VehicleType.ARMY_TRUCK ? '#84cc16'
       : '#8a8a99';
+    // Heavy vehicles and helicopters read bigger on the map.
+    const big = v.type === VehicleType.TANK || v.type === VehicleType.POLICE_HELI
+      || v.type === VehicleType.ARMY_TRUCK || v.type === VehicleType.SWAT;
     ctx.save();
     ctx.translate(v.x, v.y);
     ctx.rotate(v.angle);
     ctx.fillStyle = color;
-    const w = 9 * invScale;
-    const h = 15 * invScale;
+    const w = (big ? 12 : 9) * invScale;
+    const h = (big ? 18 : 15) * invScale;
     ctx.fillRect(-w / 2, -h / 2, w, h);
     ctx.restore();
   });

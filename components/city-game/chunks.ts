@@ -25,61 +25,95 @@ import {
  * per world, as raw Float32Array matrices and colours. No three.js import, so
  * it runs in node for tests and never allocates on the frame path.
  *
- * Layout rules (footprints, heights, colours, thinning, lamp stride) are the
- * same ones the old whole-map InstancedMeshes used, moved here verbatim so
- * the city looks identical after the switch to streaming.
+ * Heights and footprints still come straight from the tile grid, so the
+ * collision and flight-ceiling rules in worldGen match what is drawn; only the
+ * detail on top (setbacks, storefronts, roofs, street furniture) is added here.
  */
 
 export const LAYER_NAMES: readonly ChunkLayerName[] = [
-  'sky', 'off', 'com', 'hou',
-  'roofBase', 'roofPeak',
-  'houseWin', 'houseDoor',
+  'sky', 'off', 'com', 'hou', 'shop',
+  'roofBase', 'roofPeak', 'roofUnit',
+  'houseDoor',
   'treeTrunk', 'treeLeaf',
-  'lampPole', 'lampHead',
+  'pole', 'lampHead', 'lightPool', 'signalHead',
+  'curb', 'prop',
 ];
 
-/** Street lamps sit on every 4th sidewalk / intersection tile in both axes. */
-export const LAMP_STRIDE = 4;
+/** Street furniture repeats every block along a road (BLOCK_INTERVAL). */
+const STREET_PERIOD = 8;
+/** Lamps stand at these offsets along the road, one per side, staggered. */
+const LAMP_NEAR_SIDE = 2;
+const LAMP_FAR_SIDE = 6;
 
-// ── Colour rules (RGB 0-1) ──────────────────────────────────────────────────
+/** Heights and reaches of the street furniture, 3D units. */
+export const LAMP = { poleH: 5.4, reach: 1.8, headY: 5.2, inset: 0.3 } as const;
+export const SIGNAL = { poleH: 4.8, reach: 2.3, headY: 4.15, inset: 0.35 } as const;
+const CURB = { w: 0.22, h: 0.16 } as const;
 
-export function facadeTint(floors: number, seed: number, btype?: BuildingType): [number, number, number] {
-  if (btype === BuildingType.HOUSE) {
-    const v: [number, number, number][] = [
-      [1.00, 0.88, 0.72], // warm tan brick
-      [0.95, 0.72, 0.62], // red-brown brick
-      [0.88, 0.88, 0.85], // light stone
-      [1.00, 0.96, 0.80], // cream sandstone
-    ];
-    return v[seed % 4];
-  }
-  if (floors >= 15) {
-    const t = (seed % 8) / 8;
-    return [0.80 + t * 0.12, 0.90 + t * 0.06, 1.00];
-  }
-  if (floors >= 8) {
-    const t = (seed % 6) / 6;
-    return [0.82 + t * 0.10, 0.88 + t * 0.08, 0.96 + t * 0.04];
-  }
-  const t = (seed % 5) / 5;
-  return [0.88 + t * 0.08, 0.84 + t * 0.10, 0.80 + t * 0.12];
+type RGB = [number, number, number];
+
+// ── Colour rules (RGB 0-1, multiplied onto the facade textures) ─────────────
+
+const HOUSE_PAINT: RGB[] = [
+  [0.96, 0.92, 0.84], // cream
+  [0.80, 0.88, 0.95], // pale blue
+  [0.84, 0.90, 0.78], // sage
+  [0.98, 0.84, 0.76], // salmon
+  [0.92, 0.92, 0.90], // light grey
+  [0.98, 0.93, 0.72], // butter
+];
+const TOWER_GLASS: RGB[] = [
+  [0.72, 0.86, 1.00], // blue
+  [0.70, 0.95, 0.90], // teal
+  [1.00, 0.86, 0.66], // bronze
+  [0.90, 0.93, 0.97], // silver
+  [0.62, 0.72, 0.85], // steel
+];
+const OFFICE_CONCRETE: RGB[] = [
+  [1.00, 1.00, 1.00],
+  [0.95, 0.92, 0.86],
+  [0.86, 0.88, 0.90],
+  [0.92, 0.86, 0.80],
+];
+const MASONRY: RGB[] = [
+  [1.00, 1.00, 1.00], // limestone
+  [0.95, 0.80, 0.68], // terracotta render
+  [0.85, 0.85, 0.86], // grey
+  [0.98, 0.92, 0.78], // sand
+  [0.80, 0.70, 0.62], // brown brick
+];
+const SHOP_SIGN: RGB[] = [
+  [0.90, 0.20, 0.18], [0.15, 0.45, 0.85], [0.95, 0.70, 0.10],
+  [0.15, 0.65, 0.35], [0.70, 0.25, 0.75], [0.95, 0.95, 0.95],
+];
+const SHINGLE: RGB[] = [
+  [0.28, 0.28, 0.30], [0.55, 0.25, 0.18], [0.36, 0.26, 0.20], [0.30, 0.34, 0.38],
+];
+
+export function facadeTint(floors: number, seed: number, btype?: BuildingType): RGB {
+  if (btype === BuildingType.HOUSE) return HOUSE_PAINT[seed % HOUSE_PAINT.length];
+  if (floors >= 15) return TOWER_GLASS[seed % TOWER_GLASS.length];
+  if (floors >= 8) return OFFICE_CONCRETE[seed % OFFICE_CONCRETE.length];
+  return MASONRY[seed % MASONRY.length];
 }
 
-function hexToRgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+export function roofBaseTint(floors: number, seed: number, btype?: BuildingType): RGB {
+  if (btype === BuildingType.HOUSE) return [0.92, 0.92, 0.90]; // painted eaves
+  // Flat roofs: grey membrane or pale gravel.
+  return seed % 3 === 0 ? [0.62, 0.61, 0.58] : [0.42, 0.42, 0.43];
 }
 
-export function roofBaseTint(floors: number, seed: number, btype?: BuildingType): [number, number, number] {
-  if (btype === BuildingType.HOUSE) return hexToRgb(seed % 2 === 0 ? '#5c2a18' : '#3d2810');
-  if (floors >= 15) return hexToRgb('#0a1820');
-  if (floors >= 8)  return hexToRgb('#1a2030');
-  if (floors >= 4)  return hexToRgb('#2a2830');
-  return hexToRgb('#222230');
+export function roofPeakTint(seed: number): RGB {
+  return SHINGLE[seed % SHINGLE.length];
 }
 
-export function roofPeakTint(seed: number): [number, number, number] {
-  return hexToRgb(seed % 2 === 0 ? '#3d1a0a' : '#251808');
+export function shopSignTint(seed: number): RGB {
+  return SHOP_SIGN[seed % SHOP_SIGN.length];
+}
+
+/** Tall towers step back for their top quarter; the crown stays at full height. */
+export function hasSetback(floors: number, seed: number): boolean {
+  return floors >= 12 && seed % 3 !== 0;
 }
 
 /** Building footprint in 3D units. */
@@ -96,10 +130,27 @@ export function buildingCategory(floors: number, btype?: BuildingType): 'sky' | 
 
 // ── Layer builder ────────────────────────────────────────────────────────────
 
+/** sRGB → linear, the space instanceColor is multiplied in. */
+function toLinear(v: number): number {
+  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
 class LayerBuilder {
   private mats: number[] = [];
   private colors: number[] = [];
   count = 0;
+
+  /**
+   * Palette colours here are written as sRGB, like CSS. `data` layers carry
+   * raw numbers in the colour channel instead (the signal phase) and are
+   * stored untouched.
+   */
+  constructor(private readonly data = false) {}
+
+  private pushColor(r: number, g: number, b: number): void {
+    if (this.data) this.colors.push(r, g, b);
+    else this.colors.push(toLinear(r), toLinear(g), toLinear(b));
+  }
 
   /** Translation + non-uniform scale, no rotation (column-major). */
   add(tx: number, ty: number, tz: number, sx: number, sy: number, sz: number, r = 1, g = 1, b = 1): void {
@@ -109,7 +160,27 @@ class LayerBuilder {
       0, 0, sz, 0,
       tx, ty, tz, 1,
     );
-    this.colors.push(r, g, b);
+    this.pushColor(r, g, b);
+    this.count++;
+  }
+
+  /** Axis-aligned box from min/max corners. */
+  box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, [r, g, b]: RGB = [1, 1, 1]): void {
+    this.add((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0, r, g, b);
+  }
+
+  /** Translation · rotation about Y · scale (column-major). */
+  addRotY(tx: number, ty: number, tz: number, sx: number, sy: number, sz: number,
+    angle: number, [r, g, b]: RGB = [1, 1, 1]): void {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    this.mats.push(
+      c * sx, 0, -s * sx, 0,
+      0, sy, 0, 0,
+      s * sz, 0, c * sz, 0,
+      tx, ty, tz, 1,
+    );
+    this.pushColor(r, g, b);
     this.count++;
   }
 
@@ -129,9 +200,261 @@ function tileCentre3D(gx: number, gy: number): [number, number] {
   ];
 }
 
+// ── Street furniture placement (pure, shared with the tests) ────────────────
+
+/** West, east, north, south as tile steps; north is −gy / −z. */
+const DIRS: readonly [number, number][] = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+function isRoadTile(t: Tile | undefined): boolean {
+  return !!t && (t.type === TileType.ROAD_H || t.type === TileType.ROAD_V || t.type === TileType.INTERSECTION);
+}
+
+function roadSides(grid: Tile[][], gx: number, gy: number): [number, number][] {
+  return DIRS.filter(([dx, dy]) => isRoadTile(grid[gy + dy]?.[gx + dx]));
+}
+
+/** Offset along the road, 0..STREET_PERIOD-1, for a tile beside a road on `dx`/`dy`. */
+function alongRoad(gx: number, gy: number, dx: number): number {
+  const a = dx !== 0 ? gy : gx;
+  return ((a % STREET_PERIOD) + STREET_PERIOD) % STREET_PERIOD;
+}
+
+/** The sidewalk tile beside exactly one road: the direction of that road. */
+function streetSide(grid: Tile[][], gx: number, gy: number): [number, number] | null {
+  if (grid[gy]?.[gx]?.type !== TileType.SIDEWALK) return null;
+  const sides = roadSides(grid, gx, gy);
+  return sides.length === 1 ? sides[0] : null;
+}
+
+/** Near side = the road lies west or north of the tile. */
+function isNearSide([dx, dy]: [number, number]): boolean {
+  return dx < 0 || dy < 0;
+}
+
+/**
+ * Street lamps: one per side of every block face, staggered between the two
+ * sides of the road. Returns the direction the arm reaches (toward the road).
+ */
+export function lampDir(grid: Tile[][], gx: number, gy: number): [number, number] | null {
+  const side = streetSide(grid, gx, gy);
+  if (!side) return null;
+  const want = isNearSide(side) ? LAMP_NEAR_SIDE : LAMP_FAR_SIDE;
+  return alongRoad(gx, gy, side[0]) === want ? side : null;
+}
+
+/**
+ * Traffic signals: on the sidewalk corner diagonal to an intersection.
+ * Returns that diagonal direction.
+ */
+export function signalCorner(grid: Tile[][], gx: number, gy: number): [number, number] | null {
+  if (grid[gy]?.[gx]?.type !== TileType.SIDEWALK) return null;
+  const sides = roadSides(grid, gx, gy);
+  if (sides.length !== 2) return null;
+  const dx = sides[0][0] + sides[1][0];
+  const dy = sides[0][1] + sides[1][1];
+  if (dx === 0 || dy === 0) return null; // opposite sides, not a corner
+  return grid[gy + dy]?.[gx + dx]?.type === TileType.INTERSECTION ? [dx, dy] : null;
+}
+
+/** Trees: every third park tile, some front yards, and mid-block street trees. */
+export function treeAt(grid: Tile[][], gx: number, gy: number): boolean {
+  const t = grid[gy]?.[gx];
+  if (!t) return false;
+  if (t.type === TileType.PARK) return (gx + gy * 3) % 3 === 0;
+  if (t.type !== TileType.SIDEWALK) return false;
+  const sides = roadSides(grid, gx, gy);
+  if (sides.length === 0) return (gx * 7 + gy * 3) % 5 === 0; // front yard
+  return sides.length === 1 && alongRoad(gx, gy, sides[0][0]) === 4;
+}
+
+function sameBuilding(a: Tile, b: Tile | undefined): boolean {
+  return !!b
+    && (b.type === TileType.BUILDING || b.type === TileType.HELIPAD)
+    && a.buildingType !== BuildingType.HOUSE && b.buildingType !== BuildingType.HOUSE
+    && (a.floors ?? 1) === (b.floors ?? 1)
+    && a.colorSeed === b.colorSeed;
+}
+
+/** Small deterministic hash → [0,1). */
+function hash01(a: number, b: number, c = 0): number {
+  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35) ^ Math.imul(c + 17, 0x27d4eb2f);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return (h >>> 0) / 4294967296;
+}
+
+type Builders = Record<ChunkLayerName, LayerBuilder>;
+
+/**
+ * Commercial, office and tower tiles. Tiles of one multi-tile building run
+ * their walls to the shared tile edge, so a 2×2 block is one solid mass
+ * instead of four towers with alleys between them.
+ */
+function bakeBlock(b: Builders, grid: Tile[][], tile: Tile, gx: number, gy: number, x3: number, z3: number): void {
+  const floors = tile.floors ?? 1;
+  const h = Math.max(0.5, floors * FLOOR_HEIGHT_3D);
+  const seed = tile.colorSeed ?? 0;
+  const half = buildingFootprint(tile.buildingType) / 2;
+  const edge = TILE_3D / 2;
+  const merged: Record<'w' | 'e' | 'n' | 's', boolean> = {
+    w: sameBuilding(tile, grid[gy]?.[gx - 1]),
+    e: sameBuilding(tile, grid[gy]?.[gx + 1]),
+    n: sameBuilding(tile, grid[gy - 1]?.[gx]),
+    s: sameBuilding(tile, grid[gy + 1]?.[gx]),
+  };
+  /** Footprint with the open sides pulled in by `inset` (negative = out). */
+  const ext = (inset: number) => ({
+    x0: x3 - (merged.w ? edge : half - inset),
+    x1: x3 + (merged.e ? edge : half - inset),
+    z0: z3 - (merged.n ? edge : half - inset),
+    z1: z3 + (merged.s ? edge : half - inset),
+  });
+
+  const cat = buildingCategory(floors, tile.buildingType);
+  const tint = facadeTint(floors, seed, tile.buildingType);
+  const roofTint = roofBaseTint(floors, seed, tile.buildingType);
+  const isBuilding = tile.type === TileType.BUILDING;
+  const tower = isBuilding && hasSetback(floors, seed);
+  const hMain = tower ? Math.max(1, Math.floor(floors * 0.72)) * FLOOR_HEIGHT_3D : h;
+
+  const body = ext(0);
+  b[cat].box(body.x0, 0, body.z0, body.x1, hMain, body.z1, tint);
+  const cap = ext(-0.06);
+  b.roofBase.box(cap.x0, hMain, cap.z0, cap.x1, hMain + 0.3, cap.z1, roofTint);
+
+  let top = body;
+  if (tower) {
+    top = ext(0.55);
+    b[cat].box(top.x0, hMain, top.z0, top.x1, h, top.z1, tint);
+    const cap2 = ext(0.49);
+    b.roofBase.box(cap2.x0, h, cap2.z0, cap2.x1, h + 0.3, cap2.z1, roofTint);
+  }
+
+  if (!isBuilding) return; // helipad: keep the deck clear
+
+  // Ground-floor storefront or lobby, proud of the wall.
+  const shop = tile.buildingType === BuildingType.SHOP;
+  const sign: RGB = shop ? shopSignTint(seed) : [0.86, 0.86, 0.84];
+  const sf = ext(-0.05);
+  b.shop.box(sf.x0, 0, sf.z0, sf.x1, Math.min(FLOOR_HEIGHT_3D, hMain), sf.z1, sign);
+
+  // Awnings over the pavement.
+  if (shop) {
+    const aw: RGB = [sign[0] * 0.8, sign[1] * 0.8, sign[2] * 0.8];
+    const y0 = 1.0, y1 = 1.08, depth = 0.8;
+    const walk = (dx: number, dy: number) => grid[gy + dy]?.[gx + dx]?.type === TileType.SIDEWALK;
+    if (!merged.w && walk(-1, 0)) b.prop.box(body.x0 - depth, y0, body.z0 + 0.2, body.x0, y1, body.z1 - 0.2, aw);
+    if (!merged.e && walk(1, 0)) b.prop.box(body.x1, y0, body.z0 + 0.2, body.x1 + depth, y1, body.z1 - 0.2, aw);
+    if (!merged.n && walk(0, -1)) b.prop.box(body.x0 + 0.2, y0, body.z0 - depth, body.x1 - 0.2, y1, body.z0, aw);
+    if (!merged.s && walk(0, 1)) b.prop.box(body.x0 + 0.2, y0, body.z1, body.x1 - 0.2, y1, body.z1 + depth, aw);
+  }
+
+  // Rooftop plant: AC units, and a water tank on mid-rise blocks.
+  if (floors >= 3) {
+    const topY = h + 0.3;
+    const spanX = top.x1 - top.x0;
+    const spanZ = top.z1 - top.z0;
+    const n = 1 + Math.floor(hash01(gx, gy, 1) * 2);
+    for (let i = 0; i < n; i++) {
+      const sx = 0.6 + hash01(gx, gy, 10 + i) * 0.5;
+      const sz = 0.5 + hash01(gx, gy, 20 + i) * 0.5;
+      const sy = 0.4 + hash01(gx, gy, 30 + i) * 0.35;
+      const ux = top.x0 + 0.4 + sx / 2 + hash01(gx, gy, 40 + i) * Math.max(0, spanX - 0.8 - sx);
+      const uz = top.z0 + 0.4 + sz / 2 + hash01(gx, gy, 50 + i) * Math.max(0, spanZ - 0.8 - sz);
+      b.roofUnit.add(ux, topY + sy / 2, uz, sx, sy, sz, 0.70, 0.71, 0.72);
+    }
+    if (floors <= 9 && hash01(gx, gy, 2) < 0.25) {
+      b.roofUnit.add((top.x0 + top.x1) / 2, topY + 0.9, (top.z0 + top.z1) / 2, 0.9, 1.2, 0.9, 0.42, 0.31, 0.22);
+    }
+  }
+}
+
+/** Detached house: painted siding, gable roof, a door toward the street. */
+function bakeHouse(b: Builders, tile: Tile, gx: number, gy: number, x3: number, z3: number): void {
+  const floors = tile.floors ?? 1;
+  const h = Math.max(0.5, floors * FLOOR_HEIGHT_3D);
+  const seed = tile.colorSeed ?? 0;
+  const fp = buildingFootprint(tile.buildingType);
+  const [r, g, bl] = facadeTint(floors, seed, tile.buildingType);
+  b.hou.add(x3, h / 2, z3, fp, h, fp, r, g, bl);
+
+  const eave = fp * 1.14;
+  const [er, eg, eb] = roofBaseTint(floors, seed, tile.buildingType);
+  b.roofBase.add(x3, h + 0.05, z3, eave, 0.1, eave, er, eg, eb);
+  b.roofPeak.addRotY(x3, h + 0.1 + 0.55, z3, eave, 1.1, eave, seed % 2 === 0 ? 0 : Math.PI / 2, roofPeakTint(seed));
+  if (seed % 3 === 0) b.roofUnit.add(x3 + fp * 0.28, h + 0.9, z3 - fp * 0.2, 0.34, 1.2, 0.34, 0.55, 0.30, 0.24);
+
+  // Houses sit mid-block; the door faces whichever road is nearer.
+  const oy = ((gy % STREET_PERIOD) + STREET_PERIOD) % STREET_PERIOD;
+  const north = oy < STREET_PERIOD / 2;
+  const fz = z3 + (north ? -1 : 1) * (fp / 2 + 0.015);
+  const doors: RGB[] = [[0.35, 0.20, 0.12], [0.15, 0.25, 0.40], [0.50, 0.10, 0.10], [0.95, 0.95, 0.92]];
+  b.houseDoor.addRotY(x3 + (hash01(gx, gy, 6) - 0.5) * fp * 0.4, 0.45, fz, 0.5, 0.9, 1,
+    north ? Math.PI : 0, doors[seed % doors.length]);
+}
+
+function bakeTree(b: Builders, grid: Tile[][], tile: Tile, gx: number, gy: number, x3: number, z3: number): void {
+  const r1 = hash01(gx, gy, 3);
+  const r2 = hash01(gx, gy, 4);
+  const r3 = hash01(gx, gy, 5);
+  let tx = x3 + (r1 - 0.5) * 1.4;
+  let tz = z3 + (r2 - 0.5) * 1.4;
+  if (tile.type === TileType.SIDEWALK) {
+    const sides = roadSides(grid, gx, gy);
+    // Street trees stand in a pit a step back from the kerb.
+    if (sides.length === 1) {
+      tx = x3 + sides[0][0] * 0.7;
+      tz = z3 + sides[0][1] * 0.7;
+    }
+  }
+  const trunkH = 1.3 + r3 * 0.9;
+  const crownR = 0.9 + r1 * 0.6;
+  const crownH = crownR * (1.3 + r2 * 0.4);
+  b.treeTrunk.add(tx, trunkH / 2, tz, 0.16, trunkH, 0.16);
+  b.treeLeaf.add(tx, trunkH + crownH * 0.35, tz, crownR, crownH / 2, crownR,
+    0.20 + r2 * 0.10, 0.38 + r3 * 0.14, 0.16 + r1 * 0.06);
+}
+
+/** Cobra-head street lamp at the kerb, arm over the road. Returns the head x/z. */
+function bakeLamp(b: Builders, [dx, dy]: [number, number], x3: number, z3: number): [number, number] {
+  const edge = TILE_3D / 2 - LAMP.inset;
+  const px3 = x3 + dx * edge;
+  const pz3 = z3 + dy * edge;
+  const metal: RGB = [0.24, 0.25, 0.27];
+  b.pole.add(px3, LAMP.poleH / 2, pz3, 0.16, LAMP.poleH, 0.16, ...metal);
+  b.pole.add(px3 + dx * LAMP.reach / 2, LAMP.poleH - 0.1, pz3 + dy * LAMP.reach / 2,
+    dx ? LAMP.reach : 0.08, 0.08, dy ? LAMP.reach : 0.08, ...metal);
+  const hx = px3 + dx * LAMP.reach;
+  const hz = pz3 + dy * LAMP.reach;
+  b.lampHead.add(hx, LAMP.headY, hz, dx ? 0.7 : 0.3, 0.14, dy ? 0.7 : 0.3);
+  b.lightPool.add(hx, 0.03, hz, 7, 1, 7);
+  return [hx, hz];
+}
+
+/**
+ * Mast-arm traffic signal on an intersection corner. Two diagonal corners
+ * reach over the north–south road, the other two over the east–west road,
+ * and the two directions run opposite phases.
+ */
+function bakeSignal(b: Builders, [dx, dy]: [number, number], x3: number, z3: number): void {
+  const edge = TILE_3D / 2 - SIGNAL.inset;
+  const px3 = x3 + dx * edge;
+  const pz3 = z3 + dy * edge;
+  const metal: RGB = [0.16, 0.17, 0.15];
+  b.pole.add(px3, SIGNAL.poleH / 2, pz3, 0.18, SIGNAL.poleH, 0.18, ...metal);
+  const overNS = dx === dy;
+  const ux = overNS ? dx : 0;
+  const uz = overNS ? 0 : dy;
+  b.pole.add(px3 + ux * SIGNAL.reach / 2, SIGNAL.poleH - 0.15, pz3 + uz * SIGNAL.reach / 2,
+    ux ? SIGNAL.reach : 0.1, 0.1, uz ? SIGNAL.reach : 0.1, ...metal);
+  const phase = overNS ? 0 : 0.5;
+  b.signalHead.add(px3 + ux * SIGNAL.reach, SIGNAL.headY, pz3 + uz * SIGNAL.reach, 0.3, 0.9, 0.3, phase, phase, phase);
+}
+
 function buildChunk(grid: Tile[][], cx: number, cy: number): ChunkIndex {
   const builders = {} as Record<ChunkLayerName, LayerBuilder>;
-  for (const name of LAYER_NAMES) builders[name] = new LayerBuilder();
+  for (const name of LAYER_NAMES) builders[name] = new LayerBuilder(name === 'signalHead');
 
   const lampPositions: number[] = [];
   const roadTiles: Point[] = [];
@@ -169,55 +492,48 @@ function buildChunk(grid: Tile[][], cx: number, cy: number): ChunkIndex {
           break;
       }
 
-      // ── Buildings, roofs, house details ─────────────────────────────
       if (tile.type === TileType.BUILDING || tile.type === TileType.HELIPAD) {
-        const floors = tile.floors ?? 1;
-        const h = Math.max(0.5, floors * FLOOR_HEIGHT_3D);
-        const seed = tile.colorSeed ?? 0;
-        const fp = buildingFootprint(tile.buildingType);
-        const cat = buildingCategory(floors, tile.buildingType);
+        if (tile.buildingType === BuildingType.HOUSE) bakeHouse(builders, tile, gx, gy, x3, z3);
+        else bakeBlock(builders, grid, tile, gx, gy, x3, z3);
+      }
 
-        const [r, g, b] = facadeTint(floors, seed, tile.buildingType);
-        builders[cat].add(x3, h / 2, z3, fp, h, fp, r, g, b);
+      if (treeAt(grid, gx, gy)) bakeTree(builders, grid, tile, gx, gy, x3, z3);
 
-        const [rr, rg, rb] = roofBaseTint(floors, seed, tile.buildingType);
-        builders.roofBase.add(x3, h + 0.25, z3, fp * 1.08, 0.5, fp * 1.08, rr, rg, rb);
+      if (tile.type === TileType.SIDEWALK) {
+        const sides = roadSides(grid, gx, gy);
+        const half = TILE_3D / 2;
 
-        if (tile.buildingType === BuildingType.HOUSE) {
-          const [pr, pg, pb] = roofPeakTint(seed);
-          builders.roofPeak.add(x3, h + 0.75, z3, fp * 0.62, 0.5, fp * 0.62, pr, pg, pb);
+        // Kerbs along every edge that meets the carriageway.
+        for (const [dx, dy] of sides) {
+          const cx3 = x3 + dx * (half - CURB.w / 2);
+          const cz3 = z3 + dy * (half - CURB.w / 2);
+          const sx = dx !== 0 ? CURB.w : TILE_3D;
+          const sz = dx !== 0 ? TILE_3D : CURB.w;
+          builders.curb.add(cx3, CURB.h / 2, cz3, sx, CURB.h, sz, 0.78, 0.77, 0.74);
+        }
 
-          if (tile.type === TileType.BUILDING && floors === 1) {
-            const faceZ = z3 + fp / 2 + 0.015; // south face
-            for (const xOff of [-fp * 0.25, fp * 0.25]) {
-              builders.houseWin.add(x3 + xOff, h * 0.62, faceZ, 0.5, 0.5, 0.01);
-            }
-            builders.houseDoor.add(x3, h * 0.35, faceZ, 0.42, 0.70, 0.01);
+        const lamp = lampDir(grid, gx, gy);
+        if (lamp) {
+          const [hx, hz] = bakeLamp(builders, lamp, x3, z3);
+          lampPositions.push(hx, hz);
+        }
+
+        const corner = signalCorner(grid, gx, gy);
+        if (corner) bakeSignal(builders, corner, x3, z3);
+
+        // Hydrants and bins near the kerb, one each per block face.
+        if (sides.length === 1) {
+          const [dx, dy] = sides[0];
+          const along = alongRoad(gx, gy, dx);
+          const px3 = x3 + dx * (half - 0.55);
+          const pz3 = z3 + dy * (half - 0.55);
+          if (isNearSide(sides[0]) && along === 3) {
+            builders.prop.add(px3, 0.3, pz3, 0.26, 0.6, 0.26, 0.78, 0.12, 0.10);
+            builders.prop.add(px3, 0.62, pz3, 0.18, 0.1, 0.18, 0.65, 0.65, 0.62);
+          } else if (!isNearSide(sides[0]) && along === 5) {
+            builders.prop.add(px3, 0.38, pz3, 0.4, 0.76, 0.4, 0.16, 0.28, 0.20);
           }
         }
-      }
-
-      // ── Trees on park tiles (thinned to one in three) ────────────────
-      if (tile.type === TileType.PARK && (gx + gy * 3) % 3 === 0) {
-        const seed = tile.colorSeed ?? (gx * 7 + gy * 13);
-        const off = (seed % 5) * 0.3 - 0.6;
-        const tx = x3 + off;
-        const tz = z3 + off;
-        const tH = 1.2 + (seed % 5) * 0.3;
-        const lH = 1.5 + (seed % 4) * 0.4;
-        const lR = 0.9 + (seed % 3) * 0.3;
-        builders.treeTrunk.add(tx, tH / 2, tz, 0.18, tH, 0.18);
-        builders.treeLeaf.add(tx, tH + lH / 2, tz, lR * 2, lH, lR * 2);
-      }
-
-      // ── Street lamps ─────────────────────────────────────────────────
-      if (
-        gx % LAMP_STRIDE === 0 && gy % LAMP_STRIDE === 0 &&
-        (tile.type === TileType.SIDEWALK || tile.type === TileType.INTERSECTION)
-      ) {
-        builders.lampPole.add(x3, 1.75, z3, 0.12, 3.5, 0.12);
-        builders.lampHead.add(x3, 3.65, z3, 0.55, 0.28, 0.55);
-        lampPositions.push(x3, z3);
       }
     }
   }

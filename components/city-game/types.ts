@@ -57,6 +57,9 @@ export enum TileType {
   TOWN_HALL_PLAZA = 'TOWN_HALL_PLAZA',   // civic grounds — walkable, not drivable
   TOWN_HALL_INTERIOR = 'TOWN_HALL_INTERIOR', // lobby — walkable, enclosed
   DRONE_FIELD = 'DRONE_FIELD',           // drone arena floor — walkable, no props
+  MILITARY_BASE = 'MILITARY_BASE',       // base apron — drivable and walkable
+  MILITARY_WALL = 'MILITARY_WALL',       // perimeter wall — solid, low
+  MILITARY_HANGAR = 'MILITARY_HANGAR',   // hangars and the tower — solid
 }
 
 export enum BuildingType {
@@ -86,6 +89,10 @@ export enum VehicleType {
   RC_DRONE = 'RC_DRONE',
   NPC_CAR = 'NPC_CAR',
   POLICE = 'POLICE',
+  SWAT = 'SWAT',
+  POLICE_HELI = 'POLICE_HELI',
+  ARMY_TRUCK = 'ARMY_TRUCK',
+  TANK = 'TANK',
 }
 
 export interface Point {
@@ -142,6 +149,16 @@ export interface Vehicle {
   driverColorIdx?: number;
   /** gameClock.now() of the last damaging impact (cooldown gate). */
   lastHitTime?: number;
+
+  // -- Combat ------------------------------------------------------------
+  /** Tank turret heading, world radians (same convention as `angle`). */
+  turretAngle?: number;
+  /** Seconds until the main gun can fire again. */
+  gunCooldown?: number;
+  /** Set each tick by whichever system owns the unit: true while it is attacking the player. */
+  hostile?: boolean;
+  /** Driven over a spike strip: top speed is cut until a Pay-n-Spray. */
+  tiresPopped?: boolean;
 }
 
 /**
@@ -151,6 +168,7 @@ export interface Vehicle {
 export type PlayerAction =
   | { kind: 'carjack'; vehicleId: string; timer: number; total: number; fromX: number; fromY: number }
   | { kind: 'busted';  timer: number; total: number }
+  | { kind: 'wasted';  timer: number; total: number }
   | { kind: 'ejected'; timer: number; total: number };
 
 export interface Player {
@@ -215,7 +233,8 @@ export interface Waypoint {
 // -- Minimap -----------------------------------------------------------------
 
 export type BlipKind =
-  | 'mission' | 'marker' | 'passenger' | 'police' | 'paynspray' | 'vehicle' | 'custom';
+  | 'mission' | 'marker' | 'passenger' | 'police' | 'heli' | 'military'
+  | 'paynspray' | 'vehicle' | 'custom';
 
 /** A point of interest drawn on the minimap, in world px. */
 export interface MinimapBlip {
@@ -346,6 +365,14 @@ export interface HUDData {
   screenLabel: string | null;
   /** What pressing F would do right now. Drives the hint and mobile label. */
   nearVehicle: 'none' | 'free' | 'occupied' | 'police';
+  /** Inside the military base perimeter. */
+  restrictedZone: boolean;
+  /** 0-1 red flash after taking damage. */
+  hurtFlash: number;
+  /** Main gun readiness 0-1 while driving a tank, else null. */
+  cannonReady: number | null;
+  /** Spike strips have shredded the current vehicle's tyres. */
+  tiresPopped: boolean;
 
   // -- Economy and missions ----------------------------------------------
   cash: number;
@@ -423,11 +450,12 @@ export interface InstanceLayer {
 }
 
 export type ChunkLayerName =
-  | 'sky' | 'off' | 'com' | 'hou'
-  | 'roofBase' | 'roofPeak'
-  | 'houseWin' | 'houseDoor'
+  | 'sky' | 'off' | 'com' | 'hou' | 'shop'
+  | 'roofBase' | 'roofPeak' | 'roofUnit'
+  | 'houseDoor'
   | 'treeTrunk' | 'treeLeaf'
-  | 'lampPole' | 'lampHead';
+  | 'pole' | 'lampHead' | 'lightPool' | 'signalHead'
+  | 'curb' | 'prop';
 
 export interface ChunkIndex {
   cx: number;
@@ -444,7 +472,7 @@ export interface ChunkIndex {
   minPy: number;
   maxPy: number;
   layers: Record<ChunkLayerName, InstanceLayer>;
-  /** x3,z3 pairs of every street lamp, for the nearest-N point lights. */
+  /** x3,z3 pairs of every street-lamp head, for the nearest-N point lights. */
   lampPositions: Float32Array;
   roadTiles: Point[];
   sidewalkTiles: Point[];

@@ -1,14 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { WantedSystem, MAX_STARS } from '../wanted';
+import { WantedSystem, MAX_STARS, CHASE_MAX_STARS } from '../wanted';
 
 /** Run `seconds` of simulated time at 60fps. */
 function advance(w: WantedSystem, seconds: number, seen: boolean, chased = seen) {
   const dt = 1 / 60;
-  let units = 0;
   for (let i = 0; i < Math.round(seconds * 60); i++) {
-    units = w.update(dt, seen, chased && w.stars > 0);
+    w.update(dt, seen, chased && w.stars > 0);
   }
-  return units;
 }
 
 describe('crimes', () => {
@@ -26,10 +24,40 @@ describe('crimes', () => {
     expect(w2.stars).toBe(2);
   });
 
-  it('never exceeds the maximum', () => {
+  it('never exceeds the maximum of six stars', () => {
     const w = new WantedSystem();
     for (let i = 0; i < 20; i++) w.addCrime('carjackPolice');
+    expect(MAX_STARS).toBe(6);
     expect(w.stars).toBe(MAX_STARS);
+  });
+
+  it('counts explosions, wrecking law vehicles and stealing the tank as one star each', () => {
+    for (const crime of ['explosion', 'destroyLaw', 'stealMilitary'] as const) {
+      const w = new WantedSystem();
+      w.set(2);
+      w.addCrime(crime);
+      expect(w.stars).toBe(3);
+    }
+  });
+
+  it('raiseTo only ever raises', () => {
+    const w = new WantedSystem();
+    w.raiseTo(4);
+    expect(w.stars).toBe(4);
+    w.raiseTo(2);
+    expect(w.stars).toBe(4);
+    w.set(5);
+    w.raiseTo(4);
+    expect(w.stars).toBe(5);
+  });
+
+  it('raiseTo does not restart the hiding clock when nothing changes', () => {
+    const w = new WantedSystem();
+    w.set(5);
+    advance(w, 5, false);
+    const before = w.evadeTimer;
+    w.raiseTo(4);
+    expect(w.evadeTimer).toBe(before);
   });
 
   it('notifies on every change, with the previous value', () => {
@@ -92,9 +120,10 @@ describe('evading', () => {
 
   it('does nothing at zero stars', () => {
     const w = new WantedSystem();
-    expect(advance(w, 60, false)).toBe(0);
+    advance(w, 60, false);
     expect(w.stars).toBe(0);
     expect(w.evading).toBe(false);
+    expect(w.evadeTimer).toBe(0);
   });
 });
 
@@ -119,22 +148,37 @@ describe('escalation', () => {
   });
 });
 
-describe('police dispatch', () => {
-  it('scales the unit count with the star level', () => {
+describe('the sixth star', () => {
+  it('is never reached by chasing alone', () => {
     const w = new WantedSystem();
-    expect(w.targetUnits()).toBe(0);
-    for (let stars = 1; stars <= MAX_STARS; stars++) {
-      w.set(stars);
-      expect(w.targetUnits()).toBe(stars);
-    }
+    w.set(CHASE_MAX_STARS);
+    advance(w, 200, true);
+    expect(w.stars).toBe(CHASE_MAX_STARS);
   });
 
-  it('stands the police down when the level is cleared', () => {
+  it('takes a crime on top of a five-star chase', () => {
+    const w = new WantedSystem();
+    w.set(CHASE_MAX_STARS);
+    w.addCrime('destroyLaw');
+    expect(w.stars).toBe(6);
+  });
+
+  it('is the slowest level to shake', () => {
+    const five = new WantedSystem();
+    five.set(5);
+    const six = new WantedSystem();
+    six.set(6);
+    expect(six.evadeRemaining).toBeGreaterThan(five.evadeRemaining);
+  });
+});
+
+describe('clear', () => {
+  it('resets stars and both clocks', () => {
     const w = new WantedSystem();
     w.set(3);
-    expect(w.targetUnits()).toBe(3);
+    advance(w, 5, true);
     w.clear();
-    expect(w.targetUnits()).toBe(0);
+    expect(w.stars).toBe(0);
     expect(w.evadeTimer).toBe(0);
     expect(w.chaseTimer).toBe(0);
   });

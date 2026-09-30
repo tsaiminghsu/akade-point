@@ -82,7 +82,7 @@ describe('spawning', () => {
     expect(before).toBeGreaterThan(0);
 
     const vehicles = new Map<string, Vehicle>();
-    // Teleport the player far away; the ring check runs every 10 frames.
+    // Teleport the player far away; the ring check runs every 1/6 s.
     for (let i = 0; i < 20; i++) {
       peds.update(1 / 60, ctxFor(peds, vehicles, { px: 100, py: 100, maxPeds: 0 }));
     }

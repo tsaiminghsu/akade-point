@@ -50,7 +50,7 @@ describe('nearestRoadTile', () => {
 describe('dispatch', () => {
   it('spawns up to the target count, one unit at a time', () => {
     const player = world.roadTiles[100];
-    police.setTarget(3);
+    police.setTargets({ police: 3 });
 
     // Spawns are rate limited, so a single frame yields at most one unit.
     police.update(ctx(police, vehicles, player));
@@ -65,18 +65,26 @@ describe('dispatch', () => {
 
   it('spawns outside sight range so units never appear on top of the player', () => {
     const player = world.roadTiles[100];
-    police.setTarget(2);
-    for (let i = 0; i < 60 * 4; i++) police.update(ctx(police, vehicles, player));
-
-    for (const u of police.units) {
-      const v = vehicles.get(u.vehicleId)!;
-      expect(Math.hypot(v.x - player.x, v.y - player.y)).toBeGreaterThan(SIGHT_RANGE);
+    police.setTargets({ police: 2 });
+    // Measured on the frame each unit appears: afterwards they drive in, and
+    // at pursuit speed they are well inside sight range within seconds.
+    const spawnDist = new Map<string, number>();
+    for (let i = 0; i < 60 * 4; i++) {
+      police.update(ctx(police, vehicles, player));
+      for (const u of police.units) {
+        if (spawnDist.has(u.vehicleId)) continue;
+        const v = vehicles.get(u.vehicleId)!;
+        spawnDist.set(u.vehicleId, Math.hypot(v.x - player.x, v.y - player.y));
+      }
     }
+
+    expect(spawnDist.size).toBe(2);
+    for (const d of spawnDist.values()) expect(d).toBeGreaterThan(SIGHT_RANGE);
   });
 
   it('removes every unit and its vehicle when cleared', () => {
     const player = world.roadTiles[100];
-    police.setTarget(2);
+    police.setTargets({ police: 2 });
     for (let i = 0; i < 60 * 4; i++) police.update(ctx(police, vehicles, player));
     expect(vehicles.size).toBeGreaterThan(0);
 
@@ -90,7 +98,7 @@ describe('arrest', () => {
   /** Park one unit right on top of a stationary player. */
   function stageArrest() {
     const player = world.roadTiles[100];
-    police.setTarget(1);
+    police.setTargets({ police: 1 });
     police.update(ctx(police, vehicles, player));
     const unit = police.units[0];
     const v = vehicles.get(unit.vehicleId)!;
@@ -154,10 +162,87 @@ describe('arrest', () => {
   });
 });
 
+describe('unit kinds', () => {
+  const player = () => world.roadTiles[100];
+
+  /** Run until every requested unit is on the street. */
+  function fill(t: Parameters<PoliceSystem['setTargets']>[0], seconds = 12) {
+    police.setTargets(t);
+    for (let i = 0; i < 60 * seconds; i++) police.update(ctx(police, vehicles, player()));
+  }
+
+  it('spawns the right vehicle for each kind, heaviest first', () => {
+    police.setTargets({ police: 1, swat: 1, army: 1, tanks: 1 });
+    police.update(ctx(police, vehicles, player()));
+    expect(police.units[0].kind).toBe('tanks');
+
+    fill({ police: 1, swat: 1, army: 1, tanks: 1 });
+    const types = police.units.map(u => vehicles.get(u.vehicleId)!.type).sort();
+    expect(types).toEqual(
+      [VehicleType.ARMY_TRUCK, VehicleType.POLICE, VehicleType.SWAT, VehicleType.TANK].sort(),
+    );
+  });
+
+  it('marks active units hostile', () => {
+    fill({ swat: 2 });
+    for (const u of police.units) expect(vehicles.get(u.vehicleId)!.hostile).toBe(true);
+  });
+
+  it('retires only the kind that is over its target', () => {
+    fill({ police: 2, swat: 2 });
+    police.setTargets({ police: 0, swat: 2 });
+    police.update(ctx(police, vehicles, player()));
+    for (const u of police.units) {
+      expect(u.state === 'retreat').toBe(u.kind === 'police');
+    }
+    expect(police.count('swat')).toBe(2);
+    expect(police.count('police')).toBe(0);
+  });
+
+  it('tanks never make arrests', () => {
+    police.setTargets({ tanks: 1 });
+    police.update(ctx(police, vehicles, player()));
+    const v = vehicles.get(police.units[0].vehicleId)!;
+    const p = player();
+    let result: 'busted' | null = null;
+    for (let i = 0; i < 60 * 4 && !result; i++) {
+      v.x = p.x + 10;
+      v.y = p.y;
+      result = police.update(ctx(police, vehicles, { ...p, state: 'onFoot' }));
+    }
+    expect(result).toBeNull();
+    expect(police.units[0].state).not.toBe('arrest');
+  });
+
+  it('nobody arrests a player sitting in a tank', () => {
+    police.setTargets({ police: 1 });
+    police.update(ctx(police, vehicles, player()));
+    const v = vehicles.get(police.units[0].vehicleId)!;
+    const p = player();
+    let result: 'busted' | null = null;
+    for (let i = 0; i < 60 * 4 && !result; i++) {
+      v.x = p.x + 10;
+      v.y = p.y;
+      result = police.update({ ...ctx(police, vehicles, p), playerVehicleType: VehicleType.TANK });
+    }
+    expect(result).toBeNull();
+  });
+
+  it('lets go of a unit the player has stolen', () => {
+    fill({ swat: 1 });
+    const v = vehicles.get(police.units[0].vehicleId)!;
+    v.occupant = 'player';
+    police.update(ctx(police, vehicles, player()));
+    expect(police.units.every(u => u.vehicleId !== v.id)).toBe(true);
+    expect(vehicles.has(v.id)).toBe(true);   // the van itself stays
+    expect(v.hostile).toBe(false);
+  });
+});
+
 describe('blips', () => {
   it('emits one blip per live unit', () => {
     const player = world.roadTiles[100];
-    police.setTarget(2);
+    police.setTargets({ police: 2 });
     for (let i = 0; i < 60 * 4; i++) police.update(ctx(police, vehicles, player));
 
     const blips = police.getBlips(vehicles);

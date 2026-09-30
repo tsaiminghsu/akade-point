@@ -82,9 +82,9 @@ export class Economy {
   /**
    * Spend money.
    *
-   * By default the charge is all-or-nothing, which is what phone services want.
-   * Penalties (`busted`, `paynspray`, `hospital`) pass `allowPartial` so a broke
-   * player still loses what they have instead of going into debt.
+   * By default the charge is all-or-nothing, which is what services want (the
+   * phone, Pay 'n' Spray). Penalties (`busted`, `hospital`) pass `allowPartial`
+   * so a broke player still loses what they have instead of going into debt.
    */
   charge(
     price: PriceKey | number,

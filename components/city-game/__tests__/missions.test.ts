@@ -20,8 +20,8 @@ import {
   STOPPED_SPEED,
   MissionTickInput,
 } from '../missionRuntime';
-import { generateWorld } from '../worldGen';
-import { VehicleType, WorldData } from '../types';
+import { OFFICE_MIN_FLOORS, generateWorld, getZoneName } from '../worldGen';
+import { BuildingType, GRID_SIZE, TILE_SIZE, TileType, VehicleType, WorldData } from '../types';
 
 const world: WorldData = generateWorld(42);
 
@@ -106,6 +106,37 @@ describe('mission catalogue', () => {
   it('defines enough landmarks for the sightseeing job', () => {
     expect(LANDMARKS.length).toBeGreaterThanOrEqual(6);
     expect(new Set(LANDMARKS.map(l => l.id)).size).toBe(LANDMARKS.length);
+  });
+
+  it('puts every zone landmark somewhere in the city, so 8/8 is reachable', () => {
+    // 辦公區 used to exist only on tiles that report a different zone name
+    // first (the helipad and the Town Hall), so the tour could never finish.
+    const zones = new Set<string>();
+    for (let gy = 0; gy < GRID_SIZE; gy++) {
+      for (let gx = 0; gx < GRID_SIZE; gx++) {
+        zones.add(getZoneName(world.grid, gx * TILE_SIZE + TILE_SIZE / 2, gy * TILE_SIZE + TILE_SIZE / 2));
+      }
+    }
+    for (const l of LANDMARKS) {
+      if (l.zone) expect(zones, `no tile reports ${l.zone}`).toContain(l.zone);
+    }
+  });
+
+  it('makes the tall commercial buildings offices and leaves the low ones commercial', () => {
+    let offices = 0;
+    for (const row of world.grid) {
+      for (const t of row) {
+        if (t.type !== TileType.BUILDING) continue;
+        if (t.buildingType === BuildingType.OFFICE) {
+          offices++;
+          expect(t.floors ?? 0).toBeGreaterThanOrEqual(OFFICE_MIN_FLOORS);
+        }
+        if (t.buildingType === BuildingType.COMMERCIAL) {
+          expect(t.floors ?? 0).toBeLessThan(OFFICE_MIN_FLOORS);
+        }
+      }
+    }
+    expect(offices).toBeGreaterThan(20);
   });
 });
 

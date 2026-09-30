@@ -1,4 +1,5 @@
-import { Vehicle, VehicleType } from './types';
+import { Vehicle } from './types';
+import { armorOf, isAirVehicle, isLawGround, specOf } from './vehicleSpecs';
 
 /**
  * Arcade vehicle collision.
@@ -15,11 +16,6 @@ import { Vehicle, VehicleType } from './types';
  * back on write via `speedScale`.
  */
 
-/** Half the distance between the two circles that approximate a car body. */
-const CAPSULE_OFFSET = 6.5;
-const CAR_RADIUS = 8.5;
-const SCOOTER_RADIUS = 6;
-
 /** Bounciness. Low, so cars shunt rather than ping apart. */
 const RESTITUTION = 0.3;
 
@@ -35,6 +31,12 @@ const SPIN_MAX = 0.3;
 /** AI vehicles move per frame; assume 60fps when converting back. */
 const FRAMES_PER_SEC = 60;
 
+/** A tank rolling into a car: flat damage plus this much per px/s of closing speed. */
+const CRUSH_BASE = 40;
+const CRUSH_PER_SPEED = 0.6;
+/** Below this closing speed a tank only nudges. */
+const CRUSH_MIN_SPEED = 15;
+
 export interface Impact {
   a: Vehicle;
   b: Vehicle;
@@ -46,26 +48,33 @@ export interface Impact {
 }
 
 export function isGroundVehicle(v: Vehicle): boolean {
-  return v.type !== VehicleType.HELICOPTER && v.type !== VehicleType.RC_DRONE;
+  return !isAirVehicle(v.type);
 }
 
 function radiusOf(v: Vehicle): number {
-  return v.type === VehicleType.DELIVERY_SCOOTER ? SCOOTER_RADIUS : CAR_RADIUS;
+  return specOf(v.type).radius;
 }
 
 /** A wreck is immovable; parked cars shove more easily than driven ones. */
 export function massOf(v: Vehicle): number {
   if (v.hp <= 0) return Infinity;
   if (v.mass !== undefined) return v.mass;
-  if (v.type === VehicleType.POLICE) return 1.3;
+  const specMass = specOf(v.type).mass;
+  if (specMass !== 1) return specMass;
   if (v.isParked) return 0.6;
-  if (v.type === VehicleType.DELIVERY_SCOOTER) return 0.5;
   return 1;
 }
 
 /** Damage from a closing speed, in hp. */
 export function damageFor(relSpeed: number): number {
   return Math.max(0, Math.min(DAMAGE_MAX, (relSpeed - DAMAGE_FLOOR) * DAMAGE_SCALE));
+}
+
+/** Extra damage `victim` takes from being run into by `by`. */
+export function crushDamage(by: Vehicle, victim: Vehicle, relSpeed: number): number {
+  if (!specOf(by.type).crushes || specOf(victim.type).crushes) return 0;
+  if (relSpeed < CRUSH_MIN_SPEED) return 0;
+  return CRUSH_BASE + relSpeed * CRUSH_PER_SPEED;
 }
 
 /** Multiplier from true px/s into this vehicle's own `speed` unit. */
@@ -75,17 +84,13 @@ function speedScale(v: Vehicle): number {
 
 /** Circle centres of the two-circle capsule for `v`, written into `out`. */
 function capsuleCentres(v: Vehicle, out: number[]): void {
-  if (v.type === VehicleType.DELIVERY_SCOOTER) {
-    out[0] = v.x; out[1] = v.y;
-    out[2] = v.x; out[3] = v.y;
-    return;
-  }
+  const offset = specOf(v.type).offset;
   const fx = Math.sin(v.angle);
   const fy = -Math.cos(v.angle);
-  out[0] = v.x + fx * CAPSULE_OFFSET;
-  out[1] = v.y + fy * CAPSULE_OFFSET;
-  out[2] = v.x - fx * CAPSULE_OFFSET;
-  out[3] = v.y - fy * CAPSULE_OFFSET;
+  out[0] = v.x + fx * offset;
+  out[1] = v.y + fy * offset;
+  out[2] = v.x - fx * offset;
+  out[3] = v.y - fy * offset;
 }
 
 const capA: number[] = [0, 0, 0, 0];
@@ -102,8 +107,8 @@ export interface Overlap {
  * The normal points from `a` towards `b`.
  */
 export function capsuleOverlap(a: Vehicle, b: Vehicle, out: Overlap): boolean {
-  // Cheap reject before the 2x2 circle test.
-  if (Math.abs(a.x - b.x) > 40 || Math.abs(a.y - b.y) > 40) return false;
+  // Cheap reject before the 2x2 circle test (two tanks nose to nose reach ~40).
+  if (Math.abs(a.x - b.x) > 44 || Math.abs(a.y - b.y) > 44) return false;
 
   capsuleCentres(a, capA);
   capsuleCentres(b, capB);
@@ -223,17 +228,19 @@ export interface CollisionContext {
   nowMs: number;
   /** Called for every damaging impact involving the player or the police. */
   onImpact?: (imp: Impact) => void;
-  /** Called once when a vehicle's hp reaches zero. */
-  onDestroyed?: (v: Vehicle) => void;
+  /** Called once when a vehicle's hp reaches zero, with the vehicle that hit it. */
+  onDestroyed?: (v: Vehicle, by: Vehicle | null) => void;
 }
 
-/** Police ram the player, so their impacts are simulated too. */
+/** Police, SWAT and the army ram the player, so their impacts are simulated too. */
 function isTracked(v: Vehicle, playerVehicleId: string | null): boolean {
-  return v.id === playerVehicleId || v.type === VehicleType.POLICE;
+  return v.id === playerVehicleId || isLawGround(v.type);
 }
 
 export class CollisionSystem {
   private overlap: Overlap = { nx: 0, ny: 0, pen: 0 };
+  /** Reused every update instead of a fresh array per frame. */
+  private tracked: Vehicle[] = [];
 
   /**
    * Resolve collisions for the player's vehicle and every police unit against
@@ -243,7 +250,8 @@ export class CollisionSystem {
   update(ctx: CollisionContext): void {
     const { vehicles, playerVehicleId } = ctx;
 
-    const tracked: Vehicle[] = [];
+    const tracked = this.tracked;
+    tracked.length = 0;
     vehicles.forEach(v => {
       if (isGroundVehicle(v) && isTracked(v, playerVehicleId)) tracked.push(v);
     });
@@ -261,19 +269,19 @@ export class CollisionSystem {
         if (!imp) return;
 
         const dmg = damageFor(imp.relSpeed);
-        if (dmg > 0) {
-          this.damage(a, dmg, ctx);
-          this.damage(b, dmg, ctx);
-        }
+        const toA = dmg + crushDamage(b, a, imp.relSpeed);
+        const toB = dmg + crushDamage(a, b, imp.relSpeed);
+        if (toA > 0) this.damage(a, toA, b, ctx);
+        if (toB > 0) this.damage(b, toB, a, ctx);
         ctx.onImpact?.(imp);
       });
     }
   }
 
-  private damage(v: Vehicle, dmg: number, ctx: CollisionContext): void {
+  private damage(v: Vehicle, dmg: number, by: Vehicle, ctx: CollisionContext): void {
     if (v.hp <= 0) return;
-    v.hp = Math.max(0, v.hp - dmg);
+    v.hp = Math.max(0, v.hp - dmg * armorOf(v.type));
     v.lastHitTime = ctx.nowMs;
-    if (v.hp <= 0) ctx.onDestroyed?.(v);
+    if (v.hp <= 0) ctx.onDestroyed?.(v, by);
   }
 }

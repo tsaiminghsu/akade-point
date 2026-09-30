@@ -1,14 +1,17 @@
 'use client';
 import { Banner, MissionHUDLike } from './types';
+import type { TouchLayout } from './touchLayout';
 
 interface MissionPanelProps {
   mission: MissionHUDLike;
   isMobile?: boolean;
+  /** Touch screens: shares the top-left column with the HUD (see touchLayout). */
+  touch?: TouchLayout | null;
   onCancel?: () => void;
 }
 
 /** Top-left objective panel shown while a job is running. */
-export function MissionPanel({ mission, isMobile = false, onCancel }: MissionPanelProps) {
+export function MissionPanel({ mission, isMobile = false, touch = null, onCancel }: MissionPanelProps) {
   if (mission.phase === 'briefing') return null;
 
   const urgent = mission.timeLeft !== null && mission.timeLeft <= 10;
@@ -18,9 +21,9 @@ export function MissionPanel({ mission, isMobile = false, onCancel }: MissionPan
     <div
       className="absolute pointer-events-none"
       style={{
-        top: isMobile ? 'calc(10px + env(safe-area-inset-top, 0px))' : '12px',
-        left: isMobile ? '10px' : '12px',
-        maxWidth: isMobile ? 'calc(100vw - 150px)' : 320,
+        top: touch ? 'calc(10px + env(safe-area-inset-top, 0px))' : '12px',
+        left: touch ? `calc(${touch.hudLeft}px + env(safe-area-inset-left, 0px))` : '12px',
+        maxWidth: touch ? touch.missionMaxWidth : 320,
       }}
     >
       <div
@@ -70,9 +73,30 @@ export function MissionPanel({ mission, isMobile = false, onCancel }: MissionPan
             </div>
 
             {mission.cancelArmed ? (
-              <div style={{ marginTop: 4, fontSize: 10, color: '#fbbf24' }}>
-                再按一次 X 放棄任務
-              </div>
+              // Still a button: on a touch screen there is no second X press,
+              // so the confirmation has to be tappable.
+              onCancel ? (
+                <button
+                  onClick={onCancel}
+                  className="pointer-events-auto"
+                  style={{
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: '#fbbf24',
+                    border: '1px solid rgba(251,191,36,0.6)',
+                    borderRadius: 6,
+                    padding: isMobile ? '6px 12px' : '2px 8px',
+                    background: 'rgba(120,53,15,0.45)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isMobile ? '確認放棄？再點一次' : '確認放棄？再按一次 X 或點此'}
+                </button>
+              ) : (
+                <div style={{ marginTop: 4, fontSize: 10, color: '#fbbf24' }}>
+                  再按一次 X 放棄任務
+                </div>
+              )
             ) : (
               onCancel && (
                 <button

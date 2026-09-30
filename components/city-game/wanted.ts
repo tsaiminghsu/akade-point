@@ -1,15 +1,31 @@
 /**
- * GTA-style wanted level.
+ * GTA-style wanted level, six stars as in GTA III.
  *
  * Stars rise with crimes and fall only while the player is out of police sight.
  * Running from the police for a long time escalates instead, so hiding beats
  * outrunning — which is what makes parks and plazas (unreachable by patrol
  * cars) worth knowing about.
+ *
+ * Long pursuits alone top out at five stars. The sixth — the army — has to be
+ * earned with a crime: destroying law vehicles, or robbing the base.
  */
 
-export type Crime = 'hitPed' | 'carjack' | 'carjackPolice' | 'hitPolice';
+export type Crime =
+  | 'hitPed'
+  | 'carjack'
+  | 'carjackPolice'
+  | 'hitPolice'
+  /** A player-fired shell went off near something. */
+  | 'explosion'
+  /** A police, SWAT or army vehicle was wrecked by the player. */
+  | 'destroyLaw'
+  /** Drove off in the army's tank. */
+  | 'stealMilitary';
 
-export const MAX_STARS = 5;
+export const MAX_STARS = 6;
+
+/** Highest level a long chase can escalate to on its own. */
+export const CHASE_MAX_STARS = 5;
 
 /** Seconds out of sight per star, plus this much extra per star already held. */
 const EVADE_BASE = 20;
@@ -26,10 +42,10 @@ const CRIME_STARS: Record<Crime, number> = {
   carjack: 1,
   carjackPolice: 2,
   hitPolice: 1,
+  explosion: 1,
+  destroyLaw: 1,
+  stealMilitary: 1,
 };
-
-/** Police units dispatched per star. */
-const UNITS_PER_STAR = [0, 1, 2, 3, 4, 5];
 
 export interface WantedListener {
   onStarsChanged?: (stars: number, previous: number) => void;
@@ -69,6 +85,11 @@ export class WantedSystem {
     this.evadeTimer = 0;
   }
 
+  /** Never lower: raise to at least `n` stars (trespassing on the base). */
+  raiseTo(n: number): void {
+    if (this.stars < n) this.set(n);
+  }
+
   set(n: number): void {
     const prev = this.stars;
     this.stars = Math.max(0, Math.min(MAX_STARS, Math.round(n)));
@@ -90,13 +111,12 @@ export class WantedSystem {
    *
    * @param seen    any police unit currently has the player in sight
    * @param chased  the player is being actively pursued (seen while wanted)
-   * @returns how many police units should be on the street right now
    */
-  update(dt: number, seen: boolean, chased: boolean): number {
+  update(dt: number, seen: boolean, chased: boolean): void {
     if (this.stars === 0) {
       this.evadeTimer = 0;
       this.chaseTimer = 0;
-      return 0;
+      return;
     }
 
     if (seen) {
@@ -105,23 +125,17 @@ export class WantedSystem {
       this.evadeTimer += dt;
       if (this.evadeTimer >= this.evadeThreshold()) {
         this.set(this.stars - 1);
-        return this.targetUnits();
+        return;
       }
     }
 
     if (chased) {
       this.chaseTimer += dt;
-      if (this.chaseTimer >= CHASE_ESCALATE && this.stars < MAX_STARS) {
+      if (this.chaseTimer >= CHASE_ESCALATE && this.stars < CHASE_MAX_STARS) {
         this.set(this.stars + 1);
       }
     } else {
       this.chaseTimer = 0;
     }
-
-    return this.targetUnits();
-  }
-
-  targetUnits(): number {
-    return UNITS_PER_STAR[this.stars] ?? 0;
   }
 }

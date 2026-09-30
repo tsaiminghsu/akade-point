@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -7,173 +7,14 @@ import {
   TILE_SIZE, GRID_SIZE, TILE_3D, WORLD_3D_HALF, CHUNK_3D,
   toX3D, toZ3D,
 } from './types';
-import { LAYER_NAMES, capacityFor, chunkDistSq3D } from './chunks';
-import { renderChunkCanvas } from './groundTiles';
-
-// ─── Realistic building facade textures ──────────────────────────────────────
-
-type FacadeType = 'skyscraper' | 'office' | 'commercial' | 'house';
-
-function createFacadeColorTex(type: FacadeType): THREE.CanvasTexture {
-  const W = 64, H = 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d')!;
-
-  if (type === 'skyscraper') {
-    // Glass curtain wall — 1 window bay × 1 floor
-    ctx.fillStyle = '#0e1520';
-    ctx.fillRect(0, 0, W, H);
-    // Top floor divider / spandrel band
-    ctx.fillStyle = '#111a28';
-    ctx.fillRect(0, 0, W, 7);
-    // Column frames (left 4px, right 4px)
-    ctx.fillStyle = '#1a2335';
-    ctx.fillRect(0, 0, 4, H);
-    ctx.fillRect(60, 0, 4, H);
-    // Glass with blue gradient
-    const gS = ctx.createLinearGradient(4, 7, 60, H);
-    gS.addColorStop(0, '#5080b8');
-    gS.addColorStop(0.4, '#3a6090');
-    gS.addColorStop(1, '#1e3a68');
-    ctx.fillStyle = gS;
-    ctx.fillRect(4, 7, 56, H - 7);
-    // Reflection highlight (left edge of glass)
-    ctx.fillStyle = 'rgba(180,220,255,0.14)';
-    ctx.fillRect(4, 7, 10, H - 7);
-    // Horizontal mullion mid-floor
-    ctx.fillStyle = 'rgba(10,18,30,0.55)';
-    ctx.fillRect(4, 36, 56, 1);
-
-  } else if (type === 'office') {
-    // Concrete spandrel + glass — 1 bay × 1 floor
-    ctx.fillStyle = '#38404a';
-    ctx.fillRect(0, 0, W, H);
-    // Concrete spandrel top 10px
-    ctx.fillStyle = '#303840';
-    ctx.fillRect(0, 0, W, 10);
-    // Column piers
-    ctx.fillStyle = '#404850';
-    ctx.fillRect(0, 0, 6, H);
-    ctx.fillRect(58, 0, 6, H);
-    // Glass
-    const gO = ctx.createLinearGradient(6, 10, 58, H - 4);
-    gO.addColorStop(0, '#3e6080');
-    gO.addColorStop(0.5, '#2a4e6e');
-    gO.addColorStop(1, '#1a3050');
-    ctx.fillStyle = gO;
-    ctx.fillRect(6, 10, 52, H - 14);
-    // Subtle reflection
-    ctx.fillStyle = 'rgba(160,200,230,0.10)';
-    ctx.fillRect(6, 10, 14, H - 14);
-    // Window sill
-    ctx.fillStyle = '#2e3840';
-    ctx.fillRect(6, H - 4, 52, 4);
-
-  } else if (type === 'commercial') {
-    // Concrete/brick wall with punched window opening
-    ctx.fillStyle = '#484648';
-    ctx.fillRect(0, 0, W, H);
-    // Brick rows (staggered)
-    for (let row = 0; row < 5; row++) {
-      const off = row % 2 === 0 ? 0 : 8;
-      for (let col = -1; col < 5; col++) {
-        const bx = col * 16 + off;
-        const by = row * 13;
-        const shade = ((row * 3 + col * 7) % 5) * 4;
-        const br = 64 + shade;
-        ctx.fillStyle = `rgb(${br + 8},${br},${br - 6})`;
-        ctx.fillRect(bx + 1, by + 1, 14, 11);
-      }
-    }
-    // Window punch-out
-    ctx.fillStyle = '#1e2530';
-    ctx.fillRect(10, 12, 44, 36);
-    // Window frame
-    ctx.fillStyle = '#252020';
-    ctx.fillRect(10, 12, 44, 2);
-    ctx.fillRect(10, 46, 44, 2);
-    ctx.fillRect(10, 12, 2, 36);
-    ctx.fillRect(52, 12, 2, 36);
-    // Central divider
-    ctx.fillRect(30, 12, 2, 36);
-    // Glass
-    const gC = ctx.createLinearGradient(12, 14, 52, 46);
-    gC.addColorStop(0, '#2e5070');
-    gC.addColorStop(1, '#1a3050');
-    ctx.fillStyle = gC;
-    ctx.fillRect(12, 14, 18, 30);
-    ctx.fillRect(32, 14, 18, 30);
-
-  } else { // house
-    // Warm brick residential
-    ctx.fillStyle = '#5a4030';
-    ctx.fillRect(0, 0, W, H);
-    // Brick pattern
-    for (let row = 0; row < 8; row++) {
-      const off = row % 2 === 0 ? 0 : 10;
-      for (let col = -1; col < 5; col++) {
-        const bx = col * 20 + off;
-        const by = row * 8;
-        const bright = (row + col * 3) % 3;
-        const br = 90 + bright * 8;
-        ctx.fillStyle = `rgb(${br + 10},${br - 8},${br - 20})`;
-        ctx.fillRect(bx + 1, by + 1, 18, 6);
-      }
-    }
-    // Two small windows (left + right)
-    for (const wx of [6, 36]) {
-      ctx.fillStyle = '#3a2818';
-      ctx.fillRect(wx, 10, 22, 22);
-      const gH = ctx.createLinearGradient(wx, 10, wx + 22, 32);
-      gH.addColorStop(0, '#a8c0d0');
-      gH.addColorStop(1, '#7090a8');
-      ctx.fillStyle = gH;
-      ctx.fillRect(wx + 2, 12, 18, 18);
-      ctx.fillStyle = '#3a2818';
-      ctx.fillRect(wx + 10, 12, 2, 18);
-      ctx.fillRect(wx + 2, 20, 18, 2);
-    }
-  }
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.minFilter = THREE.LinearMipmapLinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  tex.anisotropy = 4;
-  return tex;
-}
-
-function createFacadeEmissiveTex(type: FacadeType): THREE.CanvasTexture {
-  const W = 64, H = 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, W, H);
-
-  if (type === 'skyscraper') {
-    ctx.fillStyle = '#18284a';
-    ctx.fillRect(4, 7, 56, H - 7);
-  } else if (type === 'office') {
-    ctx.fillStyle = '#121c2e';
-    ctx.fillRect(6, 10, 52, H - 14);
-  } else if (type === 'commercial') {
-    ctx.fillStyle = '#0c1218';
-    ctx.fillRect(12, 14, 18, 30);
-    ctx.fillRect(32, 14, 18, 30);
-  } else { // house
-    ctx.fillStyle = '#281808';
-    ctx.fillRect(8, 12, 18, 18);
-    ctx.fillRect(38, 12, 18, 18);
-  }
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
+import { LAYER_NAMES, LAMP, capacityFor, chunkDistSq3D } from './chunks';
+import { packGroundGrid, renderChunkCanvas } from './groundTiles';
+import type { GroundWorkerIn, GroundWorkerOut } from './groundWorker';
+import {
+  cityUniforms, createFacadeMaterial, createGableGeometry, createLightPoolMaterial,
+  createSignalMaterial, followCityLight,
+} from './cityMaterials';
+import { frameGate } from './frameGate';
 
 // ─── Chunk streaming ──────────────────────────────────────────────────────────
 // Static geometry and the ground are streamed per chunk around the player.
@@ -197,19 +38,45 @@ export interface CityStreamSource {
 const tmpMat4 = new THREE.Matrix4();
 const tmpPos = new THREE.Vector3();
 const tmpQuat = new THREE.Quaternion();
-const WHITE = new THREE.Color(1, 1, 1);
 
 // ─── Ground: per-chunk planes with LRU-cached canvas textures ─────────────────
 
 const GROUND_TEX_SIZE = 512;         // 32 px per tile
 const GROUND_LRU = 49;               // ~7x7 chunks resident
+/** Main-thread fallback: chunks painted per frame. */
 const GROUND_BUILDS_PER_FRAME = 2;
+/** Worker: chunks requested and not back yet. */
+const GROUND_IN_FLIGHT = 4;
+/** Chunks around the spawn point painted before anything else. */
+const GROUND_FIRST_LOAD = 9;
 
 interface GroundEntry {
   mesh: THREE.Mesh;
-  tex: THREE.CanvasTexture;
+  tex: THREE.Texture;
   mat: THREE.MeshStandardMaterial;
   lastUsed: number;
+}
+
+/**
+ * A worker that paints ground chunks (see groundWorker.ts), or null where the
+ * browser has no 2D OffscreenCanvas — those keep painting on the main thread.
+ */
+function createGroundWorker(): Worker | null {
+  if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') return null;
+  try {
+    if (!new OffscreenCanvas(1, 1).getContext('2d')) return null;
+    return new Worker(new URL('./groundWorker.ts', import.meta.url));
+  } catch {
+    return null;
+  }
+}
+
+function disposeGround(e: GroundEntry): void {
+  e.tex.dispose();
+  e.mat.dispose();
+  // three never closes an ImageBitmap it was given; free it now, not at GC.
+  const img = e.tex.image as { close?: () => void } | undefined;
+  img?.close?.();
 }
 
 export function ChunkedGround({ world, source }: { world: WorldData; source: CityStreamSource }) {
@@ -217,6 +84,10 @@ export function ChunkedGround({ world, source }: { world: WorldData; source: Cit
   const entries = useRef(new Map<number, GroundEntry>());
   const lastPos = useRef({ x: Infinity, z: Infinity, d: 0 });
   const pending = useRef<ChunkIndex[]>([]);
+  const inFlight = useRef(new Set<number>());
+  const workerRef = useRef<Worker | null>(null);
+  /** Set when chunks come or go, so the LRU sort only runs when it can matter. */
+  const lruDirty = useRef(false);
   const frame = useRef(0);
   const { gl } = useThree();
 
@@ -226,32 +97,82 @@ export function ChunkedGround({ world, source }: { world: WorldData; source: Cit
     return g;
   }, []);
 
+  const chunkByKey = useMemo(() => new Map(world.chunks.map(c => [c.key, c])), [world]);
+
   useEffect(() => () => {
-    for (const e of entries.current.values()) { e.tex.dispose(); e.mat.dispose(); }
+    for (const e of entries.current.values()) disposeGround(e);
     entries.current.clear();
     geom.dispose();
   }, [geom]);
 
-  const build = (c: ChunkIndex, now: number): GroundEntry => {
-    const canvas = renderChunkCanvas(world, c.cx, c.cy, GROUND_TEX_SIZE);
-    const tex = new THREE.CanvasTexture(canvas);
+  const addEntry = useCallback((c: ChunkIndex, tex: THREE.Texture): GroundEntry | null => {
+    const group = groupRef.current;
+    if (!group) return null;
     tex.minFilter = THREE.LinearMipmapLinearFilter;
     tex.magFilter = THREE.LinearFilter;
     tex.generateMipmaps = true;
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.MeshStandardMaterial({
-      map: tex, roughness: 0.95, metalness: 0,
-      emissive: new THREE.Color('#252545'), emissiveIntensity: 0.8,
+      map: tex, roughness: 0.92, metalness: 0,
+      // A little self-light so the streets never go pitch black at night.
+      emissive: new THREE.Color('#1a1a20'), emissiveIntensity: 0.8,
     });
     const mesh = new THREE.Mesh(geom, mat);
     mesh.position.set((c.minX3 + c.maxX3) / 2, -0.01, (c.minZ3 + c.maxZ3) / 2);
     mesh.receiveShadow = true;
     mesh.userData.ssrWet = true;
-    return { mesh, tex, mat, lastUsed: now };
+    // A chunk can arrive after the player has moved on; show it only if it is
+    // still inside the streaming window.
+    const keep = lastPos.current.d + UNLOAD_MARGIN;
+    mesh.visible = chunkDistSq3D(c, lastPos.current.x, lastPos.current.z) <= keep * keep;
+    const e = { mesh, tex, mat, lastUsed: frame.current };
+    entries.current.set(c.key, e);
+    group.add(mesh);
+    lruDirty.current = true;
+    return e;
+  }, [geom, gl]);
+
+  const paintHere = (c: ChunkIndex) => {
+    addEntry(c, new THREE.CanvasTexture(renderChunkCanvas(world, c.cx, c.cy, GROUND_TEX_SIZE)));
   };
 
+  // The worker gets the grid once, then paints on request.
+  useEffect(() => {
+    const worker = createGroundWorker();
+    workerRef.current = worker;
+    const flight = inFlight.current;
+    if (!worker) return;
+    const grid: GroundWorkerIn = { type: 'grid', grid: packGroundGrid(world.grid) };
+    worker.postMessage(grid);
+    worker.onmessage = (e: MessageEvent<GroundWorkerOut>) => {
+      const { key, bitmap } = e.data;
+      flight.delete(key);
+      const c = chunkByKey.get(key);
+      if (!c || entries.current.has(key)) {
+        bitmap.close();
+        return;
+      }
+      const tex = new THREE.Texture(bitmap);
+      // WebGL ignores UNPACK_FLIP_Y for ImageBitmaps; flip V in the UV
+      // transform instead so the canvas top still lands at chunk minZ.
+      tex.flipY = false;
+      tex.repeat.set(1, -1);
+      tex.offset.set(0, 1);
+      tex.needsUpdate = true;
+      if (!addEntry(c, tex)) bitmap.close();
+    };
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+      flight.clear();
+    };
+  }, [world, chunkByKey, addEntry]);
+
   useFrame(() => {
+    // Streaming is per-frame work too; it waits for the fps cap like the rest.
+    if (!frameGate.due) return;
     const group = groupRef.current;
     if (!group) return;
     frame.current++;
@@ -259,6 +180,7 @@ export function ChunkedGround({ world, source }: { world: WorldData; source: Cit
     const px3 = toX3D(source.player.x);
     const pz3 = toZ3D(source.player.y);
     const D = source.perf.drawDistance;
+    const map = entries.current;
 
     const moved = Math.hypot(px3 - lastPos.current.x, pz3 - lastPos.current.z);
     if (moved >= REBUILD_STEP || D !== lastPos.current.d) {
@@ -266,7 +188,6 @@ export function ChunkedGround({ world, source }: { world: WorldData; source: Cit
       const keep = D + UNLOAD_MARGIN;
       const keep2 = keep * keep;
       const d2 = D * D;
-      const map = entries.current;
       const queue: { c: ChunkIndex; dist: number }[] = [];
 
       for (const c of world.chunks) {
@@ -280,37 +201,41 @@ export function ChunkedGround({ world, source }: { world: WorldData; source: Cit
         }
       }
       queue.sort((a, b) => a.dist - b.dist);
-      // The first load around the spawn point is synchronous so the player
-      // never sees a hole; later chunks trickle in a couple per frame.
       pending.current = queue.map(q => q.c);
-      if (map.size === 0) {
-        for (const c of pending.current.splice(0, 9)) {
-          const e = build(c, now);
-          map.set(c.key, e);
-          group.add(e.mesh);
-        }
+      lruDirty.current = true;
+    }
+
+    // The first load around the spawn point goes out all at once so the
+    // player never sees a hole; later chunks trickle in.
+    const worker = workerRef.current;
+    if (worker) {
+      const limit = map.size === 0 ? GROUND_FIRST_LOAD : GROUND_IN_FLIGHT;
+      while (inFlight.current.size < limit && pending.current.length > 0) {
+        const c = pending.current.shift()!;
+        if (map.has(c.key) || inFlight.current.has(c.key)) continue;
+        inFlight.current.add(c.key);
+        const paint: GroundWorkerIn = { type: 'paint', key: c.key, cx: c.cx, cy: c.cy, size: GROUND_TEX_SIZE };
+        worker.postMessage(paint);
+      }
+    } else {
+      const budget = map.size === 0 ? GROUND_FIRST_LOAD : GROUND_BUILDS_PER_FRAME;
+      for (let i = 0; i < budget && pending.current.length > 0; i++) {
+        const c = pending.current.shift()!;
+        if (map.has(c.key)) continue;
+        paintHere(c);
       }
     }
 
-    const map = entries.current;
-    for (let i = 0; i < GROUND_BUILDS_PER_FRAME && pending.current.length > 0; i++) {
-      const c = pending.current.shift()!;
-      if (map.has(c.key)) continue;
-      const e = build(c, now);
-      map.set(c.key, e);
-      group.add(e.mesh);
-    }
-
     // Evict least-recently-used hidden chunks beyond the budget.
-    if (map.size > GROUND_LRU) {
+    if (map.size > GROUND_LRU && lruDirty.current) {
+      lruDirty.current = false;
       const victims = [...map.entries()]
         .filter(([, e]) => !e.mesh.visible)
         .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
       for (const [key, e] of victims) {
         if (map.size <= GROUND_LRU) break;
         group.remove(e.mesh);
-        e.tex.dispose();
-        e.mat.dispose();
+        disposeGround(e);
         map.delete(key);
       }
     }
@@ -323,20 +248,8 @@ export function ChunkedGround({ world, source }: { world: WorldData; source: Cit
 
 export function ChunkedCity({ world, source }: { world: WorldData; source: CityStreamSource }) {
   const refs = useRef({} as Record<ChunkLayerName, THREE.InstancedMesh | null>);
-  const setRef = (name: ChunkLayerName) => (m: THREE.InstancedMesh | null) => {
-    refs.current[name] = m;
-    if (!m) return;
-    // Initialized here (ref callback, synchronous at mount) rather than in a
-    // useEffect: fiber 9's frame loop can tick before effects run, and this
-    // instanceColor is read unconditionally on the very first frame.
-    m.frustumCulled = false;
-    if (!m.instanceColor) {
-      m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(caps[name] * 3).fill(1), 3);
-    }
-    m.count = 0;
-    m.onBeforeShadow = () => { m.count = shadowCounts.current[name] ?? 0; };
-    m.onAfterShadow = () => { m.count = totals.current[name] ?? 0; };
-  };
+  const shadowCounts = useRef({} as Record<ChunkLayerName, number>);
+  const totals = useRef({} as Record<ChunkLayerName, number>);
 
   const caps = useMemo(() => {
     const out = {} as Record<ChunkLayerName, number>;
@@ -344,22 +257,65 @@ export function ChunkedCity({ world, source }: { world: WorldData; source: CityS
     return out;
   }, [world]);
 
-  const textures = useMemo(() => ({
-    sky: { map: createFacadeColorTex('skyscraper'), em: createFacadeEmissiveTex('skyscraper') },
-    off: { map: createFacadeColorTex('office'),     em: createFacadeEmissiveTex('office')     },
-    com: { map: createFacadeColorTex('commercial'), em: createFacadeEmissiveTex('commercial') },
-    hou: { map: createFacadeColorTex('house'),      em: createFacadeEmissiveTex('house')      },
-  }), []);
+  // One ref callback per layer, created once. An inline `setRef(name)` was a
+  // new function every render, so React detached and re-attached every layer
+  // on each render — 10 times a second, driven by the HUD — and the attach
+  // zeroed `count`, blanking the city until the next streaming rebuild. The
+  // shadow pass's onAfterShadow happened to repair it every frame, which is
+  // why it only showed once shadows were off (and on the non-casting roofs,
+  // windows and doors all along).
+  const layerRefs = useMemo(() => {
+    const out = {} as Record<ChunkLayerName, (m: THREE.InstancedMesh | null) => void>;
+    for (const name of LAYER_NAMES) {
+      out[name] = (m) => {
+        refs.current[name] = m;
+        if (!m) return;
+        // Initialized here (ref callback, synchronous at mount) rather than in
+        // a useEffect: fiber 9's frame loop can tick before effects run, and
+        // this instanceColor is read unconditionally on the very first frame.
+        m.frustumCulled = false;
+        if (!m.instanceColor) {
+          m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(caps[name] * 3).fill(1), 3);
+        }
+        // Whatever has already been streamed in, never a blank.
+        m.count = totals.current[name] ?? 0;
+        m.onBeforeShadow = () => { m.count = shadowCounts.current[name] ?? 0; };
+        m.onAfterShadow = () => { m.count = totals.current[name] ?? 0; };
+      };
+    }
+    return out;
+  }, [caps]);
 
-  useEffect(() => {
-    textures.sky.map.repeat.set(3, 12); textures.sky.em.repeat.set(3, 12);
-    textures.off.map.repeat.set(3, 8);  textures.off.em.repeat.set(3, 8);
-    textures.com.map.repeat.set(2, 5);  textures.com.em.repeat.set(2, 5);
-    textures.hou.map.repeat.set(2, 2);  textures.hou.em.repeat.set(2, 2);
-  }, [textures]);
+  const res = useMemo(() => {
+    const facade = {
+      // Glass towers: mirror-like, so they pick up the environment map.
+      sky: createFacadeMaterial('sky', { roughness: 0.12, metalness: 0.6, glow: 1.3 }),
+      off: createFacadeMaterial('off', { roughness: 0.45, metalness: 0.2, glow: 1.2 }),
+      com: createFacadeMaterial('com', { roughness: 0.8, metalness: 0.02, glow: 1.1 }),
+      hou: createFacadeMaterial('hou', { roughness: 0.85, metalness: 0, glow: 1.2 }),
+      shop: createFacadeMaterial('shop', { roughness: 0.35, metalness: 0.1, glow: 1.5 }),
+    };
+    const pool = createLightPoolMaterial();
+    const signal = createSignalMaterial();
+    const lampHead = followCityLight(new THREE.MeshStandardMaterial({
+      color: '#d9d5ca', emissive: '#ffbf66', emissiveIntensity: 3, roughness: 0.4, metalness: 0.3,
+    }));
+    const gable = createGableGeometry();
+    const poolPlane = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    return {
+      facade, pool, signal, lampHead, gable, poolPlane,
+      dispose: () => {
+        for (const f of Object.values(facade)) f.dispose();
+        pool.dispose();
+        signal.dispose();
+        lampHead.dispose();
+        gable.dispose();
+        poolPlane.dispose();
+      },
+    };
+  }, []);
+  useEffect(() => res.dispose, [res]);
 
-  const shadowCounts = useRef({} as Record<ChunkLayerName, number>);
-  const totals = useRef({} as Record<ChunkLayerName, number>);
   const visMask = useRef(new Uint8Array(world.chunks.length));
   const lastPos = useRef({ x: Infinity, z: Infinity, d: 0, sd: 0 });
   const [nearbyLamps, setNearbyLamps] = useState<[number, number][]>([]);
@@ -372,7 +328,9 @@ export function ChunkedCity({ world, source }: { world: WorldData; source: CityS
     lastPos.current = { x: Infinity, z: Infinity, d: 0, sd: 0 };
   }, [caps, world]);
 
-  useFrame(() => {
+  useFrame((state) => {
+    cityUniforms.uClock.value = state.clock.elapsedTime;
+
     const px3 = toX3D(source.player.x);
     const pz3 = toZ3D(source.player.y);
     const D = source.perf.drawDistance;
@@ -449,76 +407,84 @@ export function ChunkedCity({ world, source }: { world: WorldData; source: CityS
         whole building — facade texture included — renders black.
         instanceColor is applied on its own via USE_INSTANCING_COLOR.
       */}
-      <instancedMesh ref={setRef('sky')} args={[undefined, undefined, caps.sky]} castShadow receiveShadow
+      <instancedMesh ref={layerRefs.sky} args={[undefined, undefined, caps.sky]} castShadow receiveShadow
         userData={{ ssrTarget: true }}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial map={textures.sky.map} emissiveMap={textures.sky.em}
-          emissive={WHITE} emissiveIntensity={1.0} roughness={0.20} metalness={0.35} />
+        <primitive object={res.facade.sky.material} attach="material" />
       </instancedMesh>
-      <instancedMesh ref={setRef('off')} args={[undefined, undefined, caps.off]} castShadow receiveShadow
+      <instancedMesh ref={layerRefs.off} args={[undefined, undefined, caps.off]} castShadow receiveShadow
         userData={{ ssrTarget: true }}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial map={textures.off.map} emissiveMap={textures.off.em}
-          emissive={WHITE} emissiveIntensity={0.85} roughness={0.55} metalness={0.15} />
+        <primitive object={res.facade.off.material} attach="material" />
       </instancedMesh>
-      <instancedMesh ref={setRef('com')} args={[undefined, undefined, caps.com]} castShadow receiveShadow>
+      <instancedMesh ref={layerRefs.com} args={[undefined, undefined, caps.com]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial map={textures.com.map} emissiveMap={textures.com.em}
-          emissive={WHITE} emissiveIntensity={0.65} roughness={0.75} metalness={0.05} />
+        <primitive object={res.facade.com.material} attach="material" />
       </instancedMesh>
-      <instancedMesh ref={setRef('hou')} args={[undefined, undefined, caps.hou]} castShadow receiveShadow>
+      <instancedMesh ref={layerRefs.hou} args={[undefined, undefined, caps.hou]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial map={textures.hou.map} emissiveMap={textures.hou.em}
-          emissive={WHITE} emissiveIntensity={0.75} roughness={0.85} metalness={0.0} />
+        <primitive object={res.facade.hou.material} attach="material" />
+      </instancedMesh>
+      {/* Ground-floor storefronts and lobbies */}
+      <instancedMesh ref={layerRefs.shop} args={[undefined, undefined, caps.shop]} receiveShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <primitive object={res.facade.shop.material} attach="material" />
       </instancedMesh>
 
-      {/* Roof caps */}
-      <instancedMesh ref={setRef('roofBase')} args={[undefined, undefined, caps.roofBase]} castShadow={false} receiveShadow={false}>
+      {/* Roofs: flat caps and eaves, house gables, rooftop plant and chimneys */}
+      <instancedMesh ref={layerRefs.roofBase} args={[undefined, undefined, caps.roofBase]}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial roughness={0.9} metalness={0.05}
-          emissive={new THREE.Color(0.05, 0.04, 0.04)} emissiveIntensity={1} />
+        <meshStandardMaterial roughness={0.9} metalness={0.05} />
       </instancedMesh>
-      <instancedMesh ref={setRef('roofPeak')} args={[undefined, undefined, caps.roofPeak]} castShadow={false} receiveShadow={false}>
+      <instancedMesh ref={layerRefs.roofPeak} args={[res.gable, undefined, caps.roofPeak]} castShadow>
+        <meshStandardMaterial roughness={0.85} metalness={0.02} />
+      </instancedMesh>
+      <instancedMesh ref={layerRefs.roofUnit} args={[undefined, undefined, caps.roofUnit]} castShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial roughness={0.92} metalness={0.03}
-          emissive={new THREE.Color(0.04, 0.03, 0.03)} emissiveIntensity={1} />
+        <meshStandardMaterial roughness={0.6} metalness={0.3} />
       </instancedMesh>
 
-      {/* One-floor house windows and doors */}
-      <instancedMesh ref={setRef('houseWin')} args={[undefined, undefined, caps.houseWin]}>
+      <instancedMesh ref={layerRefs.houseDoor} args={[undefined, undefined, caps.houseDoor]}>
         <planeGeometry args={[1, 1]} />
-        <meshStandardMaterial color="#ffee88" emissive="#ffcc44" emissiveIntensity={2.5}
-          transparent opacity={0.92} depthWrite={false} />
-      </instancedMesh>
-      <instancedMesh ref={setRef('houseDoor')} args={[undefined, undefined, caps.houseDoor]}>
-        <planeGeometry args={[1, 1]} />
-        <meshStandardMaterial color="#3d1f0a" emissive="#2a1508" emissiveIntensity={0.4}
-          transparent opacity={0.95} depthWrite={false} />
+        <meshStandardMaterial roughness={0.6} />
       </instancedMesh>
 
       {/* Trees */}
-      <instancedMesh ref={setRef('treeTrunk')} args={[undefined, undefined, caps.treeTrunk]} castShadow>
-        <cylinderGeometry args={[1, 1, 1, 6]} />
-        <meshStandardMaterial color="#3d2b1a" roughness={1} />
+      <instancedMesh ref={layerRefs.treeTrunk} args={[undefined, undefined, caps.treeTrunk]} castShadow>
+        <cylinderGeometry args={[0.7, 1, 1, 6]} />
+        <meshStandardMaterial color="#4a3726" roughness={1} />
       </instancedMesh>
-      <instancedMesh ref={setRef('treeLeaf')} args={[undefined, undefined, caps.treeLeaf]} castShadow>
-        <coneGeometry args={[1, 1, 7]} />
-        <meshStandardMaterial color="#1a4a20" roughness={0.9} />
+      <instancedMesh ref={layerRefs.treeLeaf} args={[undefined, undefined, caps.treeLeaf]} castShadow>
+        <icosahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial roughness={0.9} />
       </instancedMesh>
 
-      {/* Street lights */}
-      <instancedMesh ref={setRef('lampPole')} args={[undefined, undefined, caps.lampPole]} castShadow>
-        <cylinderGeometry args={[1, 1, 1, 5]} />
-        <meshStandardMaterial color="#444455" roughness={0.5} metalness={0.2} />
-      </instancedMesh>
-      <instancedMesh ref={setRef('lampHead')} args={[undefined, undefined, caps.lampHead]} castShadow={false}>
+      {/* Street furniture: lamp and signal masts share one metal layer */}
+      <instancedMesh ref={layerRefs.pole} args={[undefined, undefined, caps.pole]} castShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#ffe090" emissive="#ffaa33" emissiveIntensity={2.5}
-          roughness={0.4} metalness={0.2} />
+        <meshStandardMaterial roughness={0.45} metalness={0.5} />
       </instancedMesh>
+      <instancedMesh ref={layerRefs.lampHead} args={[undefined, undefined, caps.lampHead]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <primitive object={res.lampHead} attach="material" />
+      </instancedMesh>
+      <instancedMesh ref={layerRefs.lightPool} args={[res.poolPlane, res.pool.material, caps.lightPool]} />
+      <instancedMesh ref={layerRefs.signalHead} args={[undefined, undefined, caps.signalHead]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <primitive object={res.signal.material} attach="material" />
+      </instancedMesh>
+      <instancedMesh ref={layerRefs.curb} args={[undefined, undefined, caps.curb]} receiveShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial roughness={0.9} />
+      </instancedMesh>
+      <instancedMesh ref={layerRefs.prop} args={[undefined, undefined, caps.prop]} castShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial roughness={0.6} metalness={0.1} />
+      </instancedMesh>
+
       {nearbyLamps.map(([x, z], i) => (
-        <pointLight key={i} position={[x, 3.8, z]}
-          color="#ffcc66" intensity={4} distance={18} decay={2} />
+        <pointLight key={i} position={[x, LAMP.headY - 0.3, z]}
+          color="#ffcc66" intensity={5} distance={20} decay={2} />
       ))}
     </>
   );
@@ -1090,7 +1056,11 @@ export function PolicePatrol() {
     useRef<THREE.Mesh>(null),
   ];
 
+  // getObjectByName walks the subtree; look each searchlight up once.
+  const searchlights = useRef<(THREE.Object3D | undefined)[]>([]);
+
   useFrame((state) => {
+    if (!frameGate.due) return;
     const elapsed = state.clock.getElapsedTime();
 
     groupRefs.forEach((ref, idx) => {
@@ -1115,7 +1085,11 @@ export function PolicePatrol() {
       g.rotation.y = -angle + (direction > 0 ? 0 : Math.PI);
 
       // Searchlight sweeping movement
-      const searchlight = g.getObjectByName('searchlight');
+      let searchlight = searchlights.current[idx];
+      if (!searchlight || searchlight.parent !== g) {
+        searchlight = g.getObjectByName('searchlight');
+        searchlights.current[idx] = searchlight;
+      }
       if (searchlight) {
         searchlight.rotation.z = Math.sin(elapsed * 2.0 + idx) * 0.25;
         searchlight.rotation.x = Math.cos(elapsed * 1.5 + idx) * 0.25;
@@ -1215,7 +1189,11 @@ export function PolicePatrol() {
 const TOWN_HALL_LIGHT_TILES = 48;
 const TOWN_HALL_LIGHT_HYSTERESIS = 8;
 
-export default function CityScene({
+/**
+ * Memoised: CityGame re-renders ~10x/s for the HUD, and r3f re-renders the
+ * whole canvas tree with it. Nothing in the static city depends on that.
+ */
+export default memo(function CityScene({
   world, source, playerGridX, playerGridY,
 }: {
   world: WorldData;
@@ -1244,4 +1222,4 @@ export default function CityScene({
       <PolicePatrol />
     </group>
   );
-}
+});

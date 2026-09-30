@@ -15,6 +15,7 @@ import {
 } from './types';
 import { buildChunkIndex } from './chunks';
 import { DRONE_PAD, inArenaTile } from './droneArena';
+import { WALL_ALT, baseTile } from './militaryBase';
 
 // Seeded pseudo-random number generator (mulberry32)
 export function makePRNG(seed: number) {
@@ -38,6 +39,9 @@ export const SHOP_NAMES = [
   '金鑛咖啡', '路易莎', '早午餐',
   '加油站', '停車場', '修車廠',
 ];
+
+/** Commercial-block buildings this tall are offices (the office facade starts here too). */
+export const OFFICE_MIN_FLOORS = 8;
 
 const ZONE_NAMES: Record<string, string> = {
   commercial: '商業區',
@@ -159,6 +163,12 @@ export function generateWorld(seed = 42): WorldData {
         grid[gy][gx] = { type: TileType.DRONE_FIELD };
         continue;
       }
+      // Same for the military base: nothing civilian may point inside it.
+      const military = baseTile(gx, gy);
+      if (military) {
+        grid[gy][gx] = military;
+        continue;
+      }
 
       const onRoadX = gx % BLOCK_INTERVAL === 0;
       const onRoadY = gy % BLOCK_INTERVAL === 0;
@@ -230,11 +240,17 @@ export function generateWorld(seed = 42): WorldData {
 
           const isShop = shopBlocks.has(blockId) && rand() < 0.4;
           const shopName = isShop ? SHOP_NAMES[Math.floor(rand() * SHOP_NAMES.length)] : undefined;
+          // Towers are offices; they draw with the office and glass facades
+          // and give the 辦公區 zone somewhere to exist. Decided from values
+          // already rolled, so the city layout stays the same.
+          const btype = isShop ? BuildingType.SHOP
+            : floors >= OFFICE_MIN_FLOORS ? BuildingType.OFFICE
+            : BuildingType.COMMERCIAL;
 
           grid[gy][gx] = {
             type: TileType.BUILDING,
             floors,
-            buildingType: isShop ? BuildingType.SHOP : BuildingType.COMMERCIAL,
+            buildingType: btype,
             shopName,
             colorSeed: Math.floor(rand() * 1000),
             blockId,
@@ -254,7 +270,7 @@ export function generateWorld(seed = 42): WorldData {
                   grid[ny][nx] = {
                     type: TileType.BUILDING,
                     floors,
-                    buildingType: isShop ? BuildingType.SHOP : BuildingType.COMMERCIAL,
+                    buildingType: btype,
                     colorSeed: grid[gy][gx].colorSeed,
                     blockId,
                   };
@@ -383,6 +399,9 @@ export function getZoneName(grid: Tile[][], wx: number, wy: number): string {
   if (tile.type === TileType.TOWN_HALL || tile.type === TileType.TOWN_HALL_INTERIOR) return '城鎮中心辦事處';
   if (tile.type === TileType.TOWN_HALL_PLAZA) return '市政廣場';
   if (tile.type === TileType.HELIPAD) return '直升機停機坪';
+  if (tile.type === TileType.MILITARY_BASE
+    || tile.type === TileType.MILITARY_WALL
+    || tile.type === TileType.MILITARY_HANGAR) return '軍事基地';
   if (tile.type === TileType.PARK) return '公園區';
   if (tile.type === TileType.ROAD_H || tile.type === TileType.ROAD_V || tile.type === TileType.INTERSECTION) return '道路';
   if (tile.buildingType === BuildingType.SHOP) return '商業區';
@@ -403,9 +422,16 @@ export function isWalkable(grid: Tile[][], wx: number, wy: number): boolean {
   const tile = getTileAt(grid, wx, wy);
   if (!tile) return false;
   // TOWN_HALL_PLAZA and TOWN_HALL_INTERIOR are walkable; TOWN_HALL is solid
-  return tile.type !== TileType.BUILDING
-    && tile.type !== TileType.HELIPAD
-    && tile.type !== TileType.TOWN_HALL;
+  return !isSolidTile(tile);
+}
+
+/** Ground-level solidity: what blocks cars and people. */
+export function isSolidTile(tile: Tile): boolean {
+  return tile.type === TileType.BUILDING
+    || tile.type === TileType.HELIPAD
+    || tile.type === TileType.TOWN_HALL
+    || tile.type === TileType.MILITARY_WALL
+    || tile.type === TileType.MILITARY_HANGAR;
 }
 
 export function isDrivable(grid: Tile[][], wx: number, wy: number): boolean {
@@ -415,7 +441,8 @@ export function isDrivable(grid: Tile[][], wx: number, wy: number): boolean {
     tile.type === TileType.ROAD_H ||
     tile.type === TileType.ROAD_V ||
     tile.type === TileType.INTERSECTION ||
-    tile.type === TileType.PARKING
+    tile.type === TileType.PARKING ||
+    tile.type === TileType.MILITARY_BASE
   );
 }
 
@@ -463,7 +490,28 @@ export function isSolidAtAltitude(grid: Tile[][], wx: number, wy: number, altitu
   if (tile.type === TileType.TOWN_HALL) {
     return altitude < (tile.floors ?? 8) * ALT_PER_FLOOR + ALT_ROOF_BUFFER;
   }
+  if (tile.type === TileType.MILITARY_HANGAR) {
+    return altitude < (tile.floors ?? 6) * ALT_PER_FLOOR + ALT_ROOF_BUFFER;
+  }
+  if (tile.type === TileType.MILITARY_WALL) return altitude < WALL_ALT;
   return false;
+}
+
+/** Roof height of whatever stands on this point, in altitude units (0 = open ground). */
+export function roofAltitudeAt(grid: Tile[][], wx: number, wy: number): number {
+  const tile = getTileAt(grid, wx, wy);
+  if (!tile) return 0;
+  switch (tile.type) {
+    case TileType.BUILDING:
+    case TileType.HELIPAD:
+    case TileType.TOWN_HALL:
+    case TileType.MILITARY_HANGAR:
+      return (tile.floors ?? 1) * ALT_PER_FLOOR;
+    case TileType.MILITARY_WALL:
+      return WALL_ALT;
+    default:
+      return 0;
+  }
 }
 
 // ── BFS pathfinding on road tiles ────────────────────────────────────────────
@@ -476,12 +524,22 @@ const bfsParent = new Int32Array(BFS_N);
 const bfsQueue = new Int32Array(BFS_N);
 let bfsGeneration = 0;
 
-function isPassable(t: Tile): boolean {
+function isPassable(t: Tile, military: boolean): boolean {
   return t.type === TileType.ROAD_H
     || t.type === TileType.ROAD_V
     || t.type === TileType.INTERSECTION
     || t.type === TileType.SIDEWALK
-    || t.type === TileType.PARKING;
+    || t.type === TileType.PARKING
+    || (military && t.type === TileType.MILITARY_BASE);
+}
+
+export interface RoadPathOptions {
+  /**
+   * Let the search cross the military base apron. Only units chasing someone
+   * inside the base set this; otherwise civilian traffic would take the two
+   * gates as a shortcut through the army's front yard.
+   */
+  military?: boolean;
 }
 
 /**
@@ -494,8 +552,10 @@ export function findRoadPath(
   startWx: number,
   startWy: number,
   endWx: number,
-  endWy: number
+  endWy: number,
+  opts: RoadPathOptions = {},
 ): Point[] {
+  const military = opts.military ?? false;
   const sx = Math.floor(startWx / TILE_SIZE);
   const sy = Math.floor(startWy / TILE_SIZE);
   const ex = Math.floor(endWx / TILE_SIZE);
@@ -527,7 +587,7 @@ export function findRoadPath(
       if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
       const nk = ny * GRID_SIZE + nx;
       if (bfsStamp[nk] === gen) continue;
-      if (nk !== endKey && !isPassable(grid[ny][nx])) continue;
+      if (nk !== endKey && !isPassable(grid[ny][nx], military)) continue;
       bfsStamp[nk] = gen;
       bfsParent[nk] = cur;
       bfsQueue[tail++] = nk;

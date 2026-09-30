@@ -25,13 +25,40 @@ import {
   GraphicsCaps,
   GraphicsSettings,
   Preset,
-  defaultGraphics,
+  detectPreset,
   detectTier,
   loadGraphics,
   presetSettings,
   resolve,
   writeGraphics,
 } from './graphicsSettings';
+import { probeGpu } from './gpuProbe';
+import { AdaptiveState, adaptiveStep, createAdaptiveState } from './adaptiveQuality';
+import { isBenchRunning, runBenchmark } from './bench';
+import { touchLayout } from './touchLayout';
+
+const TIER_LABEL: Record<string, string> = { low: '低', medium: '中', high: '高', ultra: '極致' };
+
+function coarsePointer(): boolean {
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+}
+
+/**
+ * First run: the preset the GPU can carry (see detectTier). Afterwards: the
+ * player's own settings, auto-adjust steps included.
+ */
+function initialGraphics(): GraphicsSettings {
+  return loadGraphics() ?? presetSettings(detectTier(probeGpu(), coarsePointer()));
+}
+
+function screenCaps(): Pick<GraphicsCaps, 'pixelRatio' | 'viewportWidth' | 'viewportHeight'> {
+  if (typeof window === 'undefined') return DEFAULT_CAPS;
+  return {
+    pixelRatio: window.devicePixelRatio || 1,
+    viewportWidth: window.innerWidth || DEFAULT_CAPS.viewportWidth,
+    viewportHeight: window.innerHeight || DEFAULT_CAPS.viewportHeight,
+  };
+}
 
 // ─── Weather cycle ────────────────────────────────────────────────────────────
 const WEATHER_CYCLE: WeatherType[] = [
@@ -102,6 +129,10 @@ const DEFAULT_HUD: HUDData = {
   screenFade: 0,
   screenLabel: null,
   nearVehicle: 'none',
+  restrictedZone: false,
+  hurtFlash: 0,
+  cannonReady: null,
+  tiresPopped: false,
   cash: 0,
   cashTicker: [],
   mission: null,
@@ -128,17 +159,26 @@ export default function CityGame() {
   const [showTownHall,    setShowTownHall]    = useState(false);
   const [showChallenges,  setShowChallenges]  = useState(false);
   const [weatherIdx,   setWeatherIdx]  = useState(0);
-  const [isMobile,     setIsMobile]    = useState(false);
+  // Known up front (browser-only component), so the first resolve — and the
+  // canvas' antialias flag — already match the device.
+  const [isMobile,     setIsMobile]    = useState(coarsePointer);
   const [pointerLocked, setPointerLocked] = useState(false);
   const [paused,       setPaused]      = useState(false);
   const [fps,          setFps]         = useState(0);
 
   // ── Graphics settings ──────────────────────────────────────────────────────
-  // Starts at the defaults so the server and first client render agree; the
-  // stored settings and the detected GPU tier are applied after mount.
-  const [gfx,  setGfx]  = useState<GraphicsSettings>(defaultGraphics);
-  const [caps, setCaps] = useState<GraphicsCaps>(DEFAULT_CAPS);
-  const gfxLoaded = useRef(false);
+  // Read synchronously: this component only ever renders in the browser
+  // (ssr: false), and the canvas' antialias flag is fixed at creation, so the
+  // settings must be known before the first render.
+  const [gfx,  setGfx]  = useState<GraphicsSettings>(initialGraphics);
+  const [caps, setCaps] = useState<GraphicsCaps>(() => ({
+    ...DEFAULT_CAPS, ...screenCaps(), renderer: probeGpu(),
+  }));
+  // Only what the player (or auto-adjust) changes is saved, so the GPU is
+  // detected afresh each run until then.
+  const initialGfx = useRef(gfx);
+  const gfxRef = useRef(gfx);
+  gfxRef.current = gfx;
 
   // ── Loading state ──────────────────────────────────────────────────────────
   const [loadProgress, setLoadProgress] = useState(0);
@@ -162,19 +202,38 @@ export default function CityGame() {
     (window as unknown as { cityEngine?: unknown }).cityEngine = engine.current;
   }, []);
 
-  // Load stored graphics settings once, after mount.
+  // Persist whatever the player settles on.
   useEffect(() => {
-    const stored = loadGraphics();
-    if (stored) setGfx(stored);
-    gfxLoaded.current = true;
-  }, []);
-
-  // Persist whatever the player settles on, but never the pre-load defaults.
-  useEffect(() => {
-    if (gfxLoaded.current) writeGraphics(gfx);
+    if (gfx !== initialGfx.current) writeGraphics(gfx);
   }, [gfx]);
 
+  // The pixel budget depends on the screen: follow resizes, window moves
+  // between monitors and browser zoom (all of which fire 'resize').
+  useEffect(() => {
+    const onResize = () => {
+      const next = screenCaps();
+      setCaps(c => (
+        c.pixelRatio === next.pixelRatio
+        && c.viewportWidth === next.viewportWidth
+        && c.viewportHeight === next.viewportHeight
+      ) ? c : { ...c, ...next });
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const resolved = useMemo(() => resolve(gfx, { ...caps, isMobile }), [gfx, caps, isMobile]);
+
+  // Touch HUD positions follow the screen shape: turning the phone fires
+  // 'resize', which updates caps.
+  const touch = useMemo(
+    () => (isMobile ? touchLayout(caps.viewportWidth, caps.viewportHeight) : null),
+    [isMobile, caps.viewportWidth, caps.viewportHeight],
+  );
+  const capsRef = useRef(caps);
+  capsRef.current = caps;
+  const resolvedRef = useRef(resolved);
+  resolvedRef.current = resolved;
 
   // The touch profile is only the baseline: the player's own settings are
   // applied on top, in the same effect, or this would clobber them on mount.
@@ -230,13 +289,60 @@ export default function CityGame() {
     return () => window.removeEventListener('keydown', onKey);
   }, [paused, otherOverlayOpen]);
 
-  // PostFX measures the real render rate and reports it here.
+  // PostFX measures the real render rate twice a second. It drives the FPS
+  // readout and auto-adjust, which steps quality down after a sustained drop.
+  const adaptive = useRef<AdaptiveState | null>(null);
+  const adaptiveActive = useRef(false);
+  adaptiveActive.current = !loadVisible && !anyOverlayOpen;
   useEffect(() => {
-    if (!resolved.showFps) { setFps(0); return; }
-    const onFps = (e: Event) => setFps((e as CustomEvent).detail.fps as number);
+    const onFps = (e: Event) => {
+      const fps = (e as CustomEvent).detail.fps as number;
+      const settings = gfxRef.current;
+      if (settings.showFps) setFps(fps);
+
+      const now = performance.now() / 1000;
+      const { state, action } = adaptiveStep(
+        adaptive.current ?? createAdaptiveState(now),
+        {
+          now,
+          fps,
+          active: adaptiveActive.current && document.visibilityState === 'visible' && !isBenchRunning(),
+        },
+        settings,
+      );
+      adaptive.current = state;
+      if (action.kind === 'none') return;
+      setGfx(action.settings);
+      engine.current.addNotification(
+        action.kind === 'budget'
+          ? '⚙️ 畫面不順，已自動降低解析度'
+          : `⚙️ 畫面不順，已自動調降為「${TIER_LABEL[action.settings.preset]}」畫質`,
+        '#fbbf24',
+      );
+    };
     window.addEventListener('city:fps', onFps as EventListener);
     return () => window.removeEventListener('city:fps', onFps as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (!resolved.showFps) setFps(0);
   }, [resolved.showFps]);
+
+  // Dev-only benchmark: /games/city-game?bench=1 runs bench.ts once the city
+  // has loaded and settled.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production' || loadVisible) return;
+    if (!new URLSearchParams(window.location.search).has('bench')) return;
+    const timer = window.setTimeout(() => {
+      void runBenchmark(engine.current, () => ({
+        gpu: capsRef.current.renderer || 'unknown',
+        preset: detectPreset(gfxRef.current),
+        render: `${resolvedRef.current.renderWidth}x${resolvedRef.current.renderHeight}`,
+        fpsCap: gfxRef.current.fpsCap,
+      }));
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [loadVisible]);
 
   // Freezing the simulation is the engine's job; it also holds the game clock.
   useEffect(() => {
@@ -326,16 +432,19 @@ export default function CityGame() {
 
   // ── Graphics settings callbacks ────────────────────────────────────────────
   const onGfxChange = useCallback((patch: Partial<GraphicsSettings>) => {
-    setGfx(prev => ({ ...prev, ...patch }));
+    // Picking a resolution by hand overrides what auto-adjust had cut.
+    setGfx(prev => ({ ...prev, ...patch, ...('resolutionScale' in patch ? { budgetScale: 1 } : {}) }));
   }, []);
   const onGfxPreset = useCallback((preset: Preset) => {
     if (preset === 'custom') return;
-    setGfx(presetSettings(preset));
+    setGfx(prev => presetSettings(preset, { autoAdjust: prev.autoAdjust }));
   }, []);
   const onGfxAutoDetect = useCallback(() => {
-    setGfx(presetSettings(detectTier(caps.renderer)));
-  }, [caps.renderer]);
+    setGfx(prev => presetSettings(detectTier(caps.renderer, isMobile), { autoAdjust: prev.autoAdjust }));
+  }, [caps.renderer, isMobile]);
   const onResume = useCallback(() => setPaused(false), []);
+  // Touch devices have no Esc; the quick-button strip opens the menu instead.
+  const onPause = useCallback(() => setPaused(true), []);
   // A full navigation also drops the WebGL context and its textures.
   const onExitToLobby = useCallback(() => { window.location.href = '/games'; }, []);
 
@@ -353,9 +462,9 @@ export default function CityGame() {
   }
 
   /**
-   * Read what the GPU can take. With no stored settings this is also the only
-   * chance to pick a sensible starting preset — guessing from the renderer
-   * string beats dropping an integrated laptop straight into 4096 shadows.
+   * What the real context can take. The GPU name normally came from the probe
+   * before the canvas existed; this fills in the texture limit, and the name
+   * too if the probe was refused.
    */
   function detectCaps(gl: THREE.WebGLRenderer) {
     const ctx = gl.getContext();
@@ -366,16 +475,13 @@ export default function CityGame() {
     } catch {
       // Some browsers hide this for fingerprinting reasons; medium is assumed.
     }
-    setCaps({
-      isMobile,
-      maxTextureSize: ctx.getParameter(ctx.MAX_TEXTURE_SIZE) as number,
-      renderer,
-    });
-    if (!loadGraphics()) setGfx(presetSettings(detectTier(renderer)));
+    const maxTextureSize = ctx.getParameter(ctx.MAX_TEXTURE_SIZE) as number;
+    setCaps(c => ({ ...c, maxTextureSize, renderer: c.renderer || renderer }));
   }
 
   return (
     <div
+      data-testid="city-game-root"
       className="relative overflow-hidden bg-[#070b13]"
       style={{
         width: '100vw',
@@ -385,11 +491,14 @@ export default function CityGame() {
       }}
     >
 
-      {/* ── 3D Canvas ── always mounted so rendering starts immediately ── */}
+      {/* ── 3D Canvas ── always mounted so rendering starts immediately ──
+          Multisampling is fixed when the context is created, so switching it
+          remounts the canvas (keyed). The engine lives outside and carries on. */}
       <Canvas
+        key={resolved.canvasMsaa ? 'msaa' : 'plain'}
         shadows={resolved.shadowsEnabled}
         dpr={resolved.dpr}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: resolved.canvasMsaa, powerPreference: 'high-performance' }}
         camera={{ fov: gfx.fov, near: 0.3, far: 500, position: [0, 8, 14] }}
         style={{ position: 'absolute', inset: 0 }}
         onCreated={({ gl, scene }) => {
@@ -421,7 +530,9 @@ export default function CityGame() {
       </Canvas>
 
       {/* ── HUD overlay ── */}
-      {!loadVisible && <HUD data={hud} onPhone={onPhoneToggle} onChallenge={onChallengeToggle} isMobile={isMobile} />}
+      {!loadVisible && (
+        <HUD data={hud} onPhone={onPhoneToggle} onChallenge={onChallengeToggle} isMobile={isMobile} touch={touch} />
+      )}
 
       {/* ── Weather indicator ── */}
       {!loadVisible && (
@@ -462,7 +573,7 @@ export default function CityGame() {
 
       {/* ── Active mission objective ── */}
       {!loadVisible && hud.mission && (
-        <MissionPanel mission={hud.mission} isMobile={isMobile} onCancel={onCancelMission} />
+        <MissionPanel mission={hud.mission} isMobile={isMobile} touch={touch} onCancel={onCancelMission} />
       )}
 
       {/* ── Mission announcements ── */}
@@ -485,7 +596,10 @@ export default function CityGame() {
         <div
           className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none"
           style={{
-            bottom: isMobile ? 'calc(190px + env(safe-area-inset-bottom, 0px))' : '92px',
+            // Touch: above the portrait minimap, or under the weather pill in landscape.
+            ...(touch?.prompt.top !== undefined
+              ? { top: `calc(${touch.prompt.top}px + env(safe-area-inset-top, 0px))` }
+              : { bottom: touch ? `calc(${touch.prompt.bottom}px + env(safe-area-inset-bottom, 0px))` : '92px' }),
             background: 'rgba(0,0,0,0.6)',
             border: '1px solid rgba(255,210,63,0.45)',
             borderRadius: 20,
@@ -496,9 +610,11 @@ export default function CityGame() {
             whiteSpace: 'nowrap',
           }}
         >
+          {/* E reopens a brief the player declined and stayed on; touch
+              devices get the same action as a button in the action cluster. */}
           {hud.nearMarker
-            ? `按 E 接受任務：${hud.nearMarker.icon} ${hud.nearMarker.title}`
-            : '按 E 開始接客'}
+            ? `${isMobile ? '點「查看任務」' : '按 E 查看任務'}：${hud.nearMarker.icon} ${hud.nearMarker.title}`
+            : isMobile ? '點「開始接客」開始載客' : '按 E 開始接客'}
         </div>
       )}
 
@@ -518,7 +634,7 @@ export default function CityGame() {
             backdropFilter: 'blur(4px)',
           }}
         >
-          點擊畫面以滑鼠環視 · Esc 釋放 · 再按 Esc 暫停
+          點擊畫面以滑鼠環視 · Esc 暫停選單
         </div>
       )}
 
@@ -574,6 +690,8 @@ export default function CityGame() {
         open={paused && !loadVisible}
         settings={gfx}
         gpuName={caps.renderer}
+        detectedTier={detectTier(caps.renderer, isMobile)}
+        renderSize={[resolved.renderWidth, resolved.renderHeight]}
         onChange={onGfxChange}
         onPreset={onGfxPreset}
         onAutoDetect={onGfxAutoDetect}
@@ -590,6 +708,7 @@ export default function CityGame() {
           expanded={mapExpanded}
           onWaypointSet={handleWaypointSet}
           isMobile={isMobile}
+          touch={touch}
           onCollapse={onMapToggle}
         />
       )}
@@ -641,8 +760,9 @@ export default function CityGame() {
         <TownHallUI open={showTownHall} onClose={() => setShowTownHall(false)} />
       )}
 
-      {/* ── Near Town Hall prompt ── */}
-      {!loadVisible && !showTownHall && !showPhone && hud.nearTownHall && (
+      {/* ── Near Town Hall prompt ── (touch gets the 🏛 quick button instead;
+          this pill would sit on top of the joystick) */}
+      {!loadVisible && !isMobile && !showTownHall && !showPhone && hud.nearTownHall && (
         <div
           className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-auto"
           style={{ animation: 'notifSlideIn 0.3s ease-out' }}
@@ -654,20 +774,18 @@ export default function CityGame() {
               background: 'linear-gradient(135deg, #1e3a8a, #1d4ed8)',
               border: '1px solid rgba(96,165,250,0.4)',
               boxShadow: '0 0 24px rgba(59,130,246,0.35)',
-              padding: isMobile ? '14px 24px' : '10px 20px',
+              padding: '10px 20px',
             }}
           >
             <span>🏛️</span>
             <span>進入城鎮辦事處</span>
-            {!isMobile && (
-              <kbd className="bg-white/15 text-white/70 px-2 py-0.5 rounded text-[11px] ml-1">T</kbd>
-            )}
+            <kbd className="bg-white/15 text-white/70 px-2 py-0.5 rounded text-[11px] ml-1">T</kbd>
           </button>
         </div>
       )}
 
       {/* ── Mobile touch controls ── */}
-      {!loadVisible && isMobile && (
+      {!loadVisible && touch && (
         <MobileControls
           input={engine.current.input}
           hud={hud}
@@ -676,6 +794,8 @@ export default function CityGame() {
           onMapToggle={onMapToggle}
           onTownHallToggle={onTownHallToggle}
           onWeatherCycle={onWeatherCycle}
+          onPause={onPause}
+          layout={touch}
         />
       )}
 

@@ -18,6 +18,7 @@ export interface SaveStats {
   deliveries: number;
   couriers: number;
   timesBusted: number;
+  timesWasted: number;
   /** Landmark / zone ids the player has discovered. */
   discovered: string[];
 }
@@ -45,6 +46,7 @@ export function defaultSave(): CitySave {
       deliveries: 0,
       couriers: 0,
       timesBusted: 0,
+      timesWasted: 0,
       discovered: [],
     },
     missionBest: {},

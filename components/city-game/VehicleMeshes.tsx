@@ -6,12 +6,15 @@ import {
   L_BODY, L_CABIN, L_GLASS, L_HEAD, L_TAIL, L_WHEELS, L_TAXI_SIGN, L_LIGHTBAR,
   composeVehicleRoot,
 } from './renderLayout';
+import { ArmyTruckMesh, SwatVanMesh, TankMesh } from './LawVehicleMeshes';
 
 // ─── Player Car ────────────────────────────────────────────────────────────────
 // Exposed handle: position (THREE.Vector3) and angle (number)
 
 export interface PlayerCarHandle {
   group: THREE.Group | null;
+  /** The turret, when the player is driving a tank. */
+  turret: THREE.Group | null;
 }
 
 interface PlayerCarProps {
@@ -23,9 +26,11 @@ interface PlayerCarProps {
 export const PlayerCar = forwardRef<PlayerCarHandle, PlayerCarProps>(
   ({ color = '#00bcd4', vehicleType = VehicleType.CAR, isOnFoot = false }, ref) => {
     const groupRef = useRef<THREE.Group>(null);
+    const turretRef = useRef<THREE.Group>(null);
 
     useImperativeHandle(ref, () => ({
       get group() { return groupRef.current; },
+      get turret() { return turretRef.current; },
     }));
 
     // ── On-foot futuristic robot character ───────────────────────────
@@ -112,6 +117,22 @@ export const PlayerCar = forwardRef<PlayerCarHandle, PlayerCarProps>(
     // ── Vehicle meshes below ─────────────────────────────────────────
     if (vehicleType === VehicleType.HELICOPTER) {
       return <HelicopterMesh groupRef={groupRef} color={color} />;
+    }
+
+    const arrow = (
+      <mesh position={[0, 3.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.25, 0.5, 5]} />
+        <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.0} transparent opacity={0.85} />
+      </mesh>
+    );
+    if (vehicleType === VehicleType.TANK) {
+      return <group ref={groupRef}><TankMesh color={color} turretRef={turretRef} />{arrow}</group>;
+    }
+    if (vehicleType === VehicleType.SWAT) {
+      return <group ref={groupRef}><SwatVanMesh color={color} />{arrow}</group>;
+    }
+    if (vehicleType === VehicleType.ARMY_TRUCK) {
+      return <group ref={groupRef}><ArmyTruckMesh color={color} />{arrow}</group>;
     }
 
     return (
@@ -326,6 +347,9 @@ export const InstancedCarFleet = forwardRef<CarFleetHandle>((_, ref) => {
         if (v.type === VehicleType.RC_DRONE) return;
         if (v.type === VehicleType.HELICOPTER) return;
         if (v.type === VehicleType.DELIVERY_SCOOTER) return;   // handled by the pool below
+        // SWAT, army and helicopters have their own models (LawFleet).
+        if (v.type === VehicleType.SWAT || v.type === VehicleType.ARMY_TRUCK
+          || v.type === VehicleType.TANK || v.type === VehicleType.POLICE_HELI) return;
 
         const wrecked = v.hp <= 0;
         composeVehicleRoot(toX3D(v.x), toZ3D(v.y), v.angle, wrecked, fmMat);

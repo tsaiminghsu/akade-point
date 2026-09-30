@@ -243,13 +243,14 @@ export class MissionManager {
     s.phase = 'active';
     s.startedAt = gameClock.now();
 
-    // Put the required vehicle within reach of the marker.
-    if (def.requiredVehicle) {
+    // Put the required vehicle within reach of the marker — but only when the
+    // run does not already have one bound. `startTaxiFromVehicle` pre-binds
+    // `s.vehicleId` before calling accept(); spawning (and un-binding) here
+    // would both strand a stray taxi at the stand and drop the binding the
+    // player is already sitting in.
+    if (def.requiredVehicle && s.vehicleId === null) {
       const marker = this.markers.find(m => m.defId === def.id);
-      if (marker) {
-        const v = this.host.spawnJobVehicle(def.requiredVehicle, { x: marker.x, y: marker.y });
-        if (v) s.vehicleId = null;   // bound once the player actually boards
-      }
+      if (marker) this.host.spawnJobVehicle(def.requiredVehicle, { x: marker.x, y: marker.y });
     }
 
     if (def.kind === 'getaway') this.host.setWantedLevel(2);
@@ -265,6 +266,18 @@ export class MissionManager {
     const marker = this.markers.find(m => m.defId === s.defId);
     if (marker) marker.availableAt = gameClock.now() + DECLINE_SUPPRESS * 1000;
     this.session = null;
+  }
+
+  /**
+   * E on an available marker with no brief open — the player declined it and
+   * stayed put, or its cooldown ran out underfoot. Arriving opens the brief by
+   * itself (updateMarkers is edge-triggered); this covers standing still.
+   */
+  reopenBrief(nowMs: number): boolean {
+    const near = this.nearMarker();
+    if (!near) return false;
+    this.openBrief(near.defId, nowMs);
+    return this.session !== null;
   }
 
   /** X once arms, X again within a couple of seconds abandons the run. */
@@ -535,6 +548,13 @@ export class MissionManager {
     const s = this.session;
     if (!s || s.phase !== 'active') return;
     failMission(s, '遭到逮捕', gameClock.now());
+    this.onFailure(gameClock.now());
+  }
+
+  onWasted(): void {
+    const s = this.session;
+    if (!s || s.phase !== 'active') return;
+    failMission(s, '身受重傷', gameClock.now());
     this.onFailure(gameClock.now());
   }
 

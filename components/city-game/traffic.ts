@@ -3,6 +3,8 @@ import { findRoadPath, nearestRoadTile } from './worldGen';
 import { pickSpawnInRing } from './chunks';
 import { clampToArena, type DroneBounds } from './droneArena';
 import type { PedestrianSystem } from './pedestrians';
+import { isAirVehicle, isLawVehicle, specOf } from './vehicleSpecs';
+import { SIM_HZ, decay, frameScale } from './timestep';
 
 const LANE_OFFSET = 9;
 export const TRAFFIC_DESPAWN_DISTANCE = 760;
@@ -100,7 +102,7 @@ function isClearOfVehicles(
 ): boolean {
   for (const other of vehicles.values()) {
     if (other.id === currentVehicleId) continue;
-    if (other.type === VehicleType.HELICOPTER || other.type === VehicleType.RC_DRONE) continue;
+    if (isAirVehicle(other.type)) continue;
     const d = Math.hypot(candidate.x - other.x, candidate.y - other.y);
     if (d < minDistance) return false;
   }
@@ -165,28 +167,38 @@ export function createNPCCar(world: WorldData, colorIndex: number): Vehicle {
   return createNPCCarAt(world, spawn, colorIndex);
 }
 
+const LAW_LOOKS: Partial<Record<VehicleType, { color: string; width: number; height: number }>> = {
+  [VehicleType.POLICE]:      { color: '#f4f6fa', width: 16, height: 26 },
+  [VehicleType.SWAT]:        { color: '#1f2937', width: 18, height: 30 },
+  [VehicleType.ARMY_TRUCK]:  { color: '#4d5a32', width: 18, height: 32 },
+  [VehicleType.TANK]:        { color: '#5b6b3a', width: 24, height: 34 },
+  [VehicleType.POLICE_HELI]: { color: '#1e3a8a', width: 30, height: 22 },
+};
+
 /**
- * Police cruiser. Slightly faster and heavier than traffic so it can catch
- * and shove the player's car (maxSpeed is px/FRAME, like all AI vehicles).
+ * A police, SWAT or army vehicle. Faster and heavier than traffic so it can
+ * catch and shove the player (maxSpeed is px/FRAME, like all AI vehicles).
  */
-export function createPoliceCar(spawn: Point): Vehicle {
+export function createLawVehicle(type: VehicleType, spawn: Point): Vehicle {
+  const spec = specOf(type);
+  const look = LAW_LOOKS[type] ?? LAW_LOOKS[VehicleType.POLICE]!;
   return {
     id: nextVehicleId(),
-    type: VehicleType.POLICE,
+    type,
     x: spawn.x,
     y: spawn.y,
     angle: 0,
     speed: 0,
-    maxSpeed: 2.55,
-    color: '#f4f6fa',
-    width: 16,
-    height: 26,
+    maxSpeed: spec.aiMax,
+    color: look.color,
+    width: look.width,
+    height: look.height,
     occupant: 'npc',
     waypoints: [],
     waypointIndex: 0,
     npcState: 'driving',
     hp: 100,
-    mass: 1.3,
+    mass: spec.mass,
   };
 }
 
@@ -311,7 +323,7 @@ export function getForwardBlockDistance(
 
   for (const other of vehicles.values()) {
     if (other.id === v.id) continue;
-    if (other.type === VehicleType.HELICOPTER || other.type === VehicleType.RC_DRONE) continue;
+    if (isAirVehicle(other.type)) continue;
     const dx = other.x - v.x;
     const dy = other.y - v.y;
     const dist = Math.hypot(dx, dy);
@@ -344,6 +356,78 @@ export function forwardPointDistance(v: Vehicle, x: number, y: number, lookAhead
   return d;
 }
 
+// ── Route following ──────────────────────────────────────────────────────────
+// Speeds here are px per 60 Hz frame, like every AI vehicle.
+
+/** px/frame: AI cars take a corner at this (about the autopilot's 55 px/s). */
+export const AI_CORNER_SPEED = 0.9;
+/** px/frame: the crawl onto the last point of a route. */
+export const AI_ARRIVE_SPEED = 0.3;
+/** px/frame gained per second pulling away. */
+const AI_ACCEL = 3;
+/** px/frame shed per second easing off for a corner or the end of a route. */
+const AI_BRAKE = 4;
+/** rad: a change of direction sharper than this is a corner. */
+const AI_CORNER_ANGLE = Math.PI / 4;
+/** px of route searched for the next corner: enough to brake from any AI top speed. */
+const AI_LOOKAHEAD = 120;
+/** px: a waypoint is reached this close… */
+const WAYPOINT_RADIUS = 8;
+/** px: …or once the car is past it and this close (it swung wide). */
+const WAYPOINT_PASS_RADIUS = 20;
+
+function wrapAngle(a: number): number {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+}
+
+/** Turn (rad) between the legs a→b and b→c; 0 when either leg has no length. */
+function bendAt(a: Point, b: Point, c: Point): number {
+  const ax = b.x - a.x, ay = b.y - a.y;
+  const bx = c.x - b.x, by = c.y - b.y;
+  if ((ax === 0 && ay === 0) || (bx === 0 && by === 0)) return 0;
+  return Math.abs(wrapAngle(Math.atan2(bx, -by) - Math.atan2(ax, -ay)));
+}
+
+/** Fastest speed (px/frame) that still brakes down to `endSpeed` within `d` px. */
+function brakingSpeed(d: number, endSpeed: number): number {
+  return Math.sqrt(endSpeed * endSpeed + (2 * AI_BRAKE * Math.max(0, d)) / SIM_HZ);
+}
+
+/**
+ * Speed limit (px/frame) from the route ahead: slow enough to be down to
+ * corner speed at the next corner, and to a crawl at the end of the route.
+ * `dist` is the distance to the current waypoint.
+ */
+export function routeSpeedLimit(v: Vehicle, dist: number): number {
+  const wps = v.waypoints;
+  let along = dist;
+  for (let i = v.waypointIndex; i < wps.length; i++) {
+    const p = wps[i];
+    const next = wps[i + 1];
+    if (!next) return brakingSpeed(along - WAYPOINT_RADIUS, AI_ARRIVE_SPEED);
+    // The leg into this point: along the route once there is one (a car a
+    // little off its lane would otherwise see bends that are not there).
+    const from = i > 0 ? wps[i - 1] : v;
+    if (bendAt(from, p, next) > AI_CORNER_ANGLE) {
+      return brakingSpeed(along - WAYPOINT_RADIUS, AI_CORNER_SPEED);
+    }
+    along += Math.hypot(next.x - p.x, next.y - p.y);
+    if (along > AI_LOOKAHEAD) break;
+  }
+  return Infinity;
+}
+
+/** The car went by its waypoint (swung wide of it) instead of through it. */
+function passedWaypoint(v: Vehicle, dx: number, dy: number, dist: number): boolean {
+  if (dist > WAYPOINT_PASS_RADIUS || v.waypointIndex === 0) return false;
+  const prev = v.waypoints[v.waypointIndex - 1];
+  const target = v.waypoints[v.waypointIndex];
+  // Beyond the line through the waypoint square to the leg leading into it.
+  return dx * (target.x - prev.x) + dy * (target.y - prev.y) < 0;
+}
+
 // Move a vehicle toward its next waypoint.
 // speedCap (0–1) lets the caller impose an external speed limit (e.g. for braking).
 export function moveVehicleTowardWaypoint(
@@ -351,36 +435,40 @@ export function moveVehicleTowardWaypoint(
   dt: number,
   speedCap = 1
 ): void {
-  if (v.waypoints.length === 0 || v.waypointIndex >= v.waypoints.length) {
-    v.speed *= 0.85;
-    return;
-  }
-
-  const target = v.waypoints[v.waypointIndex];
-  const dx = target.x - v.x;
-  const dy = target.y - v.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-
-  if (dist < 8) {
+  // Reaching a waypoint moves straight on toward the next one in the same
+  // step. Stopping for a step at every waypoint cost a fixed fraction of a
+  // frame per tile, which made cars slower the lower the frame rate.
+  let dx: number;
+  let dy: number;
+  let dist: number;
+  for (;;) {
+    if (v.waypoints.length === 0 || v.waypointIndex >= v.waypoints.length) {
+      v.speed *= decay(0.85, dt);
+      return;
+    }
+    const target = v.waypoints[v.waypointIndex];
+    dx = target.x - v.x;
+    dy = target.y - v.y;
+    dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist >= WAYPOINT_RADIUS && !passedWaypoint(v, dx, dy, dist)) break;
     v.waypointIndex++;
-    return;
   }
-
-  const targetAngle = Math.atan2(dx, -dy);
 
   // Smooth angle
-  let angleDiff = targetAngle - v.angle;
-  while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-  while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+  const angleDiff = wrapAngle(Math.atan2(dx, -dy) - v.angle);
   v.angle += angleDiff * Math.min(1, dt * 5);
 
-  // Speed — respect both waypoint slow-zone and external cap
-  const slowDist = 40;
-  const speedFactor = dist < slowDist ? dist / slowDist : 1;
-  v.speed = Math.min(v.maxSpeed * speedCap, v.speed + dt * 3) * speedFactor;
+  // Speed: cruise, easing off only for what is coming (a corner, the end of
+  // the route) or a sharp turn still being made. Lane paths put a waypoint on
+  // every 40 px tile, so the old slow-down before each waypoint kept traffic
+  // and police crawling at about 6 px/s.
+  let limit = Math.min(v.maxSpeed * speedCap, routeSpeedLimit(v, dist));
+  if (Math.abs(angleDiff) > AI_CORNER_ANGLE) limit = Math.min(limit, AI_CORNER_SPEED);
+  v.speed = Math.min(limit, v.speed + AI_ACCEL * dt);
 
-  v.x += Math.sin(v.angle) * v.speed;
-  v.y -= Math.cos(v.angle) * v.speed;
+  const step = v.speed * frameScale(dt);
+  v.x += Math.sin(v.angle) * step;
+  v.y -= Math.cos(v.angle) * step;
 }
 
 // Update NPC traffic: follow road waypoints, re-route when finished
@@ -402,8 +490,8 @@ export function updateTraffic(
     if (v.isParked) return;  // Parked / abandoned cars stay put
     if (v.hp <= 0) return;   // Wrecks are static obstacles
     if (v.npcState === 'hijacked') return;
-    if (v.type === VehicleType.POLICE) return; // Driven by PoliceSystem
-    if (v.type === VehicleType.HELICOPTER || v.type === VehicleType.RC_DRONE) return;
+    if (isLawVehicle(v.type)) return; // Driven by the police / army systems
+    if (isAirVehicle(v.type)) return;
 
     // Teleport NPC cars if they get too far from the player to keep streets populated
     if (playerX !== undefined && playerY !== undefined) {
@@ -488,7 +576,7 @@ export function updateTraffic(
     }
     const brakeCap = fwdDist < 26 ? 0 : fwdDist < 70 ? (fwdDist - 26) / 44 : 1;
     if (brakeCap === 0) {
-      v.speed *= 0.82; // hard brake
+      v.speed *= decay(0.82, dt); // hard brake
     } else {
       moveVehicleTowardWaypoint(v, dt, brakeCap);
     }
@@ -497,14 +585,14 @@ export function updateTraffic(
     vehicles.forEach((other) => {
       if (other.id === v.id) return;
       if (other.occupant === 'player') return; // don't push player's vehicle
-      if (other.type === VehicleType.HELICOPTER || other.type === VehicleType.RC_DRONE) return;
+      if (isAirVehicle(other.type)) return;
       const sdx = v.x - other.x;
       const sdy = v.y - other.y;
       const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
       const minSep = 22;
       if (sdist < minSep && sdist > 0) {
         v.speed = Math.max(0, v.speed - 4 * dt);
-        const push = ((minSep - sdist) / minSep) * 0.5;
+        const push = ((minSep - sdist) / minSep) * 0.5 * frameScale(dt);
         v.x += (sdx / sdist) * push;
         v.y += (sdy / sdist) * push;
       }
@@ -642,6 +730,18 @@ export function updateParkedCars(
   }
 }
 
+/**
+ * Rough arrival time (s) for a service vehicle heading to `to`, for the order
+ * list. Roads on this grid run about 1.3× the straight line, and corners and
+ * pulling away cost about a quarter of top speed on average.
+ */
+export function serviceEta(v: Vehicle, to: Point, aerial = false): number {
+  const straight = Math.hypot(to.x - v.x, to.y - v.y);
+  const dist = aerial ? straight : straight * 1.3;
+  const pxPerSecond = v.maxSpeed * SIM_HZ * (aerial ? 1 : 0.75);
+  return Math.ceil(dist / pxPerSecond) + 1;
+}
+
 // Update service vehicles (taxi, delivery, helicopter) toward player
 export function updateServiceVehicle(
   v: Vehicle,
@@ -658,14 +758,14 @@ export function updateServiceVehicle(
     const dist = Math.sqrt(dx * dx + dy * dy);
     v.altitude = 15; // Fly high in the sky
     if (dist < 20) {
-      v.speed *= 0.8;
+      v.speed *= decay(0.8, dt);
       return true; // arrived
     }
     const ang = Math.atan2(dy, dx);
     v.angle = ang - Math.PI / 2;
     v.speed = Math.min(v.maxSpeed, v.speed + dt * 2);
-    v.x += Math.cos(ang) * v.speed;
-    v.y += Math.sin(ang) * v.speed;
+    v.x += Math.cos(ang) * v.speed * frameScale(dt);
+    v.y += Math.sin(ang) * v.speed * frameScale(dt);
     return false;
   }
 
@@ -686,7 +786,7 @@ export function updateServiceVehicle(
   const dy = targetY - v.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist < 30) {
-    v.speed *= 0.8;
+    v.speed *= decay(0.8, dt);
     return true;
   }
 
@@ -748,7 +848,7 @@ export function updateDrone(
   const ceiling = confine ? confine.ceiling : 200;
   if (throttleUp) v.altitude = Math.min(ceiling, alt + 80 * dt);
   else if (throttleDown) v.altitude = Math.max(0, alt - 60 * dt);
-  else v.altitude = alt + (0 - alt) * 0.01; // hover drift
+  else v.altitude = alt * decay(0.99, dt); // hover drift
 
   // Only move horizontally if airborne
   if ((v.altitude ?? 0) > 5) {

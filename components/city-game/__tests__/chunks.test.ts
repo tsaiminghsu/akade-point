@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { generateWorld, isDrivable } from '../worldGen';
 import {
   LAYER_NAMES,
-  LAMP_STRIDE,
+  hasSetback,
+  treeAt,
+  lampDir,
+  signalCorner,
   capacityFor,
   chunkDistSq3D,
   pickSpawnInRing,
@@ -11,6 +14,7 @@ import {
 import {
   GRID_SIZE,
   TILE_SIZE,
+  TILE_3D,
   CHUNK_TILES,
   CHUNK_PX,
   CHUNKS_PER_SIDE,
@@ -46,31 +50,121 @@ describe('chunk index', () => {
     for (const c of world.chunks) expect(c.key).toBe(chunkKey(c.cx, c.cy));
   });
 
-  it('bakes every building exactly once across the four facade layers', () => {
+  it('bakes every building once, plus a second tier for set-back towers', () => {
     let buildings = 0;
-    let houses1 = 0;
-    let parksWithTree = 0;
+    let setbacks = 0;
+    let houses = 0;
+    let storefronts = 0;
+    let trees = 0;
     let lamps = 0;
+    let signals = 0;
     for (let gy = 0; gy < GRID_SIZE; gy++) {
       for (let gx = 0; gx < GRID_SIZE; gx++) {
         const t = world.grid[gy][gx];
+        const isHouse = t.buildingType === BuildingType.HOUSE;
         if (t.type === TileType.BUILDING || t.type === TileType.HELIPAD) buildings++;
-        if (t.type === TileType.BUILDING && t.buildingType === BuildingType.HOUSE && (t.floors ?? 1) === 1) houses1++;
-        if (t.type === TileType.PARK && (gx + gy * 3) % 3 === 0) parksWithTree++;
-        if (gx % LAMP_STRIDE === 0 && gy % LAMP_STRIDE === 0
-          && (t.type === TileType.SIDEWALK || t.type === TileType.INTERSECTION)) lamps++;
+        if (t.type === TileType.BUILDING && !isHouse && hasSetback(t.floors ?? 1, t.colorSeed ?? 0)) setbacks++;
+        if (t.type === TileType.BUILDING && isHouse) houses++;
+        if (t.type === TileType.BUILDING && !isHouse) storefronts++;
+        if (treeAt(world.grid, gx, gy)) trees++;
+        if (lampDir(world.grid, gx, gy)) lamps++;
+        if (signalCorner(world.grid, gx, gy)) signals++;
       }
     }
     const facades = sumLayer('sky') + sumLayer('off') + sumLayer('com') + sumLayer('hou');
-    expect(facades).toBe(buildings);
-    expect(sumLayer('roofBase')).toBe(buildings);
-    expect(sumLayer('houseWin')).toBe(houses1 * 2);
-    expect(sumLayer('houseDoor')).toBe(houses1);
-    expect(sumLayer('treeTrunk')).toBe(parksWithTree);
-    expect(sumLayer('treeLeaf')).toBe(parksWithTree);
-    expect(sumLayer('lampPole')).toBe(lamps);
+    expect(setbacks).toBeGreaterThan(0);
+    expect(facades).toBe(buildings + setbacks);
+    expect(sumLayer('roofBase')).toBe(buildings + setbacks);
+    expect(sumLayer('roofPeak')).toBe(houses);
+    expect(sumLayer('houseDoor')).toBe(houses);
+    expect(sumLayer('shop')).toBe(storefronts);
+    expect(sumLayer('treeTrunk')).toBe(trees);
+    expect(sumLayer('treeLeaf')).toBe(trees);
+    expect(lamps).toBeGreaterThan(0);
+    expect(sumLayer('lampHead')).toBe(lamps);
+    expect(sumLayer('lightPool')).toBe(lamps);
+    expect(signals).toBeGreaterThan(0);
+    expect(sumLayer('signalHead')).toBe(signals);
+    // Each lamp and each signal is a mast plus an arm.
+    expect(sumLayer('pole')).toBe((lamps + signals) * 2);
     const lampPositions = world.chunks.reduce((n, c) => n + c.lampPositions.length / 2, 0);
     expect(lampPositions).toBe(lamps);
+  });
+
+  it('hangs lamp heads and signal heads over the carriageway', () => {
+    const tileAt3D = (x3: number, z3: number) => {
+      const gx = Math.floor((x3 + GRID_SIZE * TILE_3D / 2) / TILE_3D);
+      const gy = Math.floor((z3 + GRID_SIZE * TILE_3D / 2) / TILE_3D);
+      return world.grid[gy]?.[gx];
+    };
+    const road = new Set([TileType.ROAD_H, TileType.ROAD_V, TileType.INTERSECTION]);
+    for (const c of world.chunks) {
+      for (const name of ['lampHead', 'signalHead'] as const) {
+        const L = c.layers[name];
+        for (let i = 0; i < L.count; i++) {
+          const t = tileAt3D(L.mats[i * 16 + 12], L.mats[i * 16 + 14]);
+          expect(road.has(t!.type)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('staggers street lamps so the two sides of a road alternate', () => {
+    // A north–south road column: lamps east and west of it never share a row.
+    const gx = 8 * 3;
+    const west = new Set<number>();
+    const east = new Set<number>();
+    for (let gy = 0; gy < GRID_SIZE; gy++) {
+      if (lampDir(world.grid, gx - 1, gy)) west.add(gy);
+      if (lampDir(world.grid, gx + 1, gy)) east.add(gy);
+    }
+    expect(west.size).toBeGreaterThan(0);
+    expect(east.size).toBeGreaterThan(0);
+    for (const gy of west) expect(east.has(gy)).toBe(false);
+  });
+
+  it('runs the two crossing directions of a signal on opposite phases', () => {
+    const phases = new Set<number>();
+    for (const c of world.chunks) {
+      const L = c.layers.signalHead;
+      for (let i = 0; i < L.count; i++) phases.add(L.colors[i * 3]);
+    }
+    expect([...phases].sort()).toEqual([0, 0.5]);
+  });
+
+  it('merges the tiles of a multi-tile building into one mass', () => {
+    // Find two horizontally adjacent tiles of the same non-house building.
+    let found = false;
+    for (let gy = 0; gy < GRID_SIZE && !found; gy++) {
+      for (let gx = 0; gx + 1 < GRID_SIZE && !found; gx++) {
+        const a = world.grid[gy][gx];
+        const b = world.grid[gy][gx + 1];
+        if (a.type !== TileType.BUILDING || b.type !== TileType.BUILDING) continue;
+        if (a.buildingType === BuildingType.HOUSE || a.colorSeed !== b.colorSeed || a.floors !== b.floors) continue;
+        if (hasSetback(a.floors ?? 1, a.colorSeed ?? 0)) continue;
+        found = true;
+        // The shared edge sits exactly on the tile boundary.
+        const boundary = (gx + 1) * TILE_3D - GRID_SIZE * TILE_3D / 2;
+        const edges: number[] = [];
+        for (const ch of world.chunks) {
+          for (const name of ['com', 'off', 'sky'] as const) {
+            const L = ch.layers[name];
+            for (let i = 0; i < L.count; i++) {
+              const tx = L.mats[i * 16 + 12];
+              const sx = L.mats[i * 16];
+              const tz = L.mats[i * 16 + 14];
+              const zc = gy * TILE_3D + TILE_3D / 2 - GRID_SIZE * TILE_3D / 2;
+              if (Math.abs(tz - zc) > TILE_3D / 2) continue;
+              if (Math.abs(tx + sx / 2 - boundary) < 1e-4) edges.push(1);
+              if (Math.abs(tx - sx / 2 - boundary) < 1e-4) edges.push(2);
+            }
+          }
+        }
+        expect(edges).toContain(1);
+        expect(edges).toContain(2);
+      }
+    }
+    expect(found).toBe(true);
   });
 
   it('stores matrices with 16 floats and colours with 3 floats per instance', () => {

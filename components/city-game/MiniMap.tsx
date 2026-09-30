@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useEffect, useCallback } from 'react';
 import { GameState, WorldData } from './types';
+import type { TouchLayout } from './touchLayout';
 import {
   MiniMapTransform,
   minimapToWorld,
@@ -15,6 +16,8 @@ interface Props {
   expanded: boolean;
   onWaypointSet: (worldX: number, worldY: number) => void;
   isMobile?: boolean;
+  /** Touch screens: where the compact map goes for this screen shape. */
+  touch?: TouchLayout | null;
   onCollapse?: () => void;
 }
 
@@ -23,7 +26,7 @@ interface Props {
  * imperatively. Routing the ~20Hz snapshot through React state would re-render
  * the whole game shell on every tick.
  */
-export default function MiniMap({ world, expanded, onWaypointSet, isMobile = false, onCollapse }: Props) {
+export default function MiniMap({ world, expanded, onWaypointSet, isMobile = false, touch = null, onCollapse }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
@@ -39,7 +42,7 @@ export default function MiniMap({ world, expanded, onWaypointSet, isMobile = fal
   expandedRef.current = expanded;
   worldRef.current = world;
 
-  const compactSize = isMobile ? 104 : 168;
+  const compactSize = touch ? touch.minimap.size : 168;
 
   const draw = useCallback(() => {
     const state = stateRef.current;
@@ -160,19 +163,27 @@ export default function MiniMap({ world, expanded, onWaypointSet, isMobile = fal
     );
   }
 
-  // ── Collapsed: rotating GTA-style minimap, bottom-right ────────────────────
+  // ── Collapsed: rotating GTA-style minimap ─────────────────────────────────
+  // Desktop: bottom-right. Touch: bottom-centre in portrait, top-left corner in
+  // landscape (see touchLayout), and above the touch-controls layer so its
+  // camera-drag zone never takes a tap meant for the map.
+  const m = touch?.minimap;
+  const place: React.CSSProperties = !m
+    ? { bottom: '12px', right: '12px' }
+    : m.top !== undefined
+      ? {
+          top: `calc(${m.top}px + env(safe-area-inset-top, 0px))`,
+          left: `calc(${m.left ?? 0}px + env(safe-area-inset-left, 0px))`,
+          zIndex: 41,
+        }
+      : {
+          bottom: `calc(${m.bottom ?? 0}px + env(safe-area-inset-bottom, 0px))`,
+          right: '50%',
+          transform: 'translateX(50%)',
+          zIndex: 41,
+        };
   return (
-    <div
-      className="absolute"
-      style={{
-        bottom: isMobile
-          ? 'calc(150px + env(safe-area-inset-bottom, 0px))'
-          : '12px',
-        right: isMobile ? '50%' : '12px',
-        transform: isMobile ? 'translateX(50%)' : undefined,
-        pointerEvents: 'all',
-      }}
-    >
+    <div className="absolute" style={{ ...place, pointerEvents: 'all' }}>
       <div className="relative" style={{ width: compactSize, height: compactSize }}>
         <canvas
           ref={canvasRef}

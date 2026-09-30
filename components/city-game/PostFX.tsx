@@ -14,6 +14,7 @@ import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js';
 
 import { GameEngine3D } from './engine3d';
 import type { ResolvedGraphics } from './graphicsSettings';
+import { frameGate } from './frameGate';
 
 /**
  * Owns rendering.
@@ -43,7 +44,6 @@ export default function PostFX({ engine, graphics, wet }: Props) {
   const frames = useRef(0);
   const ssrRefresh = useRef(0);
   const lastFpsReport = useRef(0);
-  const lastRender = useRef(0);
 
   const gfx = useRef(graphics);
   gfx.current = graphics;
@@ -158,16 +158,12 @@ export default function PostFX({ engine, graphics, wet }: Props) {
     composer.current?.setSize(width, height);
   }, [width, height]);
 
-  useFrame((_, delta) => {
-    const g = gfx.current;
-
-    // Frame cap. Skipping the render leaves the previous frame on screen; the
-    // simulation still ticks at full rate in GameScene.
-    if (g.fpsCap > 0) {
-      lastRender.current += delta;
-      if (lastRender.current < 1 / g.fpsCap - 0.001) return;
-      lastRender.current = 0;
-    }
+  useFrame(() => {
+    // Frame cap. Skipping the render leaves the previous frame on screen.
+    // GameScene decided this frame's fate before any callback ran, and skips
+    // its simulation step on exactly the same frames.
+    if (!frameGate.due) return;
+    const delta = frameGate.delta;
 
     const comp = composer.current;
     if (comp) {
@@ -202,9 +198,14 @@ export default function PostFX({ engine, graphics, wet }: Props) {
       gl.render(scene, camera);
     }
 
+    // Frames actually drawn per second, reported twice a second. Always on:
+    // auto-adjust listens as well as the FPS readout.
     frames.current++;
     const now = performance.now();
-    if (g.showFps && now - lastFpsReport.current >= 500) {
+    if (lastFpsReport.current === 0) {
+      lastFpsReport.current = now;
+      frames.current = 0;
+    } else if (now - lastFpsReport.current >= 500) {
       const fps = Math.round(frames.current / ((now - lastFpsReport.current) / 1000));
       window.dispatchEvent(new CustomEvent('city:fps', { detail: { fps } }));
       lastFpsReport.current = now;

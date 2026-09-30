@@ -13,7 +13,14 @@ import { storage } from './save';
 import type { PerfProfile } from './engine3d';
 
 export const GFX_KEY = 'city_gfx';
-export const GFX_VERSION = 1;
+/**
+ * v2: the default dropped from an auto-detected tier (usually high) to low.
+ * v3: the default is the GPU's tier again, but from a model table instead of
+ * "anything not Intel is high", and resolutionScale became a fraction of the
+ * native resolution under a per-preset pixel budget. Bumping discards older
+ * settings once, so every player gets the new detection.
+ */
+export const GFX_VERSION = 3;
 
 export type Preset = 'low' | 'medium' | 'high' | 'ultra' | 'custom';
 export type ShadowQuality = 'off' | 'low' | 'medium' | 'high' | 'ultra';
@@ -23,8 +30,13 @@ export type SsrQuality = 'low' | 'high';
 
 export interface GraphicsSettings {
   preset: Preset;
-  /** Canvas dpr multiplier. Above 1 acts as supersampling. */
+  /** Fraction of the display's native resolution. Above 1 supersamples. */
   resolutionScale: number;
+  /**
+   * Most pixels to render, in megapixels, whatever the screen; 0 = no limit.
+   * Keeps a 1440p or 4K screen from costing 2-4x a 1080p one at the same preset.
+   */
+  maxPixels: number;
   shadowQuality: ShadowQuality;
   /** Half-extent of the follow shadow box, in 3D units. */
   shadowDistance: number;
@@ -46,28 +58,58 @@ export interface GraphicsSettings {
   fpsCap: number;
   uiScale: number;
   showFps: boolean;
+  /** Step quality down automatically when the frame rate stays too low. */
+  autoAdjust: boolean;
+  /**
+   * What auto-adjust has taken off the pixel budget (1 = nothing, down to
+   * MIN_BUDGET_SCALE). Not part of any preset; picking a preset resets it.
+   */
+  budgetScale: number;
 }
 
-/** What the device can actually support. Filled in once the GL context exists. */
+/** What the device can actually support, and the size of the screen. */
 export interface GraphicsCaps {
   isMobile: boolean;
   maxTextureSize: number;
   renderer: string;
+  /** window.devicePixelRatio. */
+  pixelRatio: number;
+  /** Canvas size in CSS pixels. */
+  viewportWidth: number;
+  viewportHeight: number;
 }
 
 export const DEFAULT_CAPS: GraphicsCaps = {
   isMobile: false,
   maxTextureSize: 4096,
   renderer: '',
+  pixelRatio: 1,
+  viewportWidth: 1920,
+  viewportHeight: 1080,
 };
 
 // ── Presets ──────────────────────────────────────────────────────────────────
 
-type PresetBody = Omit<GraphicsSettings, 'preset'>;
+/** Player-level switches that no preset overrides. */
+type Personal = 'preset' | 'autoAdjust' | 'budgetScale';
+type PresetBody = Omit<GraphicsSettings, Personal>;
 
+/** Auto-adjust never takes the pixel budget below half the preset's. */
+export const MIN_BUDGET_SCALE = 0.5;
+
+/**
+ * Presets are sized against the Steam Hardware Survey (Aug 2026): 1080p is
+ * half of all screens and 1440p a fifth, and the typical GPU is an RTX
+ * 3060/4060-class card. See docs/city-game-performance.md.
+ *
+ * Low is the floor, for integrated graphics: no shadow pass, no
+ * post-processing, a thinner crowd, about 1440x810 pixels and a 30 fps cap
+ * (which also halves the simulation's CPU time — see GameScene).
+ */
 const LOW: PresetBody = {
   resolutionScale: 0.75,
-  shadowQuality: 'low',
+  maxPixels: 1.2,
+  shadowQuality: 'off',
   shadowDistance: 40,
   ssr: false,
   ssrQuality: 'low',
@@ -77,19 +119,21 @@ const LOW: PresetBody = {
   antiAliasing: 'off',
   drawDistance: 0.7,
   fov: 60,
-  particleDensity: 0.3,
-  trafficDensity: 9,
-  pedestrianDensity: 48,
-  parkedCars: 6,
+  particleDensity: 0.2,
+  trafficDensity: 8,
+  pedestrianDensity: 32,
+  parkedCars: 4,
   streetLightCount: 0,
-  fpsCap: 60,
+  fpsCap: 30,
   uiScale: 1,
   showFps: false,
 };
 
+/** Mainstream: 1080p at 60 fps on a GTX 1660 / RTX 3050-class card. */
 const MEDIUM: PresetBody = {
   ...LOW,
   resolutionScale: 1,
+  maxPixels: 2.1,
   shadowQuality: 'medium',
   shadowDistance: 60,
   bloom: true,
@@ -101,11 +145,14 @@ const MEDIUM: PresetBody = {
   pedestrianDensity: 67,
   parkedCars: 10,
   streetLightCount: 2,
-  fpsCap: 0,
+  // Uncapped, a 144 Hz screen runs the simulation 144 times a second.
+  fpsCap: 60,
 };
 
+/** The survey's typical card (RTX 3060/4060 class), up to 1440p. */
 const HIGH: PresetBody = {
   ...MEDIUM,
+  maxPixels: 3.7,
   shadowQuality: 'high',
   shadowDistance: 90,
   ao: 'gtao',
@@ -118,8 +165,10 @@ const HIGH: PresetBody = {
   streetLightCount: 6,
 };
 
+/** Opt-in only: native resolution, SSR and the long shadow range. */
 const ULTRA: PresetBody = {
   ...HIGH,
+  maxPixels: 0,
   shadowQuality: 'ultra',
   shadowDistance: 160,
   ssr: true,
@@ -139,8 +188,8 @@ export const PRESETS: Record<Exclude<Preset, 'custom'>, PresetBody> = {
   ultra: ULTRA,
 };
 
-/** Selectable frame caps; 0 means uncapped. */
-export const FPS_CAPS = [0, 30, 60];
+/** Selectable frame caps; 0 means uncapped. 120/144 for high-refresh screens. */
+export const FPS_CAPS = [0, 30, 60, 120, 144];
 
 export const SHADOW_MAP_SIZE: Record<ShadowQuality, number> = {
   off: 0,
@@ -150,12 +199,16 @@ export const SHADOW_MAP_SIZE: Record<ShadowQuality, number> = {
   ultra: 4096,
 };
 
-export function presetSettings(preset: Exclude<Preset, 'custom'>): GraphicsSettings {
-  return { preset, ...PRESETS[preset] };
+export function presetSettings(
+  preset: Exclude<Preset, 'custom'>,
+  keep: Partial<Pick<GraphicsSettings, 'autoAdjust'>> = {},
+): GraphicsSettings {
+  return { preset, ...PRESETS[preset], autoAdjust: keep.autoAdjust ?? true, budgetScale: 1 };
 }
 
+/** The fallback when nothing is known about the GPU. */
 export function defaultGraphics(): GraphicsSettings {
-  return presetSettings('high');
+  return presetSettings('low');
 }
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -189,6 +242,7 @@ export function sanitize(raw: unknown): GraphicsSettings {
   return {
     preset: pick(r.preset, ['low', 'medium', 'high', 'ultra', 'custom'] as const, d.preset),
     resolutionScale: num(r.resolutionScale, 0.5, 2, d.resolutionScale),
+    maxPixels: num(r.maxPixels, 0, 33, d.maxPixels),
     shadowQuality: pick(r.shadowQuality, ['off', 'low', 'medium', 'high', 'ultra'] as const, d.shadowQuality),
     shadowDistance: num(r.shadowDistance, 40, 200, d.shadowDistance),
     ssr: bool(r.ssr, d.ssr),
@@ -207,6 +261,8 @@ export function sanitize(raw: unknown): GraphicsSettings {
     fpsCap: FPS_CAPS.includes(r.fpsCap as number) ? (r.fpsCap as number) : d.fpsCap,
     uiScale: num(r.uiScale, 0.8, 1.4, d.uiScale),
     showFps: bool(r.showFps, d.showFps),
+    autoAdjust: bool(r.autoAdjust, d.autoAdjust),
+    budgetScale: num(r.budgetScale, MIN_BUDGET_SCALE, 1, d.budgetScale),
   };
 }
 
@@ -224,6 +280,15 @@ export function detectPreset(s: GraphicsSettings): Preset {
 
 export interface ResolvedGraphics {
   dpr: number;
+  /** Drawing-buffer size that dpr gives on this screen, device pixels. */
+  renderWidth: number;
+  renderHeight: number;
+  /**
+   * Whether the canvas itself is created multisampled. Only when MSAA is the
+   * whole AA story: with a composer the samples live on its render target,
+   * and a multisampled default framebuffer would be paid for twice.
+   */
+  canvasMsaa: boolean;
   shadowsEnabled: boolean;
   shadowMapSize: number;
   shadowHalf: number;
@@ -245,6 +310,39 @@ export interface ResolvedGraphics {
   showFps: boolean;
 }
 
+export interface DprInput {
+  /** GraphicsSettings.resolutionScale: fraction of native resolution. */
+  scale: number;
+  /** window.devicePixelRatio. */
+  pixelRatio: number;
+  /** Canvas size, CSS pixels. */
+  width: number;
+  height: number;
+  /** Megapixel budget; 0 = none. */
+  maxPixels: number;
+  /** Auto-adjust's cut to the budget (1 = none). */
+  budgetScale: number;
+  maxDpr: number;
+}
+
+/**
+ * The canvas dpr: the requested fraction of native resolution, shrunk until
+ * the drawing buffer fits the pixel budget. A 1080p screen at medium renders
+ * natively; a 1440p screen at medium renders about 1920x1080 and lets the
+ * browser upscale, rather than paying 1.8x the fill rate for the same preset.
+ */
+export function renderDpr(i: DprInput): number {
+  const native = Math.max(0.5, i.pixelRatio || 1);
+  let dpr = i.scale * native;
+  const cssPixels = Math.max(1, i.width) * Math.max(1, i.height);
+  // With no budget of its own (ultra), auto-adjust scales the native size.
+  const budget = i.maxPixels > 0
+    ? i.maxPixels * 1e6 * i.budgetScale
+    : i.budgetScale < 1 ? cssPixels * dpr * dpr * i.budgetScale : 0;
+  if (budget > 0) dpr = Math.min(dpr, Math.sqrt(budget / cssPixels));
+  return Math.max(0.25, Math.min(i.maxDpr, dpr));
+}
+
 /** Full-density particle count; scaled down by particleDensity. */
 export const MAX_PARTICLES = 10000;
 
@@ -257,6 +355,15 @@ const BASE_SHADOW_DISTANCE = 96;
  */
 export function resolve(s: GraphicsSettings, caps: GraphicsCaps = DEFAULT_CAPS): ResolvedGraphics {
   const maxMap = caps.isMobile ? 2048 : 4096;
+  const dpr = renderDpr({
+    scale: s.resolutionScale,
+    pixelRatio: caps.pixelRatio,
+    width: caps.viewportWidth,
+    height: caps.viewportHeight,
+    maxPixels: s.maxPixels,
+    budgetScale: s.budgetScale,
+    maxDpr: caps.isMobile ? 2 : 3,
+  });
   const shadowMapSize = Math.min(SHADOW_MAP_SIZE[s.shadowQuality], maxMap, caps.maxTextureSize);
   const shadowsEnabled = s.shadowQuality !== 'off' && shadowMapSize > 0;
 
@@ -271,8 +378,14 @@ export function resolve(s: GraphicsSettings, caps: GraphicsCaps = DEFAULT_CAPS):
   const npcCars = Math.round(Math.min(s.trafficDensity, 40));
   const parkedCars = Math.round(Math.min(s.parkedCars, 56 - npcCars));
 
+  const usesComposer = ssr || s.ao !== 'off' || s.bloom
+    || antiAliasing === 'fxaa' || antiAliasing === 'smaa';
+
   return {
-    dpr: Math.min(s.resolutionScale, caps.isMobile ? 2 : 3),
+    dpr,
+    renderWidth: Math.round(caps.viewportWidth * dpr),
+    renderHeight: Math.round(caps.viewportHeight * dpr),
+    canvasMsaa: antiAliasing === 'msaa' && !usesComposer,
     shadowsEnabled,
     shadowMapSize,
     shadowHalf: shadowDistance,
@@ -284,6 +397,8 @@ export function resolve(s: GraphicsSettings, caps: GraphicsCaps = DEFAULT_CAPS):
       shadowDistance,
       lampLights: Math.round(s.streetLightCount),
       pedShadows: s.shadowQuality === 'high' || s.shadowQuality === 'ultra',
+      // Pursuers cost what traffic costs, so a thin street gets a thin chase.
+      maxPolice: s.trafficDensity < 12 ? 3 : 5,
     },
     postFxKey: [
       ssr ? `ssr-${s.ssrQuality}` : 'nossr',
@@ -293,8 +408,7 @@ export function resolve(s: GraphicsSettings, caps: GraphicsCaps = DEFAULT_CAPS):
     ].join('|'),
     // MSAA alone is handled by the canvas' own antialias flag, so it does not
     // on its own justify the cost of an offscreen buffer.
-    usesComposer: ssr || s.ao !== 'off' || s.bloom
-      || antiAliasing === 'fxaa' || antiAliasing === 'smaa',
+    usesComposer,
     ssr,
     ssrQuality: s.ssrQuality,
     ao: s.ao,
@@ -311,21 +425,74 @@ export function resolve(s: GraphicsSettings, caps: GraphicsCaps = DEFAULT_CAPS):
 
 // ── Tier detection ───────────────────────────────────────────────────────────
 
+export type DetectedTier = Exclude<Preset, 'custom' | 'ultra'>;
+
 /**
- * Guess a starting preset from the GL renderer string. Never picks ultra —
- * SSR plus a 4096 shadow map is an opt-in cost, not something to inflict on a
- * first-time player.
+ * Starting preset from the unmasked GL renderer string, e.g.
+ * "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 (0x00002503) Direct3D11 …)".
+ *
+ * The table follows the Steam Hardware Survey's most common cards: the
+ * x060-and-up generation of RTX (and AMD/Intel equivalents) gets high, the
+ * GTX 16/10 series and the x050 cards medium, integrated graphics low. Never
+ * picks ultra — SSR plus a 4096 shadow map is an opt-in cost. Phones and
+ * tablets start at low whatever their GPU.
  */
-export function detectTier(renderer: string): Exclude<Preset, 'custom' | 'ultra'> {
+export function detectTier(renderer: string, isMobile = false): DetectedTier {
   const r = (renderer || '').toLowerCase();
+  if (isMobile) return 'low';
   if (!r) return 'medium';
-  if (r.includes('swiftshader') || r.includes('llvmpipe') || r.includes('software')) return 'low';
-  if (
-    r.includes('intel') || r.includes('iris') ||
-    r.includes('mali') || r.includes('adreno') ||
-    r.includes('powervr') || r.includes('apple m1')
-  ) return 'medium';
-  return 'high';
+  if (/swiftshader|llvmpipe|software|basic render/.test(r)) return 'low';
+  // Phone and tablet GPUs, in case a touch device reports no coarse pointer.
+  if (/mali|adreno|powervr|apple a\d/.test(r)) return 'low';
+  // Firefox reports a representative card for a whole class ("GeForce GTX
+  // 980, or similar"), so the model number means nothing.
+  if (/or similar/.test(r)) return 'medium';
+
+  // ── NVIDIA ──
+  const rtx = r.match(/rtx\s*a?(\d{3,4})/);
+  if (rtx) {
+    // RTX 2050/3050/4050/5050 and the small workstation A500 are the entry
+    // cards; everything else in the family (x060 and up, A2000 …) is high.
+    return rtx[1].length === 3 || /50$/.test(rtx[1]) ? 'medium' : 'high';
+  }
+  const gtx = r.match(/gtx\s*(\d{3,4})/);
+  if (gtx) {
+    const n = Number(gtx[1]);
+    if (n >= 1650 || (n >= 1060 && n < 1600)) return 'medium';
+    return 'low'; // GTX 9xx, 1050, 1630
+  }
+  if (/titan|quadro|tesla/.test(r)) return 'medium';
+  if (/geforce\s*(gt|mx)\b|\bmx\s*\d{3}/.test(r)) return 'low';
+
+  // ── AMD ──
+  const rx4 = r.match(/rx\s*(\d{4})/);
+  if (rx4) {
+    // RX 5500/6400/6500 are entry cards; 5600/6600/7600 and up are high.
+    // The 9000 series counts in tens (9060, 9070), so scale it to match.
+    const n = Number(rx4[1]);
+    const model = n >= 9000 ? (n % 1000) * 10 : n % 1000;
+    return model >= 600 ? 'high' : 'medium';
+  }
+  const rx3 = r.match(/rx\s*(\d{3})\b/);
+  if (rx3) return Number(rx3[1]) % 100 >= 70 ? 'medium' : 'low'; // RX 470–590 vs 550/560
+  const rxVega = r.match(/rx\s*vega\s*(\d+)/);
+  if (rxVega) return Number(rxVega[1]) >= 56 ? 'medium' : 'low'; // Vega 56/64 vs APU Vega 11
+  if (/radeon\s*vii|radeon\s*pro/.test(r)) return 'medium';
+  const apu = r.match(/radeon\s*(\d{3})m/);
+  if (apu) return Number(apu[1]) >= 680 ? 'medium' : 'low'; // 680M/780M/880M/890M
+  if (/radeon|vega/.test(r)) return 'low'; // "Radeon(TM) Graphics" APUs
+
+  // ── Intel ──
+  const arc = r.match(/arc(?:\(tm\))?\s*([ab])(\d{3})/);
+  if (arc) return arc[1] === 'b' || Number(arc[2]) >= 500 ? 'high' : 'medium';
+  if (/arc/.test(r)) return 'medium'; // Arc integrated (Meteor/Lunar Lake)
+  if (/intel|iris|uhd|hd graphics/.test(r)) return 'low';
+
+  // ── Apple ──
+  if (/apple m\d+\s*(pro|max|ultra)/.test(r)) return 'high';
+  if (/apple/.test(r)) return 'medium';
+
+  return 'medium';
 }
 
 // ── Persistence ──────────────────────────────────────────────────────────────

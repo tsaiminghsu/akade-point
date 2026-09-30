@@ -8,6 +8,8 @@ import { GameEngine3D } from './engine3d';
 import { HUDData } from './types';
 import { toX3D, toZ3D, VehicleType, TILE_3D, TILE_SIZE, WORLD_CENTER_TILE, Vehicle } from './types';
 import CityScene from './CityMesh';
+import { cityUniforms } from './cityMaterials';
+import { frameGate } from './frameGate';
 import {
   PlayerCar, PlayerCarHandle, HelicopterMesh,
   InstancedCarFleet, CarFleetHandle,
@@ -22,6 +24,10 @@ import * as gameClock from './gameClock';
 import type { ResolvedGraphics } from './graphicsSettings';
 import ShadowRig from './ShadowRig';
 import DroneArenaMesh from './DroneArenaMesh';
+import MilitaryBaseMesh from './MilitaryBaseMesh';
+import { distanceToBase } from './militaryBase';
+import { LawFleet, LawFleetHandle } from './LawVehicleMeshes';
+import { CombatEffects, CombatEffectsHandle } from './CombatEffects';
 
 // Reusable temp objects (never recreate in hot loop)
 const tmpVec3  = new THREE.Vector3();
@@ -65,6 +71,15 @@ interface WeatherConfig {
   // Lightning
   lightning: boolean;
 }
+
+/** Minimap snapshots per second (each one allocates and redraws a 2D canvas). */
+const MINIMAP_PERIOD = 0.1;
+
+/** How dark it is, for lit windows, street lamps and light pools (0 day … 1 night). */
+const CITY_LIGHT: Record<WeatherType, number> = {
+  clear_day: 0.05, snow: 0.2, cloudy: 0.25, foggy: 0.35,
+  rain: 0.4, storm: 0.6, dusk: 0.7, night: 1,
+};
 
 const WEATHER: Record<WeatherType, WeatherConfig> = {
   clear_day: {
@@ -172,9 +187,10 @@ function PrecipitationSystem({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
-  useFrame((state, dt) => {
+  useFrame((state) => {
     const pts = pointsRef.current;
-    if (!pts) return;
+    if (!pts || !frameGate.due) return;
+    const dt = Math.min(frameGate.delta, 0.1);
     const pos = posArr.current;
     const vel = velArr.current;
     const isSnow = type === 'snow';
@@ -247,6 +263,9 @@ export default function GameScene({
   const playerRef     = useRef<PlayerCarHandle>(null);
   const fleetRef      = useRef<CarFleetHandle>(null);
   const scooterRef    = useRef<ScooterPoolHandle>(null);
+  const lawRef        = useRef<LawFleetHandle>(null);
+  const fxRef         = useRef<CombatEffectsHandle>(null);
+  const baseRef       = useRef<THREE.Group>(null);
   const pedRef        = useRef<PedestrianMeshesHandle>(null);
   const markerRef     = useRef<MissionMarkersHandle>(null);
   const droneRef      = useRef<THREE.Group>(null);
@@ -337,7 +356,17 @@ export default function GameScene({
   // Snap target weather immediately on change (lerp handles smooth transition)
   const targetW = WEATHER[weatherType];
 
-  useFrame((state, delta) => {
+  // The fps cap is decided here, before every other frame callback (-2 runs
+  // first); the rest of the scene reads frameGate.due.
+  useFrame((_, rawDelta) => frameGate.advance(rawDelta, gfxRef.current.fpsCap), -2);
+
+  useFrame((state) => {
+    // Frame cap: between steps the simulation, camera and every sync below are
+    // skipped entirely, which is where the CPU time goes (otherwise the sim runs
+    // at the monitor's refresh rate — 144 times a second on some screens).
+    // PostFX skips its draw on the same frames.
+    if (!frameGate.due) return;
+    const delta = frameGate.delta;
     const dt  = Math.min(delta, 0.05);
     const now = gameClock.now();
 
@@ -383,6 +412,9 @@ export default function GameScene({
       }
       pGroup.position.y = py;
       pGroup.rotation.y = -player.angle;
+      // A stolen tank's turret follows the camera independently of the hull.
+      const turret = playerRef.current?.turret;
+      if (turret && curVeh) turret.rotation.y = -((curVeh.turretAngle ?? curVeh.angle) - curVeh.angle);
     }
 
     // ─ Traffic + crowd (instanced, written imperatively) ──────────────
@@ -393,6 +425,13 @@ export default function GameScene({
       : null;
     fleetRef.current?.sync(engine.vehicles, drivenId, now / 1000);
     scooterRef.current?.sync(engine.vehicles, drivenId);
+    lawRef.current?.sync(engine.vehicles, drivenId, engine.helis.units, now / 1000, dt);
+    fxRef.current?.sync(engine.combat, engine.roadblocks.strips());
+    // The base is static and out of the chunk streamer, so cull it by hand.
+    if (baseRef.current) {
+      baseRef.current.visible =
+        distanceToBase(player.x, player.y) < engine.perf.drawDistance * (TILE_SIZE / TILE_3D) + 200;
+    }
     pedRef.current?.sync(engine.pedestrians);
     markerRef.current?.sync(engine.missions, now / 1000);
 
@@ -524,6 +563,19 @@ export default function GameScene({
       );
       tmpVec3b.set(focusSm.x, focusSm.y + LOOK_TARGET_Y, focusSm.z);
       state.camera.lookAt(tmpVec3b);
+
+      // Nearby blasts jolt the camera.
+      let shake = 0;
+      for (const e of engine.combat.explosions) {
+        if (e.radius < 30 || e.t > 0.35) continue;
+        const d = Math.hypot(e.x - player.x, e.y - player.y);
+        shake = Math.max(shake, (1 - e.t / 0.35) * Math.max(0, 1 - d / 400));
+      }
+      if (shake > 0) {
+        state.camera.position.x += (Math.random() - 0.5) * 0.7 * shake;
+        state.camera.position.y += (Math.random() - 0.5) * 0.5 * shake;
+        state.camera.position.z += (Math.random() - 0.5) * 0.7 * shake;
+      }
     }
 
     // ─ Weather lerp (smooth transitions) ─────────────────────────────
@@ -548,6 +600,8 @@ export default function GameScene({
     const targetEnvIntensity = weatherType === 'night' ? 0.75 : 0.35;
     state.scene.environmentIntensity = (state.scene.environmentIntensity ?? 0.5) +
       (targetEnvIntensity - (state.scene.environmentIntensity ?? 0.5)) * L;
+    const cl = cityUniforms.uCityLight;
+    cl.value += (CITY_LIGHT[weatherType] - cl.value) * L;
 
     // Fog mutation. Far is clamped just inside the streaming radius so
     // buildings pop in behind the fog instead of in plain view.
@@ -579,9 +633,10 @@ export default function GameScene({
       if (ambientRef.current) ambientRef.current.intensity = lw.ambientIntensity;
     }
 
-    // ─ Mini-map update (every 6 frames) ──────────────────────────────
-    miniMapTick.current++;
-    if (miniMapTick.current % 3 === 0) {
+    // ─ Mini-map update (10 Hz, whatever the frame rate) ─────────────
+    miniMapTick.current += dt;
+    if (miniMapTick.current >= MINIMAP_PERIOD) {
+      miniMapTick.current = 0;
       const ev = new CustomEvent('city:minimap', { detail: engine.getStateSnapshot() });
       window.dispatchEvent(ev);
     }
@@ -649,6 +704,9 @@ export default function GameScene({
       {/* ── Drone arena boundary ─────────────────────────────────── */}
       <DroneArenaMesh />
 
+      {/* ── Military base (walls, gates, hangars) ────────────────── */}
+      <MilitaryBaseMesh groupRef={baseRef} />
+
       {/* ── City ─────────────────────────────────────────────────── */}
       <CityScene world={engine.world} source={engine} playerGridX={playerGrid.x} playerGridY={playerGrid.y} />
 
@@ -666,6 +724,10 @@ export default function GameScene({
       {/* ── NPC traffic (8 draw calls for the whole fleet) ───────── */}
       <InstancedCarFleet ref={fleetRef} />
       <ScooterPool ref={scooterRef} />
+
+      {/* ── SWAT, army, police helicopters; shells and explosions ─── */}
+      <LawFleet ref={lawRef} />
+      <CombatEffects ref={fxRef} />
 
       {/* ── Pedestrians (3 draw calls for the whole crowd) ───────── */}
       <PedestrianMeshes ref={pedRef} castShadow={graphics.perfPatch.pedShadows ?? engine.perf.pedShadows} />
